@@ -496,7 +496,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
             <div className="text-[11px] text-stone-500">年度优秀交互范式</div>
           </div>
           <div>
-            <div className="text-2xl mb-1">🍎</div>
+            <div className="text-3xl leading-none mb-1 font-sans"></div>
             <div className="text-xs font-semibold text-stone-900">Apple 设计美学</div>
             <div className="text-[11px] text-stone-500">极简工艺与克制体验</div>
           </div>

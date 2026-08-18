@@ -628,14 +628,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           {/* 
             DYNAMIC WIREFRAME LAYOUT WITH ARCH TABS 
           */}
-          <div className="grid grid-cols-3 items-start gap-3 sm:gap-4 lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-5">
+          <div className="flex flex-col lg:flex-row items-stretch gap-4 sm:gap-5">
             
             {/* 
               ARCH BUTTON 1: 能力卡库 (14)
             */}
             <button
               onClick={() => setActiveArchTab(activeArchTab === 'cards' ? 'insight' : 'cards')}
-              className={`order-1 col-span-1 w-full h-[148px] sm:h-[160px] lg:order-none lg:col-start-1 lg:row-start-1 lg:h-[170px] p-4 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer border self-start ${
+              className={`w-full lg:w-[176px] lg:min-w-[176px] lg:max-w-[176px] p-5 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer border shrink-0 ${
                 activeArchTab === 'cards'
                   ? 'bg-stone-900 text-white border-stone-900 shadow-lg scale-[1.02]'
                   : 'bg-white hover:bg-stone-50/90 text-stone-800 border-stone-200/90 shadow-xs'
@@ -648,8 +648,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <Layers className="w-6 h-6" />
               </div>
               <div className="text-2xl font-black tracking-tight">{allDisplayCards.length}</div>
-              <div className="h-5 flex items-center text-xs font-bold whitespace-nowrap">能力卡库</div>
-              <span className={`h-5 min-w-[4.5rem] px-2 py-0.5 rounded-full inline-flex items-center justify-center text-[10px] whitespace-nowrap ${
+              <div className="text-xs font-bold">能力卡库</div>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                 activeArchTab === 'cards' ? 'bg-white/20 text-stone-200' : 'bg-stone-100 text-stone-500'
               }`}>
                 点击展开
@@ -664,7 +664,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0 }}
-                className="order-2 col-span-3 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3 min-w-0 w-full self-start bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4"
+                className="flex-1 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4"
               >
                 {/* Panel Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
@@ -701,7 +701,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     <div
                       key={card.id}
                       onClick={() => onOpenCardDetail(card)}
-                      className="p-3.5 min-h-[104px] rounded-xl bg-stone-50/90 hover:bg-stone-100 border border-stone-200/60 transition cursor-pointer flex flex-col justify-between gap-1.5 group"
+                      className="p-3.5 rounded-xl bg-stone-50/90 hover:bg-stone-100 border border-stone-200/60 transition cursor-pointer flex flex-col justify-between gap-1.5 group"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -739,7 +739,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             */}
             <button
               onClick={() => setActiveArchTab(activeArchTab === 'paths' ? 'insight' : 'paths')}
-              className={`order-1 col-span-1 w-full h-[148px] sm:h-[160px] lg:order-none lg:col-start-1 lg:row-start-2 lg:h-[170px] p-4 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer border self-start ${
+              className={`w-full lg:w-[176px] lg:min-w-[176px] lg:max-w-[176px] p-5 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer border shrink-0 ${
                 activeArchTab === 'paths'
                   ? 'bg-stone-900 text-white border-stone-900 shadow-lg scale-[1.02]'
                   : 'bg-white hover:bg-stone-50/90 text-stone-800 border-stone-200/90 shadow-xs'
@@ -752,8 +752,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <Compass className="w-6 h-6" />
               </div>
               <div className="text-2xl font-black tracking-tight">{EXPLORED_CAREER_PATHS.length}</div>
-              <div className="h-5 flex items-center text-xs font-bold whitespace-nowrap">职业路径</div>
-              <span className={`h-5 min-w-[4.5rem] px-2 py-0.5 rounded-full inline-flex items-center justify-center text-[10px] whitespace-nowrap ${
+              <div className="text-xs font-bold">职业路径</div>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                 activeArchTab === 'paths' ? 'bg-white/20 text-stone-200' : 'bg-stone-100 text-stone-500'
               }`}>
                 点击展开
@@ -768,7 +768,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0 }}
-                className="order-2 col-span-3 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3 min-w-0 w-full self-start bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4"
+                className="flex-1 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4"
               >
                 {/* Panel Header */}
                 <div className="border-b border-stone-100 pb-3">
@@ -785,7 +785,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   {EXPLORED_CAREER_PATHS.map((path) => (
                     <div
                       key={path.id}
-                      className="p-4 min-h-[178px] rounded-2xl bg-stone-50/80 hover:bg-stone-100 border border-stone-200/70 transition space-y-2.5 group flex flex-col"
+                      className="p-4 rounded-2xl bg-stone-50/80 hover:bg-stone-100 border border-stone-200/70 transition space-y-2.5 group"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -803,12 +803,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         </div>
                       </div>
 
-                      <p className="text-xs text-stone-600 leading-relaxed line-clamp-2 min-h-[2.5rem]">
+                      <p className="text-xs text-stone-600 leading-relaxed">
                         {path.description}
                       </p>
 
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-stone-200/50 text-xs mt-auto">
-                        <span className="text-stone-500 text-[11px] line-clamp-1 min-w-0">{path.latestActivity}</span>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-stone-200/50 text-xs">
+                        <span className="text-stone-500 text-[11px]">{path.latestActivity}</span>
                         <button
                           onClick={() => {
                             if (path.id === 'path-ai-pm') onNavigate('stage2');
@@ -841,7 +841,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             */}
             <button
               onClick={() => setActiveArchTab(activeArchTab === 'reports' ? 'insight' : 'reports')}
-              className={`order-1 col-span-1 w-full h-[148px] sm:h-[160px] lg:order-none lg:col-start-1 lg:row-start-3 lg:h-[170px] p-4 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer border self-start ${
+              className={`w-full lg:w-[176px] lg:min-w-[176px] lg:max-w-[176px] p-5 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer border shrink-0 ${
                 activeArchTab === 'reports'
                   ? 'bg-stone-900 text-white border-stone-900 shadow-lg scale-[1.02]'
                   : 'bg-white hover:bg-stone-50/90 text-stone-800 border-stone-200/90 shadow-xs'
@@ -854,8 +854,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <Award className="w-6 h-6" />
               </div>
               <div className="text-2xl font-black tracking-tight">{EXPLORED_REPORTS.length}</div>
-              <div className="h-5 flex items-center text-xs font-bold whitespace-nowrap">探索报告</div>
-              <span className={`h-5 min-w-[4.5rem] px-2 py-0.5 rounded-full inline-flex items-center justify-center text-[10px] whitespace-nowrap ${
+              <div className="text-xs font-bold">探索报告</div>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                 activeArchTab === 'reports' ? 'bg-white/20 text-stone-200' : 'bg-stone-100 text-stone-500'
               }`}>
                 含潜能画像
@@ -870,7 +870,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0 }}
-                className="order-2 col-span-3 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3 min-w-0 w-full self-start bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-5"
+                className="flex-1 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-5"
               >
                 {/* Panel Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
@@ -893,13 +893,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   {EXPLORED_REPORTS.map((report) => (
                     <div
                       key={report.id}
-                      className="p-4 sm:p-5 min-h-[356px] rounded-2xl bg-stone-50/80 border border-stone-200/80 space-y-3 transition"
+                      className="p-4 sm:p-5 rounded-2xl bg-stone-50/80 border border-stone-200/80 space-y-3 transition"
                     >
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                        <div className="min-w-0 flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                          <h4 className="font-bold text-stone-900 text-sm sm:text-base line-clamp-1 min-w-0">{report.title}</h4>
-                          <span className="text-xs text-stone-500 font-mono shrink-0 whitespace-nowrap">{report.date}</span>
+                          <h4 className="font-bold text-stone-900 text-sm sm:text-base">{report.title}</h4>
+                          <span className="text-xs text-stone-500 font-mono">{report.date}</span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="px-3 py-1 rounded-full bg-stone-900 text-white text-xs font-bold font-mono">
@@ -908,7 +908,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         </div>
                       </div>
 
-                      <p className="text-xs text-stone-700 leading-relaxed line-clamp-3 min-h-[4.5rem]">
+                      <p className="text-xs text-stone-700 leading-relaxed">
                         <strong className="text-stone-900">核心发现：</strong> {report.keyDiscovery}
                       </p>
 
@@ -923,7 +923,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       </div>
 
                       {/* Mentor comment */}
-                      <div className="p-3 min-h-[4.25rem] rounded-xl bg-purple-50/70 border border-purple-100/80 text-xs text-purple-900 flex items-start gap-2">
+                      <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-100/80 text-xs text-purple-900 flex items-start gap-2">
                         <Bot className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
                         <div>
                           <span className="font-bold">导师复盘：</span>
@@ -973,7 +973,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0 }}
-                className="order-2 col-span-3 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3 min-w-0 w-full self-start bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4"
+                className="flex-1 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4"
               >
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
