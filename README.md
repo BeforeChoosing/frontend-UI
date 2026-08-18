@@ -2,28 +2,37 @@
 
 这是“选择之前”职业探索与能力验证平台的 React/Vite 前端。页面通过 API 服务层调用同级目录的 `backend`，前端不保存百炼密钥。
 
+当前版本仅用于本机运行，不涉及服务器部署。默认前端地址为 `http://localhost:3000`，后端地址为 `http://127.0.0.1:8000`。
+
 ## 前置条件
 
-- Node.js 18+（推荐 Node.js 20+）。
-- npm。
+- macOS/Linux：Node.js 18+（推荐 Node.js 20+）和 npm。
+- Windows：Node.js 18+（推荐 Node.js 20+）和 npm，命令示例使用 PowerShell。
 - 完整联调时，需要先启动后端并配置百炼 Qwen。
 
 ## 第一次安装
 
-在当前目录执行：
+macOS/Linux，在当前目录执行：
 
 ```bash
 npm install
 cp .env.example .env.local
 ```
 
-`.env.local` 默认内容：
+Windows PowerShell，在当前目录执行：
+
+```powershell
+npm install
+Copy-Item .env.example .env.local
+```
+
+`.env.local` 是前端本机配置文件，仅用于保存后端 API 地址，不提交 Git：
 
 ```env
 VITE_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
-如果后端使用了其他端口，只修改 `VITE_API_BASE_URL`，不要把 `DASHSCOPE_API_KEY` 放到前端环境变量中。
+后端端口变化时，修改 `VITE_API_BASE_URL` 并重启 Vite。`DASHSCOPE_API_KEY` 只配置在后端 `.env`，不放入前端环境变量。
 
 ## 启动前端
 
@@ -35,17 +44,11 @@ npm run dev
 
 停止服务：在运行窗口按 `Ctrl+C`。
 
-如果要让同一局域网中的其他设备访问：
-
-```bash
-npm run dev -- --host 0.0.0.0
-```
-
 ## 完整前后端联调
 
 需要两个终端。
 
-终端一，在 `../backend` 中启动 API：
+终端一，在后端仓库根目录启动 API：
 
 ```bash
 conda activate before-choosing-demo
@@ -74,7 +77,7 @@ npm run lint
 npm run build
 ```
 
-`npm run build` 会生成 `dist/`，并更新根目录及 `public/` 下的单文件预览产物。只想启动开发页面时不需要执行构建。
+`npm run build` 生成的 `dist/` 和单文件预览产物仅用于本机预览，相关路径已加入 `.gitignore`。只想启动开发页面时不需要执行构建。
 
 预览生产构建：
 
