@@ -1,0 +1,6 @@
+{
+  "name": "选择之前 - 职业探索与能力验证平台",
+  "description": "Craft风格的AI职业探索与真实职场模拟平台，基于个人经历生成能力卡，提供沉浸式岗位任务演练与智能分析反馈。",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
