@@ -170,6 +170,12 @@ export interface SkillCard {
   matchScore?: number;
   matchReason?: string;
   workplaceApplication?: string;
+  evidenceQuote?: string;
+  sourceRefs?: string[];
+  claimLevel?: 'fact' | 'interpretation' | 'hypothesis';
+  evidenceType?: 'documented_fact' | 'self_report' | 'inference';
+  pendingVerification?: boolean;
+  nextVerification?: string;
 }
 
 export interface TaskQuestion {

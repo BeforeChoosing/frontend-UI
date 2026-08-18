@@ -208,3 +208,8 @@ AGENTS.md
 CLAUDE.md
 .cache
 .claude
+
+# Frontend dependencies and generated Vite output
+node_modules/
+.vite/
+dist/

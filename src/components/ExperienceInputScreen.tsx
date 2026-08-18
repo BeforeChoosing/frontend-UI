@@ -25,6 +25,8 @@ import {
   Award
 } from 'lucide-react';
 import { SkillCard } from '../types';
+import { mapProfileProposalToSkillCards } from '../features/profile/profileAdapter';
+import { useExperienceAnalysis } from '../hooks/useExperienceAnalysis';
 
 interface ExperienceInputScreenProps {
   onGenerateCards: (cards: SkillCard[]) => void;
@@ -452,6 +454,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
   // Expand dialogue history
   const [isChatExpanded, setIsChatExpanded] = useState(false);
+  const { analyze: analyzeExperience, error: analysisError } = useExperienceAnalysis();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -704,32 +707,42 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     }, 1300);
   };
 
-  // Trigger Final Analysis and Card Extraction
-  const handleStartAnalysis = () => {
-    const combinedContent = inputText.trim() || messages.map(m => m.content).join('\n');
+  // Trigger the real ProfileAgent flow. UI components only consume the domain result;
+  // the API contract and backend DTO mapping live outside this screen.
+  const handleStartAnalysis = async () => {
+    const userMessages = messages
+      .filter(message => message.role === 'user')
+      .map(message => message.content)
+      .join('\n');
+    const combinedContent = inputText.trim() || userMessages;
     if (!combinedContent || isAnalyzing) return;
 
     setIsAnalyzing(true);
-    setAnalysisStep('正在基于你的经历与对话线索，深度解析客观事实...');
+    setIsAiThinking(true);
+    setAnalysisStep('正在连接百炼 Qwen，解析经历中的事实证据...');
 
-    // Match preset or fallback
-    const matchedPreset = PRESET_EXPERIENCES.find(p => p.id === selectedPresetId) 
-      || PRESET_EXPERIENCES.find(p => combinedContent.includes('摄影') || combinedContent.includes('兴趣'))
-      || PRESET_EXPERIENCES.find(p => combinedContent.includes('书') || combinedContent.includes('小程序') || combinedContent.includes('项目'))
-      || PRESET_EXPERIENCES[0];
-
-    setTimeout(() => {
-      setAnalysisStep('正在区分「客观事实」与「潜力推断」...');
-    }, 600);
-
-    setTimeout(() => {
-      setAnalysisStep('正在生成 2-3 张专属能力卡片...');
-    }, 1200);
-
-    setTimeout(() => {
+    try {
+      const proposal = await analyzeExperience({
+        experience_text: combinedContent,
+        target_role: 'AI Native 产品经理',
+      });
+      const cards = mapProfileProposalToSkillCards(proposal);
+      const aiMsg: ChatMessage = {
+        id: `ai-analysis-${Date.now()}`,
+        role: 'ai',
+        content: `${proposal.experience.title} 已完成候选证据提取。${proposal.next_question}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        detectedSignals: cards.map(card => card.title),
+      };
+      setMessages(prev => [...prev, aiMsg]);
+      onGenerateCards(cards);
+    } catch {
+      // The hook exposes the actionable backend/Qwen error below the CTA.
+      setAnalysisStep('');
+    } finally {
       setIsAnalyzing(false);
-      onGenerateCards(matchedPreset.cards);
-    }, 1800);
+      setIsAiThinking(false);
+    }
   };
 
   const latestAiMessage = [...messages].reverse().find(m => m.role === 'ai') || messages[0];
@@ -1113,6 +1126,15 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             </span>
           )}
         </button>
+
+        {analysisError && (
+          <div
+            role="alert"
+            className="max-w-xl rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-center text-xs leading-relaxed text-rose-800"
+          >
+            {analysisError}
+          </div>
+        )}
 
         {/* Back Link */}
         <button
