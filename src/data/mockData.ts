@@ -1,4 +1,4 @@
-import { TaskQuestion, SimulationTask, SkillCard, WorkplaceDoc, CompletedTrialTask, UserExperienceRecord } from '../types';
+import { SimulationTask, SkillCard, WorkplaceDoc, CompletedTrialTask, UserExperienceRecord } from '../types';
 
 export const HERO_FLOATING_CARDS: SkillCard[] = [
   {
@@ -52,106 +52,6 @@ export const HERO_FLOATING_CARDS: SkillCard[] = [
     workplaceApplication: '确保需求在敏捷双周迭代中高品质交付上线。'
   }
 ];
-
-export const STAGE_ONE_TASK: TaskQuestion = {
-  id: 'stage1-challenge-1',
-  roleTitle: 'AI产品经理探索',
-  stageName: '阶段1：能力验证',
-  currentChallengeIndex: 3,
-  totalChallenges: 3,
-  feedbackQuote: '“AI助手回答经常不符合我的需求，很多用户觉得它不好用，打出了1星差评。”',
-  challengeQuestion: '如果你负责优化这个产品，你第一步会怎么做？',
-  slots: [
-    {
-      id: 'slot-1',
-      label: '核心第一步',
-      placeholder: '放置核心启动能力卡'
-    },
-    {
-      id: 'slot-2',
-      label: '深度分析能力',
-      placeholder: '放置结构拆解能力卡'
-    },
-    {
-      id: 'slot-3',
-      label: '补足备用能力',
-      placeholder: '(暂时缺少但是可以后期补足的备用卡)',
-      isBackupSlot: true
-    }
-  ],
-  candidateCards: [
-    {
-      id: 'card-user-insight',
-      title: '用户洞察与深度访谈',
-      category: '洞察分析',
-      description: '抽样联系差评用户，还原对话现场与预期落差',
-      detail: '直接对话真实受挫用户，探寻其输入Prompt时的真实心智预期与系统输出的偏离度。',
-      icon: 'UserCheck',
-      colorTone: 'purple',
-      matchScore: 98,
-      matchReason: '最推荐的第一步！直接了解用户抱怨背后的真实场景是解决不准确的前提。'
-    },
-    {
-      id: 'card-problem-decompose',
-      title: '问题拆解与归因分析',
-      category: '产品策略',
-      description: '将“不符合需求”分类为意图误判、幻觉或表述不佳',
-      detail: '建立Badcase分类标签体系，将主观吐槽拆解为客观可归因的技术与交互分项。',
-      icon: 'GitBranch',
-      colorTone: 'blue',
-      matchScore: 95,
-      matchReason: '极其关键的结构化思维！帮助团队避免盲目改动，精准靶向发力。'
-    },
-    {
-      id: 'card-prompt-tune',
-      title: 'Prompt提示词工程优化',
-      category: '技术落地',
-      description: '重新编写System Prompt与Few-shot示例',
-      detail: '针对高频任务优化指令约束、输出Schema和温度参数。',
-      icon: 'Sparkles',
-      colorTone: 'emerald',
-      isBackup: true,
-      matchScore: 84,
-      matchReason: '适合作为后续执行阶段的落地补足卡（必须在定位问题之后实施）。'
-    },
-    {
-      id: 'card-funnel-metric',
-      title: '埋点指标与留存漏斗',
-      category: '数据驱动',
-      description: '分析各功能入口的复制率、重新生成率和停留时长',
-      detail: '通过量化埋点观察用户在哪些特定query类型上产生了挫败弃用行为。',
-      icon: 'TrendingDown',
-      colorTone: 'amber',
-      matchScore: 88,
-      matchReason: '有效佐证问题规模，与定性访谈形成双向印证。'
-    },
-    {
-      id: 'card-benchmark',
-      title: '竞品心智与交互评测',
-      category: '产品策略',
-      description: '对比头部产品的澄清追问与渐进式引导机制',
-      detail: '分析主流AI助手在处理模糊query时的交互反馈和思考过程展开方式。',
-      icon: 'Compass',
-      colorTone: 'rose',
-      matchScore: 82,
-      matchReason: '提供解法灵感，但第一步应聚焦于自身用户的数据与归因。'
-    }
-  ],
-  idealCardIds: ['card-user-insight', 'card-problem-decompose'],
-  backupCardIds: ['card-prompt-tune', 'card-funnel-metric'],
-  aiAnalysis: {
-    summary: '我已经了解你的职业思考方式：',
-    advantages: [
-      '用户洞察（敏锐捕捉真实意图落差）',
-      '问题拆解（逻辑严密的因果归因思维）'
-    ],
-    toVerify: [
-      '产品落地能力（方案可行性与边界设计）'
-    ],
-    completionStatus: '能力挑战已就绪',
-    nextStepText: '进入真实岗位任务，看看这些能力如何应用在实际工作中。'
-  }
-};
 
 export const WORKPLACE_DOCUMENTS: WorkplaceDoc[] = [
   {
@@ -536,4 +436,3 @@ export const USER_PAST_EXPERIENCES: UserExperienceRecord[] = [
     tags: ['LLM应用', 'Prompt工程', '0到1原型', '校园项目']
   }
 ];
-
