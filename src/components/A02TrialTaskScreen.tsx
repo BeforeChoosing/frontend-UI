@@ -12,6 +12,7 @@ import type {
 interface A02TrialTaskScreenProps {
   onBackToExplore: () => void;
   onEnterProfile: () => void;
+  onTrialComplete?: () => Promise<void> | void;
   onOpenAgentChat?: (agentId?: string) => void;
 }
 
@@ -70,6 +71,7 @@ function canAdvance(step: number, answer: ApiA02Answer, session: ApiTrialSession
 export const A02TrialTaskScreen: React.FC<A02TrialTaskScreenProps> = ({
   onBackToExplore,
   onEnterProfile,
+  onTrialComplete,
   onOpenAgentChat,
 }) => {
   const { task, session, status, error, saveAnswer, revealEvent, submit } = useA02TrialTask();
@@ -187,6 +189,7 @@ export const A02TrialTaskScreen: React.FC<A02TrialTaskScreenProps> = ({
     try {
       await saveAnswer(answer);
       await submit();
+      await onTrialComplete?.();
     } catch {
       // Hook exposes the request error in the page-level alert.
     }

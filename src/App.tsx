@@ -44,6 +44,7 @@ export default function App() {
     cards: persistedCards,
     version: profileVersion,
     updatedAt: profileUpdatedAt,
+    refresh: refreshProfile,
     confirmCards,
     updateCard,
     removeCard,
@@ -277,6 +278,7 @@ export default function App() {
               <A02TrialTaskScreen
                 onBackToExplore={() => setCurrentScreen('career-explore')}
                 onEnterProfile={() => setCurrentScreen('profile')}
+                onTrialComplete={refreshProfile}
                 onOpenAgentChat={(agentId) => {
                   window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'task_coach' } }));
                 }}
