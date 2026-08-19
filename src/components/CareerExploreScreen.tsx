@@ -15,12 +15,12 @@ import confetti from 'canvas-confetti';
 import { SkillCard } from '../types';
 import { createCareerRecommendation } from '../api/career';
 import type { ApiCareerRecommendation } from '../types/api';
+import type { TrialTaskId } from '../types/api';
 
 interface CareerExploreScreenProps {
   unlockedCards?: SkillCard[];
   confirmedCards?: SkillCard[];
-  onStartStageOne?: (careerTitle: string) => void;
-  onStartStageTwo: () => void;
+  onStartStageTwo: (taskId: TrialTaskId) => void;
   onOpenWikiModal: () => void;
   onOpenCardDetail: (card: SkillCard) => void;
   onOpenAgentChat?: (agentId?: string) => void;
@@ -29,7 +29,6 @@ interface CareerExploreScreenProps {
 
 export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   confirmedCards = [],
-  onStartStageOne,
   onStartStageTwo,
   onOpenWikiModal,
   onOpenCardDetail,
@@ -631,7 +630,8 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                     </div>
 
                     <h4 className="text-base sm:text-lg font-bold text-stone-900">{recommendation.role_title}</h4>
-                    <p className="text-xs text-stone-500 mb-3">下一步验证任务：{recommendation.next_task_id}</p>
+                    <p className="text-xs text-stone-500 mb-1">下一步验证任务：{recommendation.next_task_id} · {recommendation.next_task_title}</p>
+                    <p className="text-[10px] leading-relaxed text-stone-500 mb-3">{recommendation.next_task_reason}</p>
 
                     <div className="space-y-2 text-xs text-stone-700 bg-white/70 p-3 rounded-xl border border-stone-100 leading-relaxed">
                       <p>
@@ -689,12 +689,11 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                     <p className="mt-3 text-[10px] leading-relaxed text-stone-500">{recommendation.notice}</p>
                     <button
                       onClick={() => {
-                        if (onStartStageOne) onStartStageOne('AI 产品经理');
-                        else onStartStageTwo();
+                        onStartStageTwo(recommendation.next_task_id);
                       }}
                       className="mt-3 w-full py-2.5 rounded-full bg-stone-900 hover:bg-black text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      <span>进入 A-02 试路验证</span>
+                      <span>进入 {recommendation.next_task_id} 试路验证</span>
                       <ChevronRight className="w-3.5 h-3.5 text-amber-300" />
                     </button>
                   </div>

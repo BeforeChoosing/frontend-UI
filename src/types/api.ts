@@ -92,7 +92,9 @@ export interface ApiCareerRecommendation {
   summary: string;
   supported: ApiCareerSupport[];
   unknowns: string[];
-  next_task_id: 'A-02';
+  next_task_id: TrialTaskId;
+  next_task_title: string;
+  next_task_reason: string;
   confidence: '低' | '中' | '高';
   citations: ApiCareerCitation[];
   notice: string;
@@ -110,6 +112,11 @@ export type TrialAttributionLayer =
   | '暂无法判断';
 
 export type TrialConfidence = '低' | '中' | '高';
+export type TrialTaskId =
+  | 'F-01' | 'F-02' | 'F-03'
+  | 'A-01' | 'A-02' | 'A-03'
+  | 'P-01' | 'P-02' | 'P-03'
+  | 'M-01' | 'M-02' | 'M-03';
 
 export interface ApiA02Metric {
   id: string;
@@ -197,10 +204,16 @@ export interface ApiObservedEvidence {
   completed_steps: string[];
   evidence_refs: string[];
   caveats: string[];
+  primary_ability?: string | null;
+  observed_level?: 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | '证据不足' | null;
+  level_reason?: string | null;
+  confidence?: TrialConfidence | null;
+  coach_dependency?: '独立完成' | '轻度提示' | '方向性提示' | '强提示' | null;
 }
 
 export interface ApiTrialEvaluationDimension {
   dimension: string;
+  weight: number;
   score: number;
   evidence: string;
 }
@@ -208,10 +221,89 @@ export interface ApiTrialEvaluationDimension {
 export interface ApiTrialEvaluation {
   summary: string;
   dimensions: ApiTrialEvaluationDimension[];
+  primary_ability: string;
+  observed_level: 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | '证据不足';
+  level_reason: string;
+  supporting_evidence: Array<{
+    ability: string;
+    observed_level: 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | '证据不足';
+    evidence: string;
+  }>;
+  process_evidence: string[];
+  coach_dependency: '独立完成' | '轻度提示' | '方向性提示' | '强提示';
   strengths: string[];
   gaps: string[];
   next_step: string;
   confidence: TrialConfidence;
+}
+
+export interface ApiTrialTaskStep {
+  id: string;
+  title: string;
+  input_mode: string;
+  instruction: string;
+  constraint: string;
+}
+
+export interface ApiTrialTaskMaterial {
+  id: string;
+  title: string;
+  kind: 'feedback' | 'data' | 'capability' | 'constraint' | 'case';
+  content: string;
+  is_simulated: boolean;
+}
+
+export interface ApiTrialTaskDefinition {
+  id: TrialTaskId;
+  track: 'feature' | 'agent' | 'platform' | 'model';
+  title: string;
+  subtitle: string;
+  role_type: string;
+  work_stage: string;
+  primary_skill: string;
+  supporting_skills: string[];
+  estimated_minutes: string;
+  difficulty: string;
+  role: string;
+  background: string;
+  goal: string;
+  constraints: string[];
+  materials: ApiTrialTaskMaterial[];
+  steps: ApiTrialTaskStep[];
+  event: { actor: string; message: string; instruction: string };
+  coach_prompts: string[];
+  rubric: ApiA02RubricCriterion[];
+  level_anchors: Record<'L1' | 'L2' | 'L3' | 'L4' | 'L5', string>;
+  source_note: string;
+}
+
+export interface ApiDynamicTrialCoachUsage {
+  level: 1 | 2 | 3;
+  prompt: string;
+  used_at: string;
+}
+
+export interface ApiDynamicTrialAnswer {
+  step_answers: Record<string, string>;
+  viewed_material_ids: string[];
+  evidence_refs: string[];
+  step_revisions: Record<string, number>;
+  coach_usage: ApiDynamicTrialCoachUsage[];
+  event_decision?: '维持' | '调整' | null;
+  event_response: string;
+}
+
+export interface ApiDynamicTrialSession {
+  id: string;
+  task_id: TrialTaskId;
+  status: 'in_progress' | 'submitted';
+  event_revealed: boolean;
+  answer: ApiDynamicTrialAnswer;
+  created_at: string;
+  updated_at: string;
+  submitted_at?: string | null;
+  observed_evidence?: ApiObservedEvidence | null;
+  evaluation?: ApiTrialEvaluation | null;
 }
 
 export interface ApiTrialSession {

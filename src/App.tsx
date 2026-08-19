@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ScreenMode, SkillCard, WorkplaceDoc, EvaluationReport, UserAuth } from './types';
-import { HERO_FLOATING_CARDS, STAGE_ONE_TASK, STAGE_TWO_SIMULATION } from './data/mockData';
+import { HERO_FLOATING_CARDS, STAGE_ONE_TASK } from './data/mockData';
 import { Header } from './components/Header';
 import { LandingHero } from './components/LandingHero';
 import { ExperienceInputScreen } from './components/ExperienceInputScreen';
 import { AbilityCardVerificationScreen } from './components/AbilityCardVerificationScreen';
 import { CareerExploreScreen } from './components/CareerExploreScreen';
 import { A02TrialTaskScreen } from './components/A02TrialTaskScreen';
-import { StageTwoSimulation } from './components/StageTwoSimulation';
+import { DynamicTrialTaskScreen } from './components/DynamicTrialTaskScreen';
 import { ExperienceEndScreen } from './components/ExperienceEndScreen';
 import { AuthModal } from './components/AuthModal';
 import { DocumentViewerModal } from './components/DocumentViewerModal';
@@ -19,7 +19,7 @@ import { ReportModal } from './components/ReportModal';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { GlobalAIAgentWidget } from './components/GlobalAIAgentWidget';
 import { useProfileCards } from './hooks/useProfileCards';
-import type { ProfileCardPatchRequest } from './types/api';
+import type { ProfileCardPatchRequest, TrialTaskId } from './types/api';
 import { motion, AnimatePresence } from 'motion/react';
 
 function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
@@ -30,6 +30,7 @@ function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenMode>('landing');
+  const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>('A-02');
   const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>(HERO_FLOATING_CARDS.slice(0, 3));
   const [draftCards, setDraftCards] = useState<SkillCard[]>(HERO_FLOATING_CARDS.slice(0, 3));
   const [activeSlottedCards, setActiveSlottedCards] = useState<(SkillCard | null)[]>([]);
@@ -252,10 +253,8 @@ export default function App() {
               <CareerExploreScreen
                 unlockedCards={unlockedCards}
                 confirmedCards={persistedCards}
-                onStartStageOne={(roleTitle) => {
-                  setCurrentScreen('stage1');
-                }}
-                onStartStageTwo={() => {
+                onStartStageTwo={(taskId) => {
+                  setSelectedTrialTaskId(taskId);
                   setCurrentScreen('stage2');
                 }}
                 onOpenWikiModal={() => setIsWikiOpen(true)}
@@ -295,21 +294,11 @@ export default function App() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
             >
-              <StageTwoSimulation
-                onOpenDoc={(doc) => setSelectedDoc(doc)}
-                onBackToStageOne={() => {
-                  setIsStageTwoFocusMode(false);
-                  setCurrentScreen('stage1');
-                }}
-                onNavigate={(screen) => {
-                  setIsStageTwoFocusMode(false);
-                  setCurrentScreen(screen);
-                }}
-                onFocusModeChange={(isFocus) => setIsStageTwoFocusMode(isFocus)}
-                onSubmitSuccess={(report) => {
-                  setIsStageTwoFocusMode(false);
-                  handleStageTwoSubmit(report);
-                }}
+              <DynamicTrialTaskScreen
+                taskId={selectedTrialTaskId}
+                onBackToExplore={() => setCurrentScreen('career-explore')}
+                onEnterProfile={() => setCurrentScreen('profile')}
+                onTrialComplete={refreshProfile}
               />
             </motion.div>
           )}
