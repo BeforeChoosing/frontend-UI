@@ -44,3 +44,24 @@ export interface ProfileProposalResponse {
   next_question: string;
   notice: string;
 }
+
+export interface ApiProfileCard extends ApiCardProposal {
+  status: 'confirmed';
+  source_trace_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProfileCardsResponse {
+  version: number;
+  updated_at?: string | null;
+  cards: ApiProfileCard[];
+  notice: string;
+}
+
+export interface ProfileCardPatchRequest {
+  title?: string;
+  description?: string;
+  detail?: string;
+  workplace_application?: string;
+}

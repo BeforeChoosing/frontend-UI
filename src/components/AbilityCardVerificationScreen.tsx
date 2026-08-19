@@ -29,7 +29,7 @@ import confetti from 'canvas-confetti';
 interface AbilityCardVerificationScreenProps {
   initialCards: SkillCard[];
   allAccumulatedCards: SkillCard[];
-  onConfirmAndSaveToPool: (newCards: SkillCard[]) => void;
+  onConfirmAndSaveToPool: (newCards: SkillCard[]) => Promise<void> | void;
   onContinueSupplement: () => void;
   onStartCareerExplore: () => void;
   onModifyExperience: () => void;
@@ -112,6 +112,8 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Status handlers
   const handleSetStatus = (cardId: string, status: VerificationStatus) => {
@@ -151,26 +153,34 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
   };
 
   // Submit confirmed cards & transition to 'added_pool' library view
-  const handleConfirmAndAdd = () => {
+  const handleConfirmAndAdd = async () => {
     const confirmed = cards.filter(c => cardStatuses[c.id] === 'confirmed');
     if (confirmed.length === 0) {
       alert('请至少保留 1 张确认符合经历的能力卡。');
       return;
     }
 
-    try {
-      confetti({
-        particleCount: 60,
-        spread: 80,
-        origin: { y: 0.6 }
-      });
-    } catch {
-      // ignore
-    }
+    setIsSaving(true);
+    setSaveError(null);
 
-    setConfirmedThisRound(confirmed);
-    onConfirmAndSaveToPool(confirmed);
-    setViewMode('added_pool');
+    try {
+      await onConfirmAndSaveToPool(confirmed);
+      try {
+        confetti({
+          particleCount: 60,
+          spread: 80,
+          origin: { y: 0.6 }
+        });
+      } catch {
+        // ignore
+      }
+      setConfirmedThisRound(confirmed);
+      setViewMode('added_pool');
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : '保存能力卡失败，请稍后重试。');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Trigger regenerate
@@ -446,11 +456,17 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
             {/* 加入能力库 */}
             <button
               onClick={handleConfirmAndAdd}
-              className="craft-btn-black flex-1 py-2.5 px-4 text-xs sm:text-sm text-center"
+              disabled={isSaving}
+              className="craft-btn-black flex-1 py-2.5 px-4 text-xs sm:text-sm text-center disabled:opacity-60 disabled:cursor-wait"
             >
-              加入能力库
+              {isSaving ? '保存中…' : '加入能力库'}
             </button>
           </div>
+          {saveError && (
+            <p role="alert" className="text-center text-xs text-rose-700">
+              {saveError}
+            </p>
+          )}
         </div>
 
       </div>

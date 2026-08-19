@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScreenMode, SkillCard, WorkplaceDoc, EvaluationReport, UserAuth } from './types';
 import { HERO_FLOATING_CARDS, STAGE_ONE_TASK, STAGE_TWO_SIMULATION } from './data/mockData';
 import { Header } from './components/Header';
@@ -18,7 +18,14 @@ import { FigmaGuideModal } from './components/FigmaGuideModal';
 import { ReportModal } from './components/ReportModal';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { GlobalAIAgentWidget } from './components/GlobalAIAgentWidget';
+import { useProfileCards } from './hooks/useProfileCards';
 import { motion, AnimatePresence } from 'motion/react';
+
+function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
+  const cardsById = new Map(existing.map(card => [card.id, card]));
+  incoming.forEach(card => cardsById.set(card.id, card));
+  return Array.from(cardsById.values());
+}
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenMode>('landing');
@@ -32,6 +39,13 @@ export default function App() {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<SkillCard | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<WorkplaceDoc | null>(null);
+  const { cards: persistedCards, confirmCards } = useProfileCards();
+
+  useEffect(() => {
+    if (persistedCards.length > 0) {
+      setUnlockedCards(prev => mergeCardsById(prev, persistedCards));
+    }
+  }, [persistedCards]);
   
   const [auth, setAuth] = useState<UserAuth>({
     isLoggedIn: false,
@@ -189,11 +203,9 @@ export default function App() {
               <AbilityCardVerificationScreen
                 initialCards={draftCards}
                 allAccumulatedCards={unlockedCards}
-                onConfirmAndSaveToPool={(newCards) => {
-                  setUnlockedCards(prev => {
-                    const existing = prev.filter(c => !newCards.some(n => n.id === c.id));
-                    return [...existing, ...newCards];
-                  });
+                onConfirmAndSaveToPool={async (newCards) => {
+                  const storedCards = await confirmCards(newCards);
+                  setUnlockedCards(prev => mergeCardsById(prev, storedCards));
                 }}
                 onContinueSupplement={() => {
                   setCurrentScreen('input-experience');
