@@ -6,7 +6,7 @@ import { LandingHero } from './components/LandingHero';
 import { ExperienceInputScreen } from './components/ExperienceInputScreen';
 import { AbilityCardVerificationScreen } from './components/AbilityCardVerificationScreen';
 import { CareerExploreScreen } from './components/CareerExploreScreen';
-import { StageOneValidation } from './components/StageOneValidation';
+import { A02TrialTaskScreen } from './components/A02TrialTaskScreen';
 import { StageTwoSimulation } from './components/StageTwoSimulation';
 import { ExperienceEndScreen } from './components/ExperienceEndScreen';
 import { AuthModal } from './components/AuthModal';
@@ -274,12 +274,11 @@ export default function App() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
             >
-              <StageOneValidation
-                onAdvanceToStageTwo={() => setCurrentScreen('stage2')}
-                onOpenCardDetail={(card) => setSelectedCard(card)}
+              <A02TrialTaskScreen
                 onBackToExplore={() => setCurrentScreen('career-explore')}
+                onEnterProfile={() => setCurrentScreen('profile')}
                 onOpenAgentChat={(agentId) => {
-                  window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'career_path' } }));
+                  window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'task_coach' } }));
                 }}
               />
             </motion.div>
