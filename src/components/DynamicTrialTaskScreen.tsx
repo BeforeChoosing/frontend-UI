@@ -240,7 +240,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
           </main>
 
           <aside className="xl:w-[280px] space-y-3">
-            <div className="craft-card rounded-2xl border border-stone-800 bg-stone-900 p-4 text-white">
+            <div className="rounded-2xl border border-stone-800 bg-stone-900 p-4 text-white shadow-sm">
               <h2 className="flex items-center gap-2 text-sm font-bold"><Bot className="w-4 h-4 text-purple-300" />Coach Agent</h2>
               <p className="mt-2 text-[11px] leading-relaxed text-stone-300">只解释概念、澄清材料和提供有限提示，不替你完成核心判断。提示级别会记录为过程证据。</p>
               <div className="mt-3 grid grid-cols-3 gap-1.5">{([1, 2, 3] as const).map(level => <button key={level} onClick={() => void handleCoach(level)} disabled={isBusy} className="rounded-full bg-white/10 px-2 py-1.5 text-[10px] text-stone-200 hover:bg-white/15">{level === 1 ? '方向' : level === 2 ? '框架' : '半成品'}</button>)}</div>
