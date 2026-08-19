@@ -102,8 +102,8 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
           </div>
 
           <h1 className="craft-serif text-4xl sm:text-6xl md:text-7xl font-normal text-stone-900 tracking-tight leading-[1.18] mb-6">
-            before.choosing 不只是为一件事，<br />
-            它是为你的事而生。
+            before.choosing 不只记录经历，<br />
+            更用于验证职业方向。
           </h1>
 
           <p className="text-base sm:text-xl text-stone-600 max-w-2xl mx-auto leading-relaxed mb-10 font-normal">
@@ -188,11 +188,11 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                 01 · 能力提取
               </span>
               <h2 className="craft-serif text-3xl sm:text-4xl text-stone-900 font-normal leading-tight mb-4">
-                让探索不再像<br />
-                沉重的求职负担
+                将经历记录<br />
+                转化为可验证能力
               </h2>
               <p className="text-stone-600 text-sm sm:text-base leading-relaxed mb-6 font-normal">
-                将你的日常经历与兴趣思考直接嵌进轻薄的卡片与工作台。Craft 风格让能力卡片直接关联真实业务上下文，让最好的思考与职业验证无缝结合。
+                将日常经历与兴趣记录转化为能力卡片，并在工作台中关联真实业务上下文，形成从经历记录到岗位验证的连续流程。
               </p>
               <button
                 onClick={onStartExplore}
@@ -289,7 +289,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="font-mono text-orange-700 font-bold text-[11px]">16:30</span>
-                    <span className="text-stone-700">生成四维潜能雷达报告</span>
+                    <span className="text-stone-700">形成四维能力评估报告</span>
                   </div>
                 </div>
               </div>
@@ -368,7 +368,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                   <div className="w-7 h-7 rounded-xl bg-amber-50 flex items-center justify-center">
                     <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                   </div>
-                  <span>AI 职场导师</span>
+                  <span>任务教练</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-medium text-stone-800">
                   <div className="w-7 h-7 rounded-xl bg-stone-100 flex items-center justify-center">
@@ -473,7 +473,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               <span className="text-3xl">🚀</span>
             </div>
             <div className="text-xs font-semibold text-stone-900 uppercase">STEPHEN, 跨界探索者</div>
-            <p className="text-[11px] text-stone-500 mt-1">能力迁移、目标清单、潜能验证</p>
+            <p className="text-[11px] text-stone-500 mt-1">能力迁移、目标清单、证据验证</p>
           </div>
 
           <div className="flex flex-col items-center text-center group cursor-pointer" onClick={onStartExplore}>

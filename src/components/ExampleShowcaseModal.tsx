@@ -52,22 +52,22 @@ export const ExampleShowcaseModal: React.FC<ExampleShowcaseModalProps> = ({
           <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/70">
             <h4 className="font-semibold text-stone-900 mb-1">🎯 真实任务模拟的使用价值</h4>
             <p className="text-stone-600">
-              传统的职业性格测试仅提供抽象标签，而「选择之前」采用 Craft 文档级工作桌面，让你直接操作真实工单、Log 日志和数据漏斗，在解决真实 AI 业务问题的过程中建立对岗位的真切感知。
+              传统的职业性格测试只提供抽象标签。「选择之前」采用 Craft 文档级工作桌面，将业务材料、岗位任务和过程评价放在同一条验证链路中，帮助用户基于实际产出理解岗位要求。
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="p-3.5 rounded-xl border border-purple-100 bg-purple-50/50">
-              <span className="font-semibold text-purple-900 text-xs block mb-1">阶段 1：能力验证</span>
-              <p className="text-[11px] text-purple-800">
-                通过情境选择题装配核心能力卡，测试系统性思维与逻辑归因能力。
-              </p>
+                <span className="font-semibold text-purple-900 text-xs block mb-1">阶段 1：经历提取与能力确认</span>
+                <p className="text-[11px] text-purple-800">
+                从经历文字和材料中提取候选能力卡，由用户确认后写入能力库。
+                </p>
             </div>
             <div className="p-3.5 rounded-xl border border-blue-100 bg-blue-50/50">
-              <span className="font-semibold text-blue-900 text-xs block mb-1">阶段 2：真实模拟</span>
-              <p className="text-[11px] text-blue-800">
-                阅读多源真实文档，撰写 PRD 方案，接受 AI 职场导师的四维雷达多维度评审。
-              </p>
+                <span className="font-semibold text-blue-900 text-xs block mb-1">阶段 2：岗位任务实战</span>
+                <p className="text-[11px] text-blue-800">
+                根据已确认能力卡加载任务库材料，完成结构化交付并接收 Rubric 评价。
+                </p>
             </div>
           </div>
         </div>

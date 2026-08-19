@@ -208,7 +208,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
   const getEvidenceTypeTag = (card: SkillCard, idx: number) => {
     if (card.matchReason?.includes('事实') || idx === 0) return '证据类型：客观事实提取';
     if (card.matchReason?.includes('行动') || idx === 1) return '证据类型：主动实践推导';
-    return '证据类型：潜能意图归因';
+    return '证据类型：基于经历的能力意图推断';
   };
 
   // =========================================================================

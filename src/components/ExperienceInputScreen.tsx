@@ -171,7 +171,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
       },
       {
         id: 'card-problem-decompose',
-        title: '业务建模与潜能挖掘',
+        title: '业务建模与机会识别',
         category: '洞察分析',
         description: '善于从纷繁复杂的行业信息中抽丝剥茧，提取关键商业规律',
         detail: '具备宏观视野与微观拆解能力，能够清晰找准自身的核心杠杆点。',
@@ -250,7 +250,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
         detail: '不仅能跑通原型，更能实现 200+ 用户的实际价值落地。',
         icon: 'CheckCircle2',
         colorTone: 'blue',
-        workplaceApplication: '打造高转化、体验丝滑的创新 AI 消费级产品。',
+        workplaceApplication: '打造高转化、交互流畅的创新 AI 消费级产品。',
         matchReason: '来源于为200+考研学子提供稳定简章汇总服务的成效。'
       },
       {
@@ -1024,7 +1024,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                         : 'bg-stone-100 text-stone-400 cursor-not-allowed'
                     }`}
                   >
-                    <span>发送交流</span>
+                  <span>发送</span>
                     <Send className="w-3 h-3" />
                   </button>
                 </div>
@@ -1064,7 +1064,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               快速开始
             </h3>
             <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5">
-              如果还没有想好填什么，点击选项加载预设经历模板体验
+              可选择预设经历模板快速体验
             </p>
           </div>
 

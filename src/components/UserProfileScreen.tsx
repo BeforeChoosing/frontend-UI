@@ -444,7 +444,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
              - State 0: Insight Overview（近期成长观察）
              - State 1: Active on "能力卡库 (14)"
              - State 2: Active on "职业路径 (2)"
-             - State 3: Active on "探索报告 (2)" (Merged 潜能报告)
+             - State 3: Active on "探索报告" (包含能力画像)
           ========================================================================
         */}
         <div className="space-y-4 pt-2">
@@ -730,7 +730,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             )}
 
             {/* 
-              ARCH BUTTON 3: 探索报告 (2) (潜能报告并入)
+              ARCH BUTTON 3: 探索报告（包含能力画像）
             */}
             <button
               onClick={() => setActiveArchTab(activeArchTab === 'reports' ? 'insight' : 'reports')}
