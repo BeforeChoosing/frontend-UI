@@ -13,14 +13,11 @@ import {
   Tag,
   Clock,
   ShieldCheck,
-  Eye,
   SlidersHorizontal,
   Compass,
   AlertCircle,
   PlusCircle,
-  Layers,
   RotateCw,
-  Award,
   Crosshair,
   ChevronRight
 } from 'lucide-react';
@@ -51,46 +48,8 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
   // Mode: 'verify' (Image 1: 验证卡牌) or 'added_pool' (Image 2/3: 已加入能力库展示)
   const [viewMode, setViewMode] = useState<'verify' | 'added_pool'>('verify');
 
-  // Ensure 3 cards for the 3-column verification view
-  const [cards, setCards] = useState<SkillCard[]>(() => {
-    if (initialCards.length >= 3) return initialCards.slice(0, 3);
-    const defaults: SkillCard[] = [
-      {
-        id: 'card-default-1',
-        title: '用户洞察与同理心',
-        category: '洞察分析',
-        description: '善于捕捉生活场景与人的细微情感，具备敏锐的情境观察力',
-        detail: '通过细致记录与观察，快速感知用户在真实工作场景中的潜在痛点与真实动机。',
-        icon: 'Eye',
-        colorTone: 'purple',
-        workplaceApplication: '在产品设计前期进行高精度的用户定性访谈与需求挖掘。',
-        matchReason: '来源于细致走访发现真实痛点的自述'
-      },
-      {
-        id: 'card-default-2',
-        title: '叙事架构与主题表达',
-        category: '产品策略',
-        description: '围绕特定主题提炼线索并组织交付物，具备结构化表达能力',
-        detail: '能把零散的素材与碎片信息梳理为具连贯性和感染力的完整作品。',
-        icon: 'Layers',
-        colorTone: 'blue',
-        workplaceApplication: '负责撰写清晰的业务 PRD 及方案架构，向跨部门团队清晰传递意图。',
-        matchReason: '来源于将零散素材系统化组织成完整作品的实践'
-      },
-      {
-        id: 'card-default-3',
-        title: '自驱探索与持续精进',
-        category: '协作沟通',
-        description: '在非专业领域保持长期好奇心，自主研究技能并产出成果',
-        detail: '具有高度的主动学习韧性，不依赖外部考核亦能达成专业级交付。',
-        icon: 'Award',
-        colorTone: 'emerald',
-        workplaceApplication: '在快速迭代的 AI 业务中敏捷吸收前沿工具与技术概念。',
-        matchReason: '来源于持续自我迭代和突破边界的自驱动力'
-      }
-    ];
-    return [...initialCards, ...defaults].slice(0, 3);
-  });
+  // Only display candidate cards returned by the profile analysis service.
+  const [cards, setCards] = useState<SkillCard[]>(() => initialCards.slice(0, 3));
 
   // State mapping for each card: 'confirmed' (符合经历) | 'unsure' (暂不确定) | 'rejected' (不属于我)
   const [cardStatuses, setCardStatuses] = useState<Record<string, VerificationStatus>>(() => {

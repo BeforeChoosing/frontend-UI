@@ -18,7 +18,6 @@ import type { ApiCareerRecommendation } from '../types/api';
 import type { TrialTaskId } from '../types/api';
 
 interface CareerExploreScreenProps {
-  unlockedCards?: SkillCard[];
   confirmedCards?: SkillCard[];
   onStartStageTwo: (taskId: TrialTaskId) => void;
   onOpenWikiModal: () => void;

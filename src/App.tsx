@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { ScreenMode, SkillCard, UserAuth } from './types';
-import { HERO_FLOATING_CARDS } from './data/mockData';
 import { Header } from './components/Header';
 import { LandingHero } from './components/LandingHero';
 import { ExperienceInputScreen } from './components/ExperienceInputScreen';
@@ -26,8 +25,8 @@ function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenMode>('landing');
   const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>('A-02');
-  const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>(HERO_FLOATING_CARDS.slice(0, 3));
-  const [draftCards, setDraftCards] = useState<SkillCard[]>(HERO_FLOATING_CARDS.slice(0, 3));
+  const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>([]);
+  const [draftCards, setDraftCards] = useState<SkillCard[]>([]);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
@@ -203,7 +202,6 @@ export default function App() {
               transition={{ duration: 0.25 }}
             >
               <CareerExploreScreen
-                unlockedCards={unlockedCards}
                 confirmedCards={persistedCards}
                 onStartStageTwo={(taskId) => {
                   setSelectedTrialTaskId(taskId);
