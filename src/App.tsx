@@ -19,6 +19,7 @@ import { ReportModal } from './components/ReportModal';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { GlobalAIAgentWidget } from './components/GlobalAIAgentWidget';
 import { useProfileCards } from './hooks/useProfileCards';
+import type { ProfileCardPatchRequest } from './types/api';
 import { motion, AnimatePresence } from 'motion/react';
 
 function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
@@ -39,13 +40,33 @@ export default function App() {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<SkillCard | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<WorkplaceDoc | null>(null);
-  const { cards: persistedCards, confirmCards } = useProfileCards();
+  const {
+    cards: persistedCards,
+    version: profileVersion,
+    updatedAt: profileUpdatedAt,
+    confirmCards,
+    updateCard,
+    removeCard,
+  } = useProfileCards();
 
   useEffect(() => {
     if (persistedCards.length > 0) {
       setUnlockedCards(prev => mergeCardsById(prev, persistedCards));
     }
   }, [persistedCards]);
+
+  const handleUpdateProfileCard = async (
+    cardId: string,
+    patch: ProfileCardPatchRequest,
+  ) => {
+    const storedCards = await updateCard(cardId, patch);
+    setUnlockedCards(prev => mergeCardsById(prev, storedCards));
+  };
+
+  const handleDeleteProfileCard = async (cardId: string) => {
+    await removeCard(cardId);
+    setUnlockedCards(prev => prev.filter(card => card.id !== cardId));
+  };
   
   const [auth, setAuth] = useState<UserAuth>({
     isLoggedIn: false,
@@ -309,8 +330,9 @@ export default function App() {
                 onOpenAgentChat={(agentId) => {
                   window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'review_reflection' } }));
                 }}
-                onUpdateDeckSuccess={(cards) => {
-                  setUnlockedCards(prev => [...prev, ...cards.filter(c => !prev.some(p => p.id === c.id))]);
+                onUpdateDeckSuccess={async (cards) => {
+                  const storedCards = await confirmCards(cards);
+                  setUnlockedCards(prev => mergeCardsById(prev, storedCards));
                 }}
               />
             </motion.div>
@@ -326,9 +348,14 @@ export default function App() {
             >
               <UserProfileScreen
                 unlockedCards={unlockedCards}
+                persistedCards={persistedCards}
+                profileVersion={profileVersion}
+                profileUpdatedAt={profileUpdatedAt}
                 auth={auth}
                 onNavigate={(screen) => setCurrentScreen(screen)}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
+                onUpdateCard={handleUpdateProfileCard}
+                onDeleteCard={handleDeleteProfileCard}
                 onOpenAgentChat={(agentId) => {
                   window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'review_reflection' } }));
                 }}
@@ -348,9 +375,14 @@ export default function App() {
             >
               <UserProfileScreen
                 unlockedCards={unlockedCards}
+                persistedCards={persistedCards}
+                profileVersion={profileVersion}
+                profileUpdatedAt={profileUpdatedAt}
                 auth={auth}
                 onNavigate={(screen) => setCurrentScreen(screen)}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
+                onUpdateCard={handleUpdateProfileCard}
+                onDeleteCard={handleDeleteProfileCard}
                 onOpenAgentChat={(agentId) => {
                   window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'review_reflection' } }));
                 }}

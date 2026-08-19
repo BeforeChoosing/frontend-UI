@@ -35,7 +35,7 @@ interface ExperienceEndScreenProps {
   onContinueExplore?: () => void;
   onAddExperience?: () => void;
   onOpenAgentChat?: (agentId?: string) => void;
-  onUpdateDeckSuccess?: (updatedCards: SkillCard[]) => void;
+  onUpdateDeckSuccess?: (updatedCards: SkillCard[]) => Promise<void> | void;
 }
 
 export const ExperienceEndScreen: React.FC<ExperienceEndScreenProps> = ({
@@ -110,6 +110,8 @@ export const ExperienceEndScreen: React.FC<ExperienceEndScreenProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Status handlers
   const handleSetStatus = (cardId: string, status: VerificationStatus) => {
@@ -149,28 +151,35 @@ export const ExperienceEndScreen: React.FC<ExperienceEndScreenProps> = ({
   };
 
   // Submit confirmed cards & transition to 'added_pool' library view
-  const handleConfirmAndAdd = () => {
+  const handleConfirmAndAdd = async () => {
     const confirmed = cards.filter(c => cardStatuses[c.id] === 'confirmed');
     if (confirmed.length === 0) {
       alert('请至少保留 1 张确认符合经历的能力卡。');
       return;
     }
 
+    setIsSaving(true);
+    setSaveError(null);
     try {
-      confetti({
-        particleCount: 60,
-        spread: 80,
-        origin: { y: 0.6 }
-      });
-    } catch {
-      // ignore
+      if (onUpdateDeckSuccess) {
+        await onUpdateDeckSuccess(confirmed);
+      }
+      try {
+        confetti({
+          particleCount: 60,
+          spread: 80,
+          origin: { y: 0.6 }
+        });
+      } catch {
+        // ignore
+      }
+      setConfirmedThisRound(confirmed);
+      setViewMode('added_pool');
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : '保存能力卡失败，请稍后重试。');
+    } finally {
+      setIsSaving(false);
     }
-
-    setConfirmedThisRound(confirmed);
-    if (onUpdateDeckSuccess) {
-      onUpdateDeckSuccess(confirmed);
-    }
-    setViewMode('added_pool');
   };
 
   // Trigger regenerate
@@ -456,12 +465,18 @@ export const ExperienceEndScreen: React.FC<ExperienceEndScreenProps> = ({
             {/* 更新能力库 */}
             <button
               onClick={handleConfirmAndAdd}
-              className="craft-btn-black flex-1 py-2.5 px-4 text-xs sm:text-sm text-center"
+              disabled={isSaving}
+              className="craft-btn-black flex-1 py-2.5 px-4 text-xs sm:text-sm text-center disabled:opacity-60 disabled:cursor-wait"
               id="btn-update-skill-deck"
             >
-              更新能力库
+              {isSaving ? '保存中…' : '更新能力库'}
             </button>
           </div>
+          {saveError && (
+            <p role="alert" className="text-center text-xs text-rose-700">
+              {saveError}
+            </p>
+          )}
         </div>
 
       </div>

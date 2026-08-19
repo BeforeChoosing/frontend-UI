@@ -33,17 +33,24 @@ import {
   ExternalLink,
   MessageSquare,
   HelpCircle,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { CompletedTrialTask, SkillCard, UserExperienceRecord, UserAuth, ScreenMode, EvaluationReport } from '../types';
+import type { ProfileCardPatchRequest } from '../types/api';
 import { COMPLETED_TRIAL_TASKS, HERO_FLOATING_CARDS, USER_PAST_EXPERIENCES } from '../data/mockData';
 import { TrialTaskDetailModal } from './TrialTaskDetailModal';
 
 interface UserProfileScreenProps {
   unlockedCards: SkillCard[];
+  persistedCards?: SkillCard[];
+  profileVersion?: number;
+  profileUpdatedAt?: string | null;
   auth: UserAuth;
   onNavigate: (screen: ScreenMode) => void;
   onOpenCardDetail: (card: SkillCard) => void;
+  onUpdateCard?: (cardId: string, patch: ProfileCardPatchRequest) => Promise<void> | void;
+  onDeleteCard?: (cardId: string) => Promise<void> | void;
   onOpenAgentChat?: (agentId?: string) => void;
   onStartNewTask?: () => void;
   initialArchTab?: 'insight' | 'cards' | 'paths' | 'reports';
@@ -327,9 +334,14 @@ const AI_RECENT_OBSERVATIONS = [
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   unlockedCards,
+  persistedCards = [],
+  profileVersion = 0,
+  profileUpdatedAt = null,
   auth,
   onNavigate,
   onOpenCardDetail,
+  onUpdateCard,
+  onDeleteCard,
   onOpenAgentChat,
   onStartNewTask,
   initialArchTab = 'insight'
@@ -353,8 +365,25 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [userStatus, setUserStatus] = useState('状态：积极探索中（正在探索 AI产品经理 方向）');
   const [userProgressIntro, setUserProgressIntro] = useState('已积累 14 张能力卡片，探索 2 条职业路径，最近一次更新来自「AI 产品经理试路任务」');
 
-  // Merged cards list (defaults to 14 cards pool)
-  const allDisplayCards = ACCUMULATED_14_CARDS;
+  // Persisted card editing state
+  const [editingCard, setEditingCard] = useState<(SkillCard & { statusTag: string; addedDate: string }) | null>(null);
+  const [editCardTitle, setEditCardTitle] = useState('');
+  const [editCardDescription, setEditCardDescription] = useState('');
+  const [isSavingCard, setIsSavingCard] = useState(false);
+  const [cardActionError, setCardActionError] = useState<string | null>(null);
+
+  // Merged cards list (defaults to 14 cards pool plus cards confirmed through the API)
+  const allDisplayCards = (() => {
+    const cardsById = new Map<string, SkillCard & { statusTag: string; addedDate: string }>();
+    ACCUMULATED_14_CARDS.forEach(card => cardsById.set(card.id, card));
+    persistedCards.forEach(card => cardsById.set(card.id, {
+      ...card,
+      statusTag: '已确认',
+      addedDate: '已同步',
+    }));
+    return Array.from(cardsById.values());
+  })();
+  const persistedCardIds = new Set(persistedCards.map(card => card.id));
   const filteredDisplayCards = selectedCardCategory === 'all' 
     ? allDisplayCards 
     : allDisplayCards.filter(c => c.category === selectedCardCategory);
@@ -364,6 +393,58 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     setIsEditingProfile(false);
+  };
+
+  const formatProfileUpdatedAt = (value: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  };
+
+  const handleStartCardEdit = (card: SkillCard & { statusTag: string; addedDate: string }) => {
+    if (!persistedCardIds.has(card.id)) return;
+    setCardActionError(null);
+    setEditingCard(card);
+    setEditCardTitle(card.title);
+    setEditCardDescription(card.description);
+  };
+
+  const handleSaveCardEdit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingCard || !editCardTitle.trim() || !onUpdateCard) return;
+    setIsSavingCard(true);
+    setCardActionError(null);
+    try {
+      await onUpdateCard(editingCard.id, {
+        title: editCardTitle.trim(),
+        description: editCardDescription.trim() || editingCard.description,
+      });
+      setEditingCard(null);
+    } catch (cause) {
+      setCardActionError(cause instanceof Error ? cause.message : '更新能力卡失败，请稍后重试。');
+    } finally {
+      setIsSavingCard(false);
+    }
+  };
+
+  const handleDeleteCard = async (card: SkillCard & { statusTag: string; addedDate: string }) => {
+    if (!persistedCardIds.has(card.id) || !onDeleteCard) return;
+    if (!window.confirm('将删除这张能力卡，并记录一次画像变更。')) return;
+    setCardActionError(null);
+    setIsSavingCard(true);
+    try {
+      await onDeleteCard(card.id);
+    } catch (cause) {
+      setCardActionError(cause instanceof Error ? cause.message : '删除能力卡失败，请稍后重试。');
+    } finally {
+      setIsSavingCard(false);
+    }
   };
 
   return (
@@ -675,6 +756,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     <p className="text-xs text-stone-500 mt-0.5">
                       来自你的个人经历拆解与试路任务推演，点击任意卡牌查看详情
                     </p>
+                    {profileVersion > 0 && (
+                      <p className="text-[10px] text-stone-400 font-mono mt-1">
+                        画像版本 v{profileVersion}{profileUpdatedAt ? ` · 最近更新 ${formatProfileUpdatedAt(profileUpdatedAt)}` : ''}
+                      </p>
+                    )}
                   </div>
 
                   {/* Category Filter Chips */}
@@ -710,9 +796,40 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                             {card.title}
                           </h4>
                         </div>
-                        <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-white text-stone-600 border border-stone-200 shrink-0">
-                          {card.statusTag}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-white text-stone-600 border border-stone-200">
+                            {card.statusTag}
+                          </span>
+                          {persistedCardIds.has(card.id) && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleStartCardEdit(card);
+                                }}
+                                className="p-1 rounded-full text-stone-400 hover:text-stone-800 hover:bg-stone-200 transition cursor-pointer"
+                                title="编辑已确认能力卡"
+                                aria-label={`编辑${card.title}`}
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleDeleteCard(card);
+                                }}
+                                disabled={isSavingCard}
+                                className="p-1 rounded-full text-stone-400 hover:text-rose-700 hover:bg-rose-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+                                title="删除已确认能力卡"
+                                aria-label={`删除${card.title}`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <p className="text-[11px] text-stone-600 line-clamp-2 leading-relaxed">
                         {card.description}
@@ -720,6 +837,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     </div>
                   ))}
                 </div>
+
+                {cardActionError && (
+                  <p role="alert" className="text-xs text-rose-700">
+                    {cardActionError}
+                  </p>
+                )}
 
                 {/* Bottom Link Action */}
                 <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs">
@@ -1118,6 +1241,86 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   className="craft-btn-black px-5 py-2 font-bold cursor-pointer"
                 >
                   保存
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Confirmed Card Edit Modal */}
+      {editingCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-stone-200 space-y-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-stone-900">编辑能力卡</h3>
+                <p className="text-xs text-stone-500 mt-1">修改会写入本机画像，并生成新的版本记录。</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingCard(null)}
+                disabled={isSavingCard}
+                className="text-xs text-stone-400 hover:text-stone-800 cursor-pointer disabled:opacity-50"
+              >
+                取消
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCardEdit} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-stone-600 font-bold mb-1" htmlFor="profile-card-title">
+                  能力名称
+                </label>
+                <input
+                  id="profile-card-title"
+                  type="text"
+                  value={editCardTitle}
+                  onChange={(event) => setEditCardTitle(event.target.value)}
+                  maxLength={80}
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-stone-600 font-bold mb-1" htmlFor="profile-card-description">
+                  一句话描述
+                </label>
+                <textarea
+                  id="profile-card-description"
+                  rows={3}
+                  value={editCardDescription}
+                  onChange={(event) => setEditCardDescription(event.target.value)}
+                  maxLength={240}
+                  className="w-full px-3 py-2 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-none"
+                />
+              </div>
+
+              {cardActionError && (
+                <p role="alert" className="text-xs text-rose-700">
+                  {cardActionError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCard(null)}
+                  disabled={isSavingCard}
+                  className="px-4 py-2 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium cursor-pointer disabled:opacity-50"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCard || !editCardTitle.trim()}
+                  className="craft-btn-black px-5 py-2 font-bold cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                >
+                  {isSavingCard ? '保存中…' : '保存修改'}
                 </button>
               </div>
             </form>
