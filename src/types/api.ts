@@ -66,6 +66,38 @@ export interface ProfileCardPatchRequest {
   workplace_application?: string;
 }
 
+export interface CareerRecommendationRequest {
+  selected_card_ids: string[];
+  target_role?: 'AI 产品经理';
+}
+
+export interface ApiCareerCitation {
+  id: string;
+  document_title: string;
+  source_locator: string;
+  content: string;
+  trust_level: string;
+  source_note: string;
+}
+
+export interface ApiCareerSupport {
+  claim: string;
+  card_ids: string[];
+  citation_ids: string[];
+}
+
+export interface ApiCareerRecommendation {
+  role_id: 'ai_product_manager';
+  role_title: 'AI 产品经理';
+  summary: string;
+  supported: ApiCareerSupport[];
+  unknowns: string[];
+  next_task_id: 'A-02';
+  confidence: '低' | '中' | '高';
+  citations: ApiCareerCitation[];
+  notice: string;
+}
+
 export type TrialAttributionLayer =
   | 'Prompt / 指令层'
   | 'Model / 基础模型能力'

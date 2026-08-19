@@ -4,28 +4,21 @@ import {
   Sparkles, 
   ArrowRight, 
   RotateCcw, 
-  Layers, 
   CheckCircle2, 
   Plus, 
   X, 
   Compass, 
   Zap, 
-  Sliders, 
-  FileText, 
-  ShieldCheck, 
-  Clock, 
-  Tag, 
   ChevronRight, 
-  TrendingUp, 
-  Award,
-  Bot,
-  Briefcase
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { SkillCard } from '../types';
+import { createCareerRecommendation } from '../api/career';
+import type { ApiCareerRecommendation } from '../types/api';
 
 interface CareerExploreScreenProps {
   unlockedCards?: SkillCard[];
+  confirmedCards?: SkillCard[];
   onStartStageOne?: (careerTitle: string) => void;
   onStartStageTwo: () => void;
   onOpenWikiModal: () => void;
@@ -34,138 +27,8 @@ interface CareerExploreScreenProps {
   onSlotsChange?: (slots: (SkillCard | null)[]) => void;
 }
 
-// Hand cards deck matching all user competencies
-const HAND_CARDS_POOL: (SkillCard & { mastery?: number; cost?: number; date?: string; dotColor?: string; barColor?: string })[] = [
-  {
-    id: 'card-user-empathy',
-    title: '用户痛点同理心',
-    category: '洞察分析',
-    description: '深入一线体察真实用户受挫细节与隐性诉求',
-    detail: '深入一线直接访谈差评与受挫用户，从吐槽与放弃步骤中提炼未被满足的真需求。',
-    icon: 'Sparkles',
-    colorTone: 'emerald',
-    dotColor: 'bg-emerald-500',
-    barColor: 'bg-emerald-500',
-    mastery: 96,
-    cost: 1,
-    date: '2025-01'
-  },
-  {
-    id: 'card-badcase-trace',
-    title: 'Badcase 精准溯源',
-    category: '数据驱动',
-    description: '通过问答日志与用户工单归因模型输出缺陷',
-    detail: '能从海量对话日志中分类Prompt工程缺陷、检索召回失真与模型幻觉。',
-    icon: 'TrendingUp',
-    colorTone: 'blue',
-    dotColor: 'bg-blue-500',
-    barColor: 'bg-blue-500',
-    mastery: 92,
-    cost: 2,
-    date: '2025-02'
-  },
-  {
-    id: 'card-prompt-optimize',
-    title: 'Prompt 结构化约束',
-    category: '产品策略',
-    description: '规范系统指令、少数样本示例与输出防幻觉防线',
-    detail: '熟练掌握Few-shot、CoT链式思考框架与结构化JSON Schema格式输出。',
-    icon: 'FileText',
-    colorTone: 'amber',
-    dotColor: 'bg-amber-500',
-    barColor: 'bg-amber-500',
-    mastery: 88,
-    cost: 2,
-    date: '2024-12'
-  },
-  {
-    id: 'card-ux-dialogue',
-    title: '人机交互设计',
-    category: '交互体验',
-    description: '设计主动追问、澄清标签与流式对话容错体验',
-    detail: '擅长多轮对话交互、降低等待焦虑与减少模型幻觉感知。',
-    icon: 'Sliders',
-    colorTone: 'rose',
-    dotColor: 'bg-rose-500',
-    barColor: 'bg-rose-500',
-    mastery: 94,
-    cost: 3,
-    date: '2025-02'
-  },
-  {
-    id: 'card-user-insight',
-    title: '用户洞察',
-    category: '洞察分析',
-    description: '穿透表层诉求，挖掘用户真实动机与隐性痛点',
-    detail: '具备敏锐的同理心，能穿透用户提出的伪需求，找到底层价值驱动。',
-    icon: 'Compass',
-    colorTone: 'emerald',
-    dotColor: 'bg-emerald-500',
-    barColor: 'bg-emerald-500',
-    mastery: 95,
-    cost: 1,
-    date: '2025-02'
-  },
-  {
-    id: 'card-problem-decompose',
-    title: '问题拆解',
-    category: '产品策略',
-    description: '将复杂模糊的业务命题拆解为可落地的逻辑树',
-    detail: '善用MECE原则与逻辑树结构化拆解问题，分清轻重缓急与优先级。',
-    icon: 'Layers',
-    colorTone: 'amber',
-    dotColor: 'bg-amber-500',
-    barColor: 'bg-amber-500',
-    mastery: 95,
-    cost: 2,
-    date: '2025-01'
-  },
-  {
-    id: 'card-ai-abstract',
-    title: 'AI能力抽象',
-    category: '技术落地',
-    description: '连接大模型技术边界与用户真实交互心智',
-    detail: '深刻理解大语言模型的概率生成特性与技术边界，将技术能力转化为产品交互机制。',
-    icon: 'Sliders',
-    colorTone: 'purple',
-    dotColor: 'bg-purple-500',
-    barColor: 'bg-purple-500',
-    mastery: 95,
-    cost: 2,
-    date: '2025-03'
-  },
-  {
-    id: 'card-agile-explore',
-    title: '自驱敏捷探索',
-    category: '协作沟通',
-    description: '快速跨界吸收前沿AI知识，推动MVP极速验证',
-    detail: '具备极强的主动性与好奇心，能将学术论文转化为产品功能。',
-    icon: 'Zap',
-    colorTone: 'emerald',
-    dotColor: 'bg-emerald-500',
-    barColor: 'bg-emerald-500',
-    mastery: 91,
-    cost: 1,
-    date: '2025-03'
-  },
-  {
-    id: 'card-biz-roi',
-    title: '商业价值度量',
-    category: '产品策略',
-    description: '测算Token算力成本与业务ROI投产比平衡',
-    detail: '平衡大模型响应时延、调用计费与用户留存转化率。',
-    icon: 'TrendingUp',
-    colorTone: 'amber',
-    dotColor: 'bg-amber-500',
-    barColor: 'bg-amber-500',
-    mastery: 86,
-    cost: 2,
-    date: '2024-10'
-  }
-];
-
 export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
-  unlockedCards = [],
+  confirmedCards = [],
   onStartStageOne,
   onStartStageTwo,
   onOpenWikiModal,
@@ -186,29 +49,29 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const [dragOverSlotIndex, setDragOverSlotIndex] = useState<number | null>(null);
   const [showExploreResultModal, setShowExploreResultModal] = useState<boolean>(false);
+  const [recommendation, setRecommendation] = useState<ApiCareerRecommendation | null>(null);
+  const [recommendationStatus, setRecommendationStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [recommendationError, setRecommendationError] = useState<string | null>(null);
 
   const isCardInDeck = (cardId: string) => deckSlots.some(s => s?.id === cardId);
   const equippedCount = deckSlots.filter(Boolean).length;
 
   // Processed Hand Cards
   const processedHandCards = useMemo(() => {
-    const list = [...HAND_CARDS_POOL];
+    const list = confirmedCards.map(card => ({
+      ...card,
+      mastery: card.matchScore,
+    }));
     if (sortMode === 'category') {
       list.sort((a, b) => a.category.localeCompare(b.category, 'zh-Hans-CN'));
     } else if (sortMode === 'time') {
-      list.sort((a, b) => (b.date || '2025-01').localeCompare(a.date || '2025-01'));
+      // The profile API does not expose a user-facing chronology label yet;
+      // preserve confirmation order instead of inventing dates.
     } else {
-      list.sort((a, b) => ((b.mastery || 90) - (a.mastery || 90)));
+      list.sort((a, b) => ((b.mastery ?? -1) - (a.mastery ?? -1)));
     }
     return list;
-  }, [sortMode]);
-
-  // Dynamic names of equipped cards for deduction
-  const equippedNames = useMemo(() => {
-    const valid = deckSlots.filter(Boolean);
-    if (valid.length === 0) return '能力卡组';
-    return valid.map(c => c!.title).join('、');
-  }, [deckSlots]);
+  }, [confirmedCards, sortMode]);
 
   // Click card to play (slides smoothly into first empty slot)
   const handleCardClick = (card: SkillCard) => {
@@ -233,7 +96,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
 
   // Drag and drop handler
   const handleDropCardIntoSlot = (cardId: string, targetSlotIndex: number) => {
-    const cardToSlot = HAND_CARDS_POOL.find(c => c.id === cardId);
+    const cardToSlot = confirmedCards.find(c => c.id === cardId);
     if (!cardToSlot) return;
 
     setDeckSlots(prev => {
@@ -260,12 +123,8 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
 
   // Action: 一键装配
   const handleFastEquip = () => {
-    const next = [
-      HAND_CARDS_POOL[0],
-      HAND_CARDS_POOL[1],
-      HAND_CARDS_POOL[2],
-      HAND_CARDS_POOL[3]
-    ];
+    const next: (SkillCard | null)[] = confirmedCards.slice(0, 4);
+    while (next.length < 4) next.push(null);
     setDeckSlots(next);
     if (onSlotsChange) onSlotsChange(next);
     try {
@@ -285,20 +144,32 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     setDeckSlots(next);
     if (onSlotsChange) onSlotsChange(next);
     setShowExploreResultModal(false);
+    setRecommendation(null);
+    setRecommendationStatus('idle');
+    setRecommendationError(null);
   };
 
-  // Action: 出牌探索路径 -> 弹出可比较推演面板并燃放五彩纸屑
-  const handleStartExplore = () => {
+  // Action: 出牌探索路径 -> 通过后端检索本地岗位知识并调用 Qwen
+  const handleStartExplore = async () => {
+    const selectedCardIds = deckSlots.filter((card): card is SkillCard => Boolean(card)).map(card => card.id);
+    if (selectedCardIds.length === 0) return;
+    setRecommendationStatus('loading');
+    setRecommendationError(null);
+    setRecommendation(null);
+    setShowExploreResultModal(true);
     try {
+      const nextRecommendation = await createCareerRecommendation(selectedCardIds);
+      setRecommendation(nextRecommendation);
       confetti({
         particleCount: 55,
         spread: 75,
         origin: { y: 0.45 }
       });
-    } catch {
-      // ignore
+      setRecommendationStatus('idle');
+    } catch (cause) {
+      setRecommendationStatus('error');
+      setRecommendationError(cause instanceof Error ? cause.message : '职业推演失败，请稍后重试。');
     }
-    setShowExploreResultModal(true);
   };
 
   const handleAgentChat = () => {
@@ -463,7 +334,9 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                             <span className={`w-1.5 h-1 rounded-sm ${categoryColors?.bar || 'bg-stone-400'}`} />
                             <span className={`w-1.5 h-1 rounded-sm ${categoryColors?.bar || 'bg-stone-400'}`} />
                           </span>
-                          <span className="font-bold text-stone-700">{(slotCard as any).mastery || 95}%</span>
+                          <span className="font-bold text-stone-700">
+                            {slotCard.matchScore != null ? `${slotCard.matchScore}%` : '已确认'}
+                          </span>
                         </div>
 
                         <span 
@@ -515,22 +388,23 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
         <div className="flex items-center justify-center gap-3 pt-3.5 sm:pt-4">
           <button
             onClick={handleStartExplore}
-            disabled={equippedCount === 0}
+            disabled={equippedCount === 0 || recommendationStatus === 'loading'}
             className={`craft-btn-black px-6 py-2.5 text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer shadow-md ${
-              equippedCount === 0
+                equippedCount === 0 || recommendationStatus === 'loading'
                 ? 'opacity-40 pointer-events-none'
                 : ''
             }`}
             id="btn-deduce-career"
           >
             <Compass className="w-4 h-4 text-stone-200" />
-            <span>出牌探索路径</span>
+            <span>{recommendationStatus === 'loading' ? '正在推演…' : '出牌探索路径'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
 
           <button
             onClick={handleFastEquip}
-            className="craft-btn-secondary px-5 py-2 text-xs sm:text-sm flex items-center gap-1.5 shadow-2xs"
+            disabled={confirmedCards.length === 0}
+            className="craft-btn-secondary px-5 py-2 text-xs sm:text-sm flex items-center gap-1.5 shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Zap className="w-3.5 h-3.5 text-amber-600" />
             <span>一键装配</span>
@@ -603,7 +477,12 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
         {/* Fanned-out / Overlapping Hand Cards Deck */}
         <div className="w-full overflow-x-auto pb-2 pt-2 px-2 scrollbar-none">
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-max justify-start sm:justify-center">
-            {processedHandCards.map((card) => {
+            {processedHandCards.length === 0 ? (
+              <div className="w-full min-w-[280px] rounded-2xl border border-dashed border-stone-300 bg-white/60 px-5 py-6 text-center">
+                <p className="text-sm font-semibold text-stone-700">还没有已确认的能力卡</p>
+                <p className="mt-1 text-xs text-stone-500">先完成经历提炼并确认能力卡，再开始职业推演。</p>
+              </div>
+            ) : processedHandCards.map((card) => {
               const inDeck = isCardInDeck(card.id);
               const colors = getCategoryColor(card.category);
 
@@ -634,7 +513,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                     </div>
 
                     <span className="text-stone-400 font-mono text-[9px]">
-                      可信度 {card.mastery || 95}%
+                      {card.mastery != null ? `可信度 ${card.mastery}%` : '已确认'}
                     </span>
                   </div>
 
@@ -660,7 +539,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                       <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
                       <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
                       <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
-                      <span className="ml-0.5 font-mono">{card.mastery || 95}%</span>
+                      <span className="ml-0.5 font-mono">{card.mastery != null ? `${card.mastery}%` : '已确认'}</span>
                     </div>
                     <span>详情</span>
                   </div>
@@ -717,103 +596,109 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                 </button>
               </div>
 
-              {/* Deduction Cards List */}
+              {/* Source-backed recommendation */}
               <div className="mt-3.5 space-y-3.5">
-                
-                {/* 1. 主推方案: AI 产品经理 */}
-                <div className="rounded-2xl bg-stone-50/80 border border-stone-200/70 p-4 relative group hover:border-emerald-200 transition-colors">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                      94% 契合 · 主推方案
-                    </span>
-                    <span className="text-[11px] font-mono font-medium text-stone-500">
-                      S级最佳契合
-                    </span>
+                {recommendationStatus === 'loading' && (
+                  <div className="rounded-2xl bg-stone-50/80 border border-stone-200/70 p-5 text-center">
+                    <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-stone-200 border-t-stone-900" />
+                    <p className="mt-3 text-sm font-semibold text-stone-800">正在检索岗位资料并生成推演</p>
+                    <p className="mt-1 text-xs text-stone-500">仅使用已确认能力卡与本地知识库，结果会附带引用。</p>
                   </div>
+                )}
 
-                  <h4 className="text-base sm:text-lg font-bold text-stone-900">
-                    AI 产品经理
-                  </h4>
-                  <p className="text-xs text-stone-500 mb-3">
-                    大模型应用落地与多模态智能体架构
-                  </p>
-
-                  <div className="space-y-2 text-xs text-stone-700 bg-white/70 p-3 rounded-xl border border-stone-100 mb-3 leading-relaxed">
-                    <p className="flex items-start gap-1.5">
-                      <span className="shrink-0">🎯</span>
-                      <span>
-                        <strong className="text-stone-900 font-bold">推荐依据：</strong>
-                        基于【{equippedNames}】的高维组合，能快速适应 AI 场景。
-                      </span>
-                    </p>
-                    <p className="flex items-start gap-1.5">
-                      <span className="shrink-0">❓</span>
-                      <span>
-                        <strong className="text-stone-900 font-bold">待验证未知：</strong>
-                        在【模型评估基准、成本时延把控】上的实战解题深度（需在阶段 3 试路任务中检验）。
-                      </span>
-                    </p>
+                {recommendationStatus === 'error' && (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                    <p className="text-sm font-semibold text-rose-900">暂时无法完成职业推演</p>
+                    <p className="mt-1 text-xs leading-relaxed text-rose-800">{recommendationError}</p>
+                    <button
+                      onClick={() => void handleStartExplore()}
+                      className="mt-3 rounded-full bg-stone-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-black"
+                    >
+                      重新推演
+                    </button>
                   </div>
+                )}
 
-                  <button
-                    onClick={() => {
-                      if (onStartStageOne) onStartStageOne('AI 产品经理');
-                      else onStartStageTwo();
-                    }}
-                    className="w-full py-2.5 rounded-full bg-stone-900 hover:bg-black text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <span>进入阶段 3 试路验证</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-amber-300" />
-                  </button>
-                </div>
-
-                {/* 2. 备选路径: AI 交互体验架构师 */}
-                <div className="rounded-2xl bg-stone-50/80 border border-stone-200/70 p-4 relative group hover:border-emerald-200 transition-colors">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                      89% 契合 · 备选路径
-                    </span>
-                    <span className="text-[11px] font-mono font-medium text-stone-500">
-                      A+级高协同
-                    </span>
-                  </div>
-
-                  <h4 className="text-base sm:text-lg font-bold text-stone-900">
-                    AI 交互体验架构师
-                  </h4>
-                  <p className="text-xs text-stone-500 mb-3">
-                    智能体人机协同与LUI对话体验设计
-                  </p>
-
-                  <div className="space-y-2 text-xs text-stone-700 bg-white/70 p-3 rounded-xl border border-stone-100 mb-3 leading-relaxed">
-                    <p className="flex items-start gap-1.5">
-                      <span className="shrink-0">🎯</span>
-                      <span>
-                        <strong className="text-stone-900 font-bold">推荐依据：</strong>
-                        基于【人机交互设计、自驱敏捷探索】的高维组合，能快速适应 AI 场景。
+                {recommendation && (
+                  <div className="rounded-2xl bg-stone-50/80 border border-stone-200/70 p-4">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                        证据支持的职业路径
                       </span>
-                    </p>
-                    <p className="flex items-start gap-1.5">
-                      <span className="shrink-0">❓</span>
-                      <span>
-                        <strong className="text-stone-900 font-bold">待验证未知：</strong>
-                        在【评估基准】上的实战解题深度（需在阶段 3 试路任务中检验）。
+                      <span className="text-[11px] font-medium text-stone-500">
+                        依据强度：{recommendation.confidence}
                       </span>
-                    </p>
+                    </div>
+
+                    <h4 className="text-base sm:text-lg font-bold text-stone-900">{recommendation.role_title}</h4>
+                    <p className="text-xs text-stone-500 mb-3">下一步验证任务：{recommendation.next_task_id}</p>
+
+                    <div className="space-y-2 text-xs text-stone-700 bg-white/70 p-3 rounded-xl border border-stone-100 leading-relaxed">
+                      <p>
+                        <strong className="text-stone-900 font-bold">推演摘要：</strong>
+                        {recommendation.summary}
+                      </p>
+                      <div>
+                        <strong className="text-stone-900 font-bold">已支持判断：</strong>
+                        {recommendation.supported.length === 0 ? (
+                          <span className="ml-1 text-stone-500">暂无足够材料形成明确判断。</span>
+                        ) : (
+                          <ul className="mt-1 space-y-1 pl-4 list-disc">
+                            {recommendation.supported.map((item, index) => {
+                              const cardNames = item.card_ids
+                                .map(cardId => confirmedCards.find(card => card.id === cardId)?.title)
+                                .filter(Boolean)
+                                .join('、');
+                              const citationNames = item.citation_ids
+                                .map(citationId => recommendation.citations.find(citation => citation.id === citationId)?.source_locator)
+                                .filter(Boolean)
+                                .join('；');
+                              return (
+                                <li key={`${item.claim}-${index}`}>
+                                  {item.claim}
+                                  {(cardNames || citationNames) && (
+                                    <span className="block text-[10px] text-stone-500">
+                                      {cardNames ? `能力卡：${cardNames}` : ''}{cardNames && citationNames ? ' · ' : ''}{citationNames ? `引用：${citationNames}` : ''}
+                                    </span>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                      <div>
+                        <strong className="text-stone-900 font-bold">仍待验证：</strong>
+                        <ul className="mt-1 space-y-1 pl-4 list-disc">
+                          {recommendation.unknowns.map(item => <li key={item}>{item}</li>)}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-[10px] leading-relaxed text-indigo-900">
+                      <p className="font-semibold">引用片段（{recommendation.citations.length}）</p>
+                      {recommendation.citations.slice(0, 3).map(citation => (
+                        <div key={citation.id} className="mt-2 border-t border-indigo-100 pt-2">
+                          <p className="font-medium">{citation.document_title} · {citation.source_locator}</p>
+                          <p className="mt-0.5 text-indigo-800/80 line-clamp-3">{citation.content}</p>
+                          <p className="mt-0.5 text-indigo-700/70">资料级别：{citation.trust_level}。{citation.source_note}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="mt-3 text-[10px] leading-relaxed text-stone-500">{recommendation.notice}</p>
+                    <button
+                      onClick={() => {
+                        if (onStartStageOne) onStartStageOne('AI 产品经理');
+                        else onStartStageTwo();
+                      }}
+                      className="mt-3 w-full py-2.5 rounded-full bg-stone-900 hover:bg-black text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <span>进入 A-02 试路验证</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-amber-300" />
+                    </button>
                   </div>
-
-                  <button
-                    onClick={() => {
-                      if (onStartStageOne) onStartStageOne('AI 交互体验架构师');
-                      else onStartStageTwo();
-                    }}
-                    className="w-full py-2.5 rounded-full bg-stone-900 hover:bg-black text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <span>进入阶段 3 试路验证</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-amber-300" />
-                  </button>
-                </div>
-
+                )}
               </div>
             </div>
 
@@ -838,4 +723,3 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     </div>
   );
 };
-

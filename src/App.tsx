@@ -251,6 +251,7 @@ export default function App() {
             >
               <CareerExploreScreen
                 unlockedCards={unlockedCards}
+                confirmedCards={persistedCards}
                 onStartStageOne={(roleTitle) => {
                   setCurrentScreen('stage1');
                 }}
