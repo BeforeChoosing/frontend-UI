@@ -1,4 +1,4 @@
-export type ScreenMode = 'landing' | 'auth' | 'input-experience' | 'verify-cards' | 'career-explore' | 'stage1' | 'stage2' | 'experience-end' | 'report' | 'profile';
+export type ScreenMode = 'landing' | 'auth' | 'input-experience' | 'verify-cards' | 'career-explore' | 'stage2' | 'report' | 'profile';
 
 export type AgentType = 
   | 'growth_companion'   // 成长陪伴 Agent (产品 1)

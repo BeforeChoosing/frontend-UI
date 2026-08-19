@@ -17,9 +17,7 @@ const STAGE_HEADER_PILLS: Record<ScreenMode, { label: string; bg: string; text: 
   'input-experience': { label: '认识自己', bg: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60', text: 'text-emerald-900', dot: 'bg-emerald-500', stageNumber: '01' },
   'verify-cards': { label: '能力沉淀', bg: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60', text: 'text-emerald-900', dot: 'bg-emerald-500', stageNumber: '01' },
   'career-explore': { label: '探索方向', bg: 'bg-amber-50 text-amber-900 border border-amber-200/60', text: 'text-amber-950', dot: 'bg-amber-500', stageNumber: '02' },
-  stage1: { label: '探索方向', bg: 'bg-amber-50 text-amber-900 border border-amber-200/60', text: 'text-amber-950', dot: 'bg-amber-500', stageNumber: '02' },
   stage2: { label: '试路验证', bg: 'bg-sky-50 text-sky-900 border border-sky-200/60', text: 'text-sky-950', dot: 'bg-sky-500', stageNumber: '03' },
-  'experience-end': { label: '潜能结算', bg: 'bg-orange-50 text-orange-950 border border-orange-200/60', text: 'text-orange-950', dot: 'bg-orange-500', stageNumber: '04' },
   report: { label: '复盘成长', bg: 'bg-orange-50 text-orange-950 border border-orange-200/60', text: 'text-orange-950', dot: 'bg-orange-500', stageNumber: '04' },
   profile: { label: '个人档案', bg: 'bg-stone-100/90 text-stone-800 border border-stone-200/60', text: 'text-stone-800', dot: 'bg-stone-500', stageNumber: 'ME' },
 };
@@ -110,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={() => onNavigate('report')}
               className={`transition cursor-pointer px-3 py-1 rounded-full flex items-center gap-1.5 ${
-                currentScreen === 'report' || currentScreen === 'experience-end' 
+                currentScreen === 'report'
                   ? 'text-orange-950 font-semibold bg-orange-100/70 border border-orange-200/70 shadow-2xs' 
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/60'
               }`}
@@ -162,7 +160,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onNavigate('input-experience');
               } else if (currentScreen === 'input-experience') {
                 onNavigate('career-explore');
-              } else if (currentScreen === 'career-explore' || currentScreen === 'stage1') {
+              } else if (currentScreen === 'career-explore') {
                 onNavigate('stage2');
               } else {
                 onNavigate('report');
