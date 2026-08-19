@@ -51,7 +51,7 @@ interface QuickPreset {
   label: string;
   category: string;
   sampleText: string;
-  aiFollowUp: string;
+  analysisSummary: string;
   cards: SkillCard[];
 }
 
@@ -61,7 +61,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
     label: '一次项目经历',
     category: '产品/实践',
     sampleText: '大三时我带队做了一个校园二手书流转小程序。最初大家都在抱怨买卖信息分散，我们花了一周走访了6栋宿舍楼，发现核心痛点是信任成本高和交易碰头麻烦。于是我们设计了宿舍楼集中转交点和评分机制，上线首月撮合了800多笔书籍流转。',
-    aiFollowUp: '这个经历具备明确的落地结果。你通过一线走访识别了「信任」与「履约效率」两个核心矛盾，并用机制推动解决。后续可补充协调各宿舍楼转交点时采用的具体推进方式。',
+    analysisSummary: '该经历包含完整的调研、方案设计与结果验证链路。核心问题集中在信任成本与履约效率，已有机制设计和业务结果。可补充转交点协调的具体方法。',
     cards: [
       {
         id: 'card-problem-decompose',
@@ -103,7 +103,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
     label: '一个长期兴趣',
     category: '自驱/探索',
     sampleText: '我一直坚持摄影和视觉记录，平时会主动记录生活中的人和场景，研究光影表达。在拍摄人物纪实项目时，为了让被拍者放松，我会花很多时间先和他们聊天建立信任，才抓拍到最自然的微表情，并把它们整理成了有逻辑主线的图文故事集。',
-    aiFollowUp: '从自述中看到了极强的「自驱探索欲」与「用户同理心」！把复杂情绪与零散瞬间解构为有叙事主线的图文作品，说明你具备从混沌中提炼框架的结构化能力。',
+    analysisSummary: '该经历体现持续实践、信任建立和信息组织能力。人物沟通与素材整理形成了从观察到结构化表达的完整过程。',
     cards: [
       {
         id: 'card-user-insight',
@@ -145,7 +145,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
     label: '一次重要选择',
     category: '决策/判断',
     sampleText: '在面对考研与跨界进入科技行业的选择时，我没有随大流，而是用两个月时间系统拆解了 20 个目标岗位的招聘 JD、学习了 3 门前沿公开课并输出了 5 篇深度分析笔记，通过构建能力差距对照表，最终笃定选择了 AI 产品经理方向。',
-    aiFollowUp: '非常理性的决策推演！在面临人生关键岔路口时，你用「结构化信息搜集」与「能力差距矩阵」来对抗模糊与焦虑，这是一种稀缺的战略决断力。',
+    analysisSummary: '该经历形成了可复核的职业决策过程。岗位样本、课程学习和能力差距对照表共同构成选择依据。',
     cards: [
       {
         id: 'card-decision-matrix',
@@ -187,7 +187,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
     label: '一次组织协调',
     category: '协作/领导',
     sampleText: '在举办百人跨校社团交流会时，原定场地临时被占用。我作为负责人，在2小时内紧急启用了备选方案，重新协调了周边3个小型共享会议室，并利用在线协同看板分流了各组讨论议程，最终活动按时顺利闭幕。',
-    aiFollowUp: '极佳的危机应对与实时调度能力！突发状况最考验负责人的情绪韧性与系统调配力，你能在极短时间内拆解任务、利用数字化看板分流，成效显著。',
+    analysisSummary: '该经历体现突发情况下的资源重组与进度控制能力。备用场地、协同看板和议程分流形成了可执行的应急方案。',
     cards: [
       {
         id: 'card-crisis-response',
@@ -229,7 +229,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
     label: '一次跨界自学',
     category: '成长/学习',
     sampleText: '非计算机专业的我，出于对 AI 智能体的兴趣，花了一个月时间自学 Python 基础与 Dify/Coze 工作流搭建，独立做出了一个帮考研同学自动汇总高校招生简章的资讯机器人，帮助了 200 多位学弟学妹。',
-    aiFollowUp: '技术敏锐度与交付行动力并存！从自发兴趣迅速转化为能解决真实问题的可用工具，正是 Product Mindset 最核心的特质。',
+    analysisSummary: '该经历体现从技术学习到实际交付的完整闭环。工具服务了明确用户群体，并产生可核验的使用结果。',
     cards: [
       {
         id: 'card-tech-acumen',
@@ -271,7 +271,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
     label: '一次微小改进',
     category: '细节/体验',
     sampleText: '在实验室做助教时，我发现每次实验前同学们总在重复问相同的仪器连线问题。我利用半天时间绘制了一张彩色的「3分钟避坑接线图」贴在每张实验台前，之后实验提问率下降了70%，大家完成速度普遍提前了15分钟。',
-    aiFollowUp: '这就是典型的「体验杠杆」！通过微小的可视化设计极大降低用户的认知负荷，展示了卓越的用户体验洞察与极高 ROI 的执行力。',
+    analysisSummary: '该经历以轻量可视化改进降低了使用门槛，并通过提问率和完成时间验证效果。',
     cards: [
       {
         id: 'card-user-insight',
@@ -300,7 +300,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
         title: '高 ROI 敏捷改进意识',
         category: '技术落地',
         description: '用半天极小时间投入换取全班效率提升的大幅收益',
-        detail: '具备极佳的投入产出比（ROI）商业直觉。',
+        detail: '具备明确的投入产出比（ROI）意识。',
         icon: 'CheckCircle2',
         colorTone: 'emerald',
         workplaceApplication: '在有限研发资源下通过增长黑客式微调拉动核心指标。',
@@ -313,7 +313,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
     label: '一次团队冲突化解',
     category: '沟通/共识',
     sampleText: '在做毕业设计小组作品时，两位组员分别坚持要做全功能复杂系统和极简Demo，争执不下导致进度停滞。我组织了一次量化打分会，将评分标准拆为「截止日前交付可行性」和「创新得分」，用客观矩阵化解了情绪对抗，最终达成一致。',
-    aiFollowUp: '非常成熟的「用机制代替情绪」的协同领导力！将主观争端解构为多准则决策矩阵，体现了高超的共识推动能力。',
+    analysisSummary: '该经历将主观分歧转换为可比较的评估标准，形成了明确的决策过程和团队共识。',
     cards: [
       {
         id: 'card-stakeholder-collab',
@@ -355,7 +355,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
     label: '一次探索突破',
     category: '探索/破局',
     sampleText: '初入职场接触陌生行业数据时，面对上百张口径不一的业务报表，我花了整整一个周末梳理出了核心数据血缘字典，并主动向主管汇报了数据不一致的根因，帮助团队在下季度消除了30%的报表重复开发。',
-    aiFollowUp: '极佳的主人翁精神与底层治乱能力！面对无序没有抱怨，而是自发构建标准底层资产，展现了强大的数据敏感度与架构意识。',
+    analysisSummary: '该经历体现主动梳理底层数据并推动组织改进的能力，成果已反映在重复开发减少上。',
     cards: [
       {
         id: 'card-problem-decompose',
@@ -433,9 +433,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     {
       id: 'msg-init',
       role: 'ai',
-      content: '你好，我想先认识你一点。不需要填写完整简历，告诉我一件你觉得有意义的经历就可以，我会帮你提取其中的能力线索；或者点击左侧 📎 上传简历/作品集。',
+      content: '请输入一段具体经历，或上传简历、作品集等材料。系统将提取可核验的行动、结果与能力线索。',
       timestamp: '刚刚',
-      detectedSignals: ['期待你的真实故事', '支持随聊随答', '可上传简历/作品']
+      detectedSignals: ['支持文字输入', '支持材料上传', '提取行动与结果']
     }
   ]);
   const [isAiThinking, setIsAiThinking] = useState(false);
@@ -490,25 +490,25 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       let signals: string[] = [];
 
       if (text.includes('书') || text.includes('小程序') || text.includes('项目') || text.includes('团队')) {
-        aiReply = '这是一段具有代表性的落地实践。在面对真实用户和复杂流程时，你展现了问题拆解能力。经历记录可继续补充多方协作中的具体阻力与处理结果。';
+        aiReply = '该经历包含真实用户、复杂流程和结果验证等要素，体现了问题拆解能力。可继续补充多方协作中的具体阻力与处理结果。';
         signals = ['问题拆解', '复杂协同', 'MVP敏捷验证'];
       } else if (text.includes('摄影') || text.includes('兴趣') || text.includes('拍摄') || text.includes('故事')) {
-        aiReply = '能把长期兴趣转化为有深度叙事的作品，非常棒！在与他人沟通破冰、捕捉关键细节的过程中，你锻炼出了非常细腻的同理心与用户洞察力。';
+        aiReply = '该经历包含长期实践、信任建立与结构化表达等能力线索。可继续补充沟通动作和作品结果，便于形成可核验记录。';
         signals = ['用户同理心', '叙事架构', '自驱探索'];
       } else if (text.includes('考研') || text.includes('选择') || text.includes('岗位') || text.includes('决策')) {
-        aiReply = '你使用系统化调研和能力差距表支持职业方向判断，决策过程清晰。经历记录可继续补充当时梳理出的核心能力差异。';
+        aiReply = '该经历使用系统化调研和能力差距表支持职业方向判断，决策过程清晰。可继续补充当时梳理出的核心能力差异。';
         signals = ['结构化决策', '技术敏锐度', '业务建模'];
       } else if (text.includes('场地') || text.includes('冲突') || text.includes('危机') || text.includes('紧急')) {
-        aiReply = '突发状况最考验一个人的情绪韧性与调度效率！在2小时内敏捷启用备用方案并分流，展现了高抗压和项目管控能力。';
+        aiReply = '该经历体现突发情况下的应急处置、资源调度与项目控制能力。可补充备用方案的选择依据和执行结果。';
         signals = ['危机处置', '多线程调度', '同理沟通'];
       } else if (text.includes('自学') || text.includes('AI') || text.includes('Python') || text.includes('机器人')) {
-        aiReply = '自驱从0到1自学技术并做成服务200+用户的实用工具，这就是标准的 Product Mindset！将繁琐流程自动化正是高价值技能。';
+        aiReply = '该经历体现从技术学习到工具交付的完整过程，并以真实用户使用结果证明了方案价值。';
         signals = ['技术自学力', '敏捷交付', '工具化提效'];
       } else if (text.includes('实验') || text.includes('接线') || text.includes('图') || text.includes('改进')) {
-        aiReply = '用半天轻量可视化干预换取全班效率大幅提升，这就是出色的体验杠杆与高 ROI 意识！这种细致的洞察非常宝贵。';
+        aiReply = '该经历通过轻量可视化改进降低了操作成本，并以提问率和完成时间验证了实际效果。';
         signals = ['体验减负', '信息降维', '高ROI意识'];
       } else {
-        aiReply = `听起来这是一段充满真实思考的经历。我能从你的自述中感受到你在「主动推进」与「解决具体痛点」上的潜质。你还可以继续补充更多细节，或者随时点击下方的「分析经历」为你提取 2-3 张专属能力卡。`;
+        aiReply = '当前内容已形成初步能力线索。补充具体行动、结果和协作对象后，可提交经历分析以生成候选能力卡。';
         signals = ['自驱行动力', '逻辑思考', '价值交付'];
       }
 
@@ -545,7 +545,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       const aiMsg: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: 'ai',
-        content: preset.aiFollowUp,
+        content: preset.analysisSummary,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         detectedSignals: preset.cards.map(c => c.title)
       };
@@ -567,7 +567,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     }
 
     setIsRecording(true);
-    setVoiceNotice('正在倾听您的描述... (请说话)');
+    setVoiceNotice('正在接收语音输入…');
 
     // Web Speech API fallback/simulation
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -679,8 +679,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       setTimeout(() => {
         const docSummary = summaryText || (
           type === 'resume' 
-            ? `已成功解析你的简历《${fileName}》！提取到 3 段关键项目：校园产品从 0 到 1、数据化看板运营与跨团队协同交付。`
-            : `已成功解析你的作品文档《${fileName}》！看到了扎实的原型设计与用户研究成果，数据闭环非常清晰。`
+            ? `已解析简历《${fileName}》，提取到 3 段关键项目：校园产品从 0 到 1、数据化看板运营与跨团队协同交付。`
+            : `已解析作品文档《${fileName}》，提取到原型设计、用户研究和结果验证线索。`
         );
 
         if (presetId) {
@@ -696,7 +696,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         const aiMsg: ChatMessage = {
           id: `ai-upload-${Date.now()}`,
           role: 'ai',
-          content: `${docSummary} 你可以针对其中最满意的一段经历多聊聊，或直接点击下方「分析经历」为你提取能力卡。`,
+          content: `${docSummary} 可补充其中一段具体经历，或点击下方「分析经历」生成候选能力卡。`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           detectedSignals: ['结构化提取完毕', '高价值行动线索', '准备生成能力卡']
         };
@@ -876,7 +876,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   {isAiThinking && (
                     <div className="flex items-center gap-2 text-xs text-stone-500 italic py-1">
                       <RefreshCw className="w-3 h-3 animate-spin text-emerald-700" />
-                      <span>潜能助手正在思考并拆解经历...</span>
+                      <span>正在整理经历中的行动与结果…</span>
                     </div>
                   )}
                 </div>
@@ -990,7 +990,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   }
                 }}
                 rows={4}
-                placeholder="“分享一次印象深刻的经历&#10;比如一次项目、实习、比赛或者一个长期兴趣&#10;你可以像日常聊天一样输入，Enter 发送”"
+                placeholder="“分享一次印象深刻的经历&#10;例如项目、实习、比赛或长期兴趣&#10;输入完成后按 Enter 发送”"
                 className="w-full h-full bg-transparent text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 leading-relaxed resize-none outline-none font-normal p-1"
               />
 

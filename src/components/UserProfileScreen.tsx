@@ -718,7 +718,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
                 {/* Bottom Link Action */}
                 <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs">
-                  <span className="text-stone-400">已探索 2 条前沿职业路径</span>
+                  <span className="text-stone-400">已记录 {livePaths.length} 条职业路径</span>
                   <button
                     onClick={() => onNavigate('career-explore')}
                     className="text-amber-800 font-bold hover:underline flex items-center gap-1 cursor-pointer"
@@ -751,7 +751,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                 activeArchTab === 'reports' ? 'bg-white/20 text-stone-200' : 'bg-stone-100 text-stone-500'
               }`}>
-                含潜能画像
+                含能力画像
               </span>
             </button>
 

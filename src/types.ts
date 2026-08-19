@@ -7,44 +7,6 @@ export type AgentType =
   | 'task_coach'          // 任务教练 Agent (产品 3)
   | 'review_reflection';  // 复盘 Agent (产品 1 与 3 衔接)
 
-export interface CompletedTrialTask {
-  id: string;
-  taskTitle: string;
-  targetRole: string;
-  category: string;
-  completedAt: string;
-  timeSpent: string;
-  score: number;
-  grade: 'S' | 'A+' | 'A' | 'B+';
-  summary: string;
-  mission: string;
-  scenario: string;
-  userSubmission: {
-    coreProblem: string;
-    proposedSolution: string;
-    roiAnalysis: string;
-    keyDeliverables: string[];
-  };
-  radarScores: {
-    dimension: string;
-    score: number;
-    description: string;
-  }[];
-  earnedCards: SkillCard[];
-  mentorComment: string;
-  reflectionNotes?: string;
-}
-
-export interface UserExperienceRecord {
-  id: string;
-  title: string;
-  role: string;
-  period: string;
-  description: string;
-  extractedCardsCount: number;
-  tags: string[];
-}
-
 export interface AgentDefinition {
   id: AgentType;
   name: string;
@@ -148,7 +110,7 @@ export const AGENT_REGISTRY: Record<AgentType, AgentDefinition> = {
     themeColor: 'rose',
     bgLight: 'bg-rose-50 text-rose-800 border-rose-200',
     textColor: 'text-rose-700',
-    description: '负责根据用户的任务产出、过程和感受，形成体验证据，解释能力画像和路径判断为什么更新。产品 3 定复盘内容，产品 1 写回画像。',
+    description: '负责根据用户的任务产出、过程和感受形成体验证据，说明能力画像与路径判断的更新依据。产品 3 定复盘内容，产品 1 写回画像。',
     responsibilities: [
       '提炼用户任务产出与思考过程中的【体验证据】',
       '产品 3 定复盘内容：形成过程量化与质性评价',
@@ -175,74 +137,6 @@ export interface SkillCard {
   evidenceType?: 'documented_fact' | 'self_report' | 'inference';
   pendingVerification?: boolean;
   nextVerification?: string;
-}
-
-export interface TaskQuestion {
-  id: string;
-  roleTitle: string;
-  stageName: string;
-  currentChallengeIndex: number;
-  totalChallenges: number;
-  feedbackQuote: string;
-  challengeQuestion: string;
-  slots: {
-    id: string;
-    label: string;
-    placeholder: string;
-    isBackupSlot?: boolean;
-  }[];
-  candidateCards: SkillCard[];
-  idealCardIds: string[];
-  backupCardIds: string[];
-  aiAnalysis: {
-    summary: string;
-    advantages: string[];
-    toVerify: string[];
-    completionStatus: string;
-    nextStepText: string;
-  };
-}
-
-export interface WorkplaceDoc {
-  id: string;
-  title: string;
-  fileType: 'doc' | 'json' | 'csv' | 'pdf';
-  fileSize: string;
-  tag: string;
-  summary: string;
-  content: {
-    type: 'heading' | 'paragraph' | 'bullet' | 'table' | 'code' | 'callout';
-    text?: string;
-    items?: string[];
-    tableData?: { headers: string[]; rows: string[][] };
-  }[];
-}
-
-export interface SimulationTask {
-  id: string;
-  roleTitle: string;
-  stageName: string;
-  currentTaskTitle: string;
-  projectBackground: string;
-  mission: string;
-  requirements: string[];
-  docs: WorkplaceDoc[];
-  suggestedPrompts: string[];
-  mentorTip: string;
-}
-
-export interface EvaluationReport {
-  score: number;
-  grade: 'S' | 'A+' | 'A' | 'B+';
-  summary: string;
-  radarScores: {
-    dimension: string;
-    score: number;
-    description: string;
-  }[];
-  strengths: string[];
-  recommendations: string[];
-  careerFitAdvice: string;
 }
 
 export interface UserAuth {

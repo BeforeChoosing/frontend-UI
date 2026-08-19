@@ -90,13 +90,13 @@ export const FigmaGuideModal: React.FC<FigmaGuideModalProps> = ({
         <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/60 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-purple-900">
             <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
-            <span>当前已为你完美还原了低保真图中的所有 4 个核心页面！</span>
+            <span>当前页面已还原低保真稿中的 4 个核心页面。</span>
           </div>
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-medium text-xs cursor-pointer"
           >
-            知道了，继续体验
+            继续
           </button>
         </div>
       </motion.div>

@@ -34,7 +34,7 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
       pillActive: 'bg-white text-stone-900 shadow-md',
       tagBg: 'bg-[#F2D752] text-[#4A3C08]',
       stageName: '职业探索',
-      stageDesc: '以你的能力，推演多元职业可能',
+      stageDesc: '基于能力线索推演职业方向',
     },
     green: {
       bgClass: 'bg-[#96D4A7]', // Image 3: Craft Organize/整理 (Mint Green)
@@ -44,7 +44,7 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
       pillActive: 'bg-white text-stone-900 shadow-md',
       tagBg: 'bg-[#7ECA92] text-[#0A2612]',
       stageName: '能力验证',
-      stageDesc: '随你的经历而变的结构化能力沉淀',
+      stageDesc: '沉淀可追溯的结构化能力证据',
     },
     blue: {
       bgClass: 'bg-[#B8CEFA]', // Image 2: Craft Write/写作 (Periwinkle Blue)
@@ -54,7 +54,7 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
       pillActive: 'bg-white text-stone-900 shadow-md',
       tagBg: 'bg-[#A3BEF8] text-[#0A1633]',
       stageName: '工作台',
-      stageDesc: '统一的实战模拟体验，还原真实业务命题',
+      stageDesc: '统一的实战模拟环境，模拟真实业务命题',
     },
     peach: {
       bgClass: 'bg-[#F4BF87]', // Image 4: Craft Customize/自定义 (Golden Peach)
@@ -64,7 +64,7 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
       pillActive: 'bg-white text-stone-900 shadow-md',
       tagBg: 'bg-[#EDB070] text-[#331802]',
       stageName: '能力报告',
-      stageDesc: '独一无二，专属你的职场潜能画像',
+      stageDesc: '形成基于证据的职业能力画像',
     },
     neutral: {
       bgClass: 'bg-[#FAF9F5]',
