@@ -167,7 +167,6 @@ export interface SkillCard {
   icon: string;
   colorTone: 'purple' | 'blue' | 'emerald' | 'amber' | 'rose';
   isBackup?: boolean;
-  matchScore?: number;
   matchReason?: string;
   workplaceApplication?: string;
   evidenceQuote?: string;

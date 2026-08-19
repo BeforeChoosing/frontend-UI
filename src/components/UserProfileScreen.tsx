@@ -52,282 +52,6 @@ interface UserProfileScreenProps {
   initialArchTab?: 'insight' | 'cards' | 'paths' | 'reports';
 }
 
-// 14 rich skill cards to match the wireframe specification
-const ACCUMULATED_14_CARDS: Array<SkillCard & { statusTag: string; addedDate: string }> = [
-  {
-    id: 'card-user-insight',
-    title: '用户洞察',
-    category: '洞察分析',
-    description: '穿透表层诉求，从痛点日志中提炼46%冗长回答抱怨，提出结论先行原则',
-    detail: '擅长通过用户深访、语义聚类和体验地图，从散乱的反馈中提炼核心高价值痛点。',
-    icon: 'Search',
-    colorTone: 'purple',
-    statusTag: '08.16 强化',
-    addedDate: '2026.08.16'
-  },
-  {
-    id: 'card-prod-analysis',
-    title: '产品分析',
-    category: '产品策略',
-    description: '具备将抽象用户反馈拆解为结构化产品功能需求与业务边界的能力',
-    detail: '善用因果链路图，将模糊的“产品不好用”精确定位到模块与交互参数。',
-    icon: 'GitFork',
-    colorTone: 'blue',
-    statusTag: '08.16 新增',
-    addedDate: '2026.08.16'
-  },
-  {
-    id: 'card-data-analytics',
-    title: '数据分析',
-    category: '数据驱动',
-    description: '擅长漏斗转化与A/B测试数据量化归因，以指标指导体验迭代',
-    detail: '建立北极星指标体系，敏锐洞察漏斗流失拐点，用量化指标证明设计ROI。',
-    icon: 'LineChart',
-    colorTone: 'amber',
-    statusTag: '08.02 新增',
-    addedDate: '2026.08.02'
-  },
-  {
-    id: 'card-ai-pm-prd',
-    title: 'AI产品落地与PRD交付',
-    category: '协作沟通',
-    description: '将大模型能力转化为清晰的高质量PRD、交互状态机与研发对接规格',
-    detail: '具备完整的架构分流定义、主动澄清卡片交互与ROI度量能力。',
-    icon: 'Award',
-    colorTone: 'emerald',
-    statusTag: '08.16 新增',
-    addedDate: '2026.08.16'
-  },
-  {
-    id: 'card-problem-decompose',
-    title: '问题拆解与归因',
-    category: '产品策略',
-    description: '将复杂模糊的业务命题拆解为MECE逻辑树与可落地的行动项',
-    detail: '精通Badcase溯源与根因分析法。',
-    icon: 'GitBranch',
-    colorTone: 'blue',
-    statusTag: '08.10 强化',
-    addedDate: '2026.08.10'
-  },
-  {
-    id: 'card-ai-prompt',
-    title: 'AI能力抽象与Prompt工程',
-    category: '技术落地',
-    description: '连接大模型技术边界与用户真实交互心智，设计意图分流与Few-shot机制',
-    detail: '熟悉温度调优、Token降本与模型输出边界兜底策略。',
-    icon: 'Sparkles',
-    colorTone: 'emerald',
-    statusTag: '08.08 新增',
-    addedDate: '2026.08.08'
-  },
-  {
-    id: 'card-ux-flow',
-    title: '渐进式交互与流式反馈',
-    category: '交互体验',
-    description: '设计低认知负荷的LUI与GUI融合交互，包含主动追问Pill与流式加载状态',
-    detail: '深谙人机协同心理学，降低等待焦虑。',
-    icon: 'Sparkles',
-    colorTone: 'purple',
-    statusTag: '08.05 新增',
-    addedDate: '2026.08.05'
-  },
-  {
-    id: 'card-figma-proto',
-    title: '高保真交互原型',
-    category: '交互体验',
-    description: '熟练运用Figma构建动态交互原型与可复用的设计系统组件',
-    detail: '高保真还原端到端核心操作路径。',
-    icon: 'Layers',
-    colorTone: 'rose',
-    statusTag: '07.28 新增',
-    addedDate: '2026.07.28'
-  },
-  {
-    id: 'card-roi-metric',
-    title: 'ROI投入产出度量',
-    category: '数据驱动',
-    description: '量化模型算力成本节省与次轮用户留存提升的商业价值模型',
-    detail: '精准核算单次请求Token降幅与业务增长ROI。',
-    icon: 'Target',
-    colorTone: 'amber',
-    statusTag: '08.16 新增',
-    addedDate: '2026.08.16'
-  },
-  {
-    id: 'card-cross-team',
-    title: '跨职能协同推进',
-    category: '协作沟通',
-    description: '有效连接算法工程师、前端研发与业务方，对齐技术可行性与业务价值',
-    detail: '主持敏捷需求评审与风险把控。',
-    icon: 'Briefcase',
-    colorTone: 'emerald',
-    statusTag: '07.20 强化',
-    addedDate: '2026.07.20'
-  },
-  {
-    id: 'card-user-interview',
-    title: '深度用户访谈',
-    category: '洞察分析',
-    description: '通过半结构化访谈还原用户真实操作受挫场景与隐藏诉求',
-    detail: '掌握漏斗下钻提问与情绪捕捉技巧。',
-    icon: 'User',
-    colorTone: 'purple',
-    statusTag: '07.15 新增',
-    addedDate: '2026.07.15'
-  },
-  {
-    id: 'card-error-recovery',
-    title: '异常与容错兜底机制',
-    category: '交互体验',
-    description: '针对网络超时、模型拒答或幻觉设计优雅的一键重试与快捷转人工降级链路',
-    detail: '确保极端网络和技术波动下的用户体验连续性。',
-    icon: 'Zap',
-    colorTone: 'rose',
-    statusTag: '08.01 新增',
-    addedDate: '2026.08.01'
-  },
-  {
-    id: 'card-agile-mvp',
-    title: '敏捷MVP快速定义',
-    category: '产品策略',
-    description: '在两周内锁定核心价值闭环，以最小成本验证产品核心假设',
-    detail: '舍弃非核心冗余功能，聚焦高频价值。',
-    icon: 'Target',
-    colorTone: 'blue',
-    statusTag: '07.10 新增',
-    addedDate: '2026.07.10'
-  },
-  {
-    id: 'card-competitor-eval',
-    title: '竞品体验走查与差异化',
-    category: '洞察分析',
-    description: '深度对比行业前沿竞品交互体验，提炼差异化破局切入点',
-    detail: '输出多维度竞品雷达与体验心智对照矩阵。',
-    icon: 'Search',
-    colorTone: 'purple',
-    statusTag: '07.05 新增',
-    addedDate: '2026.07.05'
-  }
-];
-
-// Explored Career Paths Mock Data
-const EXPLORED_CAREER_PATHS = [
-  {
-    id: 'path-ai-pm',
-    title: 'AI产品经理',
-    englishTitle: 'AI Product Manager (AI PM)',
-    status: '进行中',
-    statusTag: '试炼任务进行中 (2/3)',
-    statusColor: 'bg-amber-100 text-amber-900 border-amber-200',
-    description: '专注于LLM落地、意图分流与PRD需求交付，平衡技术边界、Token成本与交互心智。',
-    matchScore: 96,
-    completedChallenges: 2,
-    totalChallenges: 3,
-    latestActivity: '已完成「优化AI助手用户体验 (PRD与交互重构)」试路任务，实战评分 96分 (Grade S)',
-    icon: 'Briefcase',
-    colorTone: 'amber'
-  },
-  {
-    id: 'path-ux-designer',
-    title: '交互设计师',
-    englishTitle: 'AI & Multimodal UX Designer',
-    status: '已完成',
-    statusTag: '阶段一与二已通关',
-    statusColor: 'bg-emerald-100 text-emerald-900 border-emerald-200',
-    description: '专注于AI多模态与人机交互流设计，探索LUI与GUI融合、主动澄清与拟人反馈。',
-    matchScore: 88,
-    completedChallenges: 3,
-    totalChallenges: 3,
-    latestActivity: '已完成「智能客服冷启动与意图澄清机制设计」，实战评分 91分 (Grade A+)',
-    icon: 'Sparkles',
-    colorTone: 'purple'
-  }
-];
-
-// Explored Reports Mock Data
-const EXPLORED_REPORTS = [
-  {
-    id: 'report-ai-pm',
-    role: 'AI产品经理 (AI PM)',
-    title: 'AI产品经理试路评估报告',
-    grade: 'S',
-    score: 96,
-    date: '2026.08.16',
-    timeSpent: '28 分钟',
-    keyDiscovery: '用户同理与产品落地能力表现突出，准确通过工单定性与会话漏斗定量双向归因，ROI测算极具商业说服力，已解锁「AI产品落地与PRD交付」卡牌。',
-    radarSummary: '用户同理 98 · AI架构 94 · 交互体验 96 · 商业ROI 95',
-    mentorComment: '结构极其清晰！兼备业务敏锐度与技术落地严谨性。不仅发现了定性抱怨，更通过定量漏斗证实了问题规模，给出的PRD方案研发团队可以直接拉会评审。',
-    radarScores: [
-      { dimension: '用户同理与痛点洞察', score: 98, description: '精准命中46%冗长回答抱怨，提出结论先行原则' },
-      { dimension: 'AI架构与技术理解', score: 94, description: '提出意图识别分流与Prompt降耗，技术可行性高' },
-      { dimension: '交互体验与微创新', score: 96, description: '引入主动追问澄清Pill芯片，显著提升人机交互流畅度' },
-      { dimension: '商业价值与ROI度量', score: 95, description: '清晰量化Token降本25%与留存提升目标，具备商业闭环' }
-    ],
-    strengths: [
-      '逻辑严密：从工单定性到漏斗定量，形成了完美的双向归因验证',
-      '懂AI边界：没有盲目堆砌模型参数，而是善用交互卡片弥补模型的不确定性',
-      '交付感强：PRD结构清晰，研发与设计同学能直接执行落地'
-    ],
-    recommendations: [
-      '可进一步细化多模态（如表格与代码导出）的复制交互规格',
-      '可增加灰度A/B测试方案的分组比例与防穿帮指标（Guardrail Metrics）'
-    ]
-  },
-  {
-    id: 'report-ux-designer',
-    role: 'AI交互体验设计师',
-    title: '交互体验进阶评估报告',
-    grade: 'A+',
-    score: 91,
-    date: '2026.08.12',
-    timeSpent: '22 分钟',
-    keyDiscovery: '快速原型与用户痛点洞察较强，澄清卡片的设计有效化解了AI模型的不确定性，可进一步加强技术可行性分流。',
-    radarSummary: '用户同理 92 · AI架构 88 · 交互体验 95 · 商业ROI 89',
-    mentorComment: '对用户情绪和交互细节的把控非常出色，澄清卡片的设计有效化解了AI模型的不确定性。',
-    radarScores: [
-      { dimension: '用户同理与痛点洞察', score: 92, description: '深刻理解用户急躁情绪下的交互偏好' },
-      { dimension: 'AI架构与技术理解', score: 88, description: '对置信度阈值与分支逻辑有清晰定义' },
-      { dimension: '交互体验与微创新', score: 95, description: '气泡交互与微反馈细节处理非常细腻' },
-      { dimension: '商业价值与ROI度量', score: 89, description: '有效量化了客服人力成本节省与满意度提升' }
-    ],
-    strengths: [
-      '微交互细腻：流式加载与歧义气泡有效化解用户受挫感',
-      '高保真呈现：状态机边界清晰'
-    ],
-    recommendations: [
-      '可增加复杂会话分支下的全局撤销交互'
-    ]
-  }
-];
-
-// AI Recent Observations
-const AI_RECENT_OBSERVATIONS = [
-  {
-    id: 'obs-1',
-    quote: '“你最近连续两次在任务里优先关注用户反馈，而不是先找技术方案。”',
-    timestamp: '更新于 2026年8月16日 14:32',
-    context: '你在进行 AI产品经理工作台试炼 时',
-    tag: '决策倾向',
-    tagColor: 'bg-amber-100 text-amber-800'
-  },
-  {
-    id: 'obs-2',
-    quote: '“你对‘协调推进’的评价一直比较低，但在真实任务里其实完成得不错。”',
-    timestamp: '更新于 2026年8月15日 19:10',
-    context: '你在进行 阶段一能力推演 时',
-    tag: '自我认知修正',
-    tagColor: 'bg-emerald-100 text-emerald-800'
-  },
-  {
-    id: 'obs-3',
-    quote: '“你似乎比自己想象中更能接受模糊的问题，并能迅速建立MECE拆解框架。”',
-    timestamp: '更新于 2026年8月14日 10:25',
-    context: '你在进行 经历深度提取 时',
-    tag: '潜能发现',
-    tagColor: 'bg-purple-100 text-purple-800'
-  }
-];
-
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   persistedCards = [],
   profileEvidence = [],
@@ -346,16 +70,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   // Cards category filter
   const [selectedCardCategory, setSelectedCardCategory] = useState<string>('all');
   
-  // Selected Report for full detailed view
-
-  // Task detail modal state
-
   // User Profile Info
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [userName, setUserName] = useState(auth.user?.name || '林曦');
-  const [userBackground, setUserBackground] = useState('UI/UX 设计背景');
-  const [userStatus, setUserStatus] = useState('状态：积极探索中（正在探索 AI产品经理 方向）');
-  const [userProgressIntro, setUserProgressIntro] = useState('已积累 14 张能力卡片，探索 2 条职业路径，最近一次更新来自「AI 产品经理试路任务」');
+  const [userName, setUserName] = useState(auth.user?.name || '探索者');
+  const [userBackground, setUserBackground] = useState('尚未填写背景');
+  const [userStatus, setUserStatus] = useState('状态：本机探索中');
+  const [userProgressIntro, setUserProgressIntro] = useState('完成经历提取并确认能力卡后，档案会显示真实记录。');
 
   // Persisted card editing state
   const [editingCard, setEditingCard] = useState<(SkillCard & { statusTag: string; addedDate: string }) | null>(null);
@@ -721,7 +441,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           3. BOTTOM INTERACTIVE SECTION:
              3 ARCH / TOMBSTONE BUTTONS + DYNAMIC EXPANDING CARD
              States:
-             - State 0: Insight Overview ("AI 最近注意到……")
+             - State 0: Insight Overview（近期成长观察）
              - State 1: Active on "能力卡库 (14)"
              - State 2: Active on "职业路径 (2)"
              - State 3: Active on "探索报告 (2)" (Merged 潜能报告)
@@ -1139,7 +859,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             )}
 
             {/* 
-              DEFAULT STATE (State 0): AI RECENT OBSERVATIONS ("AI 最近注意到……")
+              DEFAULT STATE (State 0): 近期成长观察
               When activeArchTab is 'insight'
             */}
             {activeArchTab === 'insight' && (
