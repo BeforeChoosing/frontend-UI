@@ -3,6 +3,7 @@ import type {
   ApiCardProposal,
   ProfileCardPatchRequest,
   ProfileCardsResponse,
+  ProfileOverviewResponse,
   ProfileProposalRequest,
   ProfileProposalResponse,
 } from '../types/api';
@@ -18,6 +19,10 @@ export function createProfileProposal(
 
 export function getProfileCards(): Promise<ProfileCardsResponse> {
   return apiRequest<ProfileCardsResponse>('/profile/cards');
+}
+
+export function getProfileOverview(): Promise<ProfileOverviewResponse> {
+  return apiRequest<ProfileOverviewResponse>('/profile/overview');
 }
 
 export function confirmProfileCards(

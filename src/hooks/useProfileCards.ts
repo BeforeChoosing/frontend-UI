@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   confirmProfileCards,
   deleteProfileCard,
-  getProfileCards,
+  getProfileOverview,
   updateProfileCard,
 } from '../api/profile';
 import {
@@ -10,6 +10,7 @@ import {
   mapSkillCardToApiProposal,
 } from '../features/profile/profileAdapter';
 import type { SkillCard } from '../types';
+import type { ApiProfileEvidence, ProfileOverviewResponse } from '../types/api';
 
 type ProfileCardsStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -17,14 +18,25 @@ export function useProfileCards() {
   const [cards, setCards] = useState<SkillCard[]>([]);
   const [version, setVersion] = useState(0);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [evidence, setEvidence] = useState<ApiProfileEvidence[]>([]);
   const [status, setStatus] = useState<ProfileCardsStatus>('idle');
   const [error, setError] = useState<string | null>(null);
 
-  const applyResponse = useCallback((response: Awaited<ReturnType<typeof getProfileCards>>) => {
+  const applyCardsResponse = useCallback((response: Awaited<ReturnType<typeof getProfileOverview>>) => {
     const nextCards = mapProfileCardsToSkillCards(response);
     setCards(nextCards);
     setVersion(response.version);
     setUpdatedAt(response.updated_at ?? null);
+    setEvidence(response.evidence ?? []);
+    return nextCards;
+  }, []);
+
+  const applyOverview = useCallback((response: ProfileOverviewResponse) => {
+    const nextCards = mapProfileCardsToSkillCards(response);
+    setCards(nextCards);
+    setVersion(response.version);
+    setUpdatedAt(response.updated_at ?? null);
+    setEvidence(response.evidence ?? []);
     return nextCards;
   }, []);
 
@@ -32,8 +44,8 @@ export function useProfileCards() {
     setStatus('loading');
     setError(null);
     try {
-      const response = await getProfileCards();
-      const nextCards = applyResponse(response);
+      const response = await getProfileOverview();
+      const nextCards = applyOverview(response);
       setStatus('success');
       return nextCards;
     } catch (cause) {
@@ -42,7 +54,7 @@ export function useProfileCards() {
       setError(message);
       return [];
     }
-  }, [applyResponse]);
+  }, [applyOverview]);
 
   useEffect(() => {
     void refresh();
@@ -53,7 +65,7 @@ export function useProfileCards() {
     setError(null);
     try {
       const response = await confirmProfileCards(nextCards.map(mapSkillCardToApiProposal));
-      const persistedCards = applyResponse(response);
+      const persistedCards = applyCardsResponse({ ...response, evidence });
       setStatus('success');
       return persistedCards;
     } catch (cause) {
@@ -62,7 +74,7 @@ export function useProfileCards() {
       setError(message);
       throw cause;
     }
-  }, [applyResponse]);
+  }, [applyCardsResponse, evidence]);
 
   const updateCard = useCallback(async (
     cardId: string,
@@ -72,7 +84,7 @@ export function useProfileCards() {
     setError(null);
     try {
       const response = await updateProfileCard(cardId, patch);
-      const persistedCards = applyResponse(response);
+      const persistedCards = applyCardsResponse({ ...response, evidence });
       setStatus('success');
       return persistedCards;
     } catch (cause) {
@@ -81,14 +93,14 @@ export function useProfileCards() {
       setError(message);
       throw cause;
     }
-  }, [applyResponse]);
+  }, [applyCardsResponse, evidence]);
 
   const removeCard = useCallback(async (cardId: string) => {
     setStatus('loading');
     setError(null);
     try {
       const response = await deleteProfileCard(cardId);
-      const remainingCards = applyResponse(response);
+      const remainingCards = applyCardsResponse({ ...response, evidence });
       setStatus('success');
       return remainingCards;
     } catch (cause) {
@@ -97,12 +109,13 @@ export function useProfileCards() {
       setError(message);
       throw cause;
     }
-  }, [applyResponse]);
+  }, [applyCardsResponse, evidence]);
 
   return {
     cards,
     version,
     updatedAt,
+    evidence,
     status,
     error,
     refresh,

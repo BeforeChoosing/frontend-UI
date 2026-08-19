@@ -23,7 +23,6 @@ interface CareerExploreScreenProps {
   onStartStageTwo: (taskId: TrialTaskId) => void;
   onOpenWikiModal: () => void;
   onOpenCardDetail: (card: SkillCard) => void;
-  onOpenAgentChat?: (agentId?: string) => void;
   onSlotsChange?: (slots: (SkillCard | null)[]) => void;
 }
 
@@ -32,7 +31,6 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   onStartStageTwo,
   onOpenWikiModal,
   onOpenCardDetail,
-  onOpenAgentChat,
   onSlotsChange,
 }) => {
   // 4 Slot State - Starts empty as requested
@@ -57,17 +55,12 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
 
   // Processed Hand Cards
   const processedHandCards = useMemo(() => {
-    const list = confirmedCards.map(card => ({
-      ...card,
-      mastery: card.matchScore,
-    }));
+    const list = confirmedCards.map(card => ({ ...card }));
     if (sortMode === 'category') {
       list.sort((a, b) => a.category.localeCompare(b.category, 'zh-Hans-CN'));
     } else if (sortMode === 'time') {
       // The profile API does not expose a user-facing chronology label yet;
       // preserve confirmation order instead of inventing dates.
-    } else {
-      list.sort((a, b) => ((b.mastery ?? -1) - (a.mastery ?? -1)));
     }
     return list;
   }, [confirmedCards, sortMode]);
@@ -171,11 +164,6 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     }
   };
 
-  const handleAgentChat = () => {
-    if (onOpenAgentChat) onOpenAgentChat('career_path');
-    else window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: 'career_path' } }));
-  };
-
   // Color mapper helper for slot indicators
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -199,28 +187,23 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
         <div className="absolute top-1/3 right-1/4 w-2 h-2 bg-indigo-400/30 rounded-full" />
       </div>
 
-      {/* 
-        ========================================================================
-        TOP AGENT BAR (Matching Screenshot)
-        ========================================================================
-      */}
+      {/* 当前阶段说明与岗位资料入口 */}
       <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-white/90 backdrop-blur-xl border border-stone-200/70 shrink-0 relative z-20 shadow-2xs">
         <div 
-          onClick={handleAgentChat}
-          className="flex items-center gap-3 cursor-pointer group min-w-0"
+        className="flex items-center gap-3 min-w-0"
         >
           <div className="relative shrink-0">
-            <div className="w-8 h-8 rounded-full bg-stone-900 text-amber-300 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-full bg-stone-900 text-amber-300 flex items-center justify-center shadow-xs">
               <Compass className="w-4 h-4" />
             </div>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <span className="bg-amber-100 text-amber-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-              阶段 02 · 职业路径 AGENT
+              阶段 02 · 职业路径推演
             </span>
             <span className="text-xs text-stone-500 hidden sm:inline font-normal">
-              产品 2 负责 · 出牌推演核心组合
+              基于已确认能力卡形成下一步验证建议
             </span>
           </div>
         </div>
@@ -235,7 +218,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
             className="flex items-center gap-1.5 text-xs font-bold text-indigo-950 bg-indigo-50 hover:bg-indigo-100/80 px-3.5 py-1 rounded-full border border-indigo-200/70 transition-all cursor-pointer shadow-2xs"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-            <span>行业专家 Agent 百科</span>
+            <span>岗位资料库</span>
           </button>
         </div>
       </div>
@@ -334,7 +317,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                             <span className={`w-1.5 h-1 rounded-sm ${categoryColors?.bar || 'bg-stone-400'}`} />
                           </span>
                           <span className="font-bold text-stone-700">
-                            {slotCard.matchScore != null ? `${slotCard.matchScore}%` : '已确认'}
+                            已确认
                           </span>
                         </div>
 
@@ -512,7 +495,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                     </div>
 
                     <span className="text-stone-400 font-mono text-[9px]">
-                      {card.mastery != null ? `可信度 ${card.mastery}%` : '已确认'}
+                      已确认
                     </span>
                   </div>
 
@@ -538,7 +521,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                       <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
                       <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
                       <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
-                      <span className="ml-0.5 font-mono">{card.mastery != null ? `${card.mastery}%` : '已确认'}</span>
+                      <span className="ml-0.5 font-mono">已确认</span>
                     </div>
                     <span>详情</span>
                   </div>
@@ -577,7 +560,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                         可比较职业路径推演
                       </h3>
                       <span className="bg-amber-100 text-amber-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-                        职业路径 Agent
+                        来源与任务依据
                       </span>
                     </div>
                     <p className="text-[11px] text-stone-500 mt-0.5">

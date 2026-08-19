@@ -226,20 +226,12 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
 
         <div className="space-y-5 sm:space-y-6 relative z-10">
           
-          {/* 
-            ======================================================================
-            1. TOP AGENT SPEECH BANNER (Clicking opens Agent Chat dialog)
-            ======================================================================
-          */}
+          {/* 候选能力线索说明 */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: 'growth_companion' } }));
-            }}
-            className="craft-card w-full rounded-2xl sm:rounded-3xl p-4 sm:p-5 bg-white/85 backdrop-blur-xl border border-stone-200/50 flex flex-col sm:flex-row items-center gap-3 sm:gap-5 text-center sm:text-left cursor-pointer group transition-all"
-            title="点击与 Agent 实时探讨能力卡判定"
+            className="craft-card w-full rounded-2xl sm:rounded-3xl p-4 sm:p-5 bg-white/85 backdrop-blur-xl border border-stone-200/50 flex flex-col sm:flex-row items-center gap-3 sm:gap-5 text-center sm:text-left"
           >
             {/* Agent Avatar Circle */}
             <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-stone-100 text-stone-700 flex items-center justify-center shrink-0 border border-stone-200/60 group-hover:scale-105 transition-transform relative">
@@ -255,12 +247,12 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                 <span className="craft-chip-yellow text-[10px] font-mono font-medium px-2 py-0.5 rounded-full">
                   02 · 确立坐标
                 </span>
-                <span className="text-[10px] text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full flex items-center gap-1 group-hover:bg-stone-200 transition-colors border border-stone-200/60">
-                  💬 点击与导师实时探讨
+                <span className="text-[10px] text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full flex items-center gap-1 border border-stone-200/60">
+                  基于经历证据生成
                 </span>
               </div>
               <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight">
-                我从这段经历中发现了几个可能的能力线索，你觉得符合你的经历体验吗？
+                以下是根据这段经历提炼的候选能力线索，请核对后确认。
               </h2>
             </div>
           </motion.div>
@@ -510,10 +502,10 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
           {/* Agent Dialogue */}
           <div className="space-y-1.5 flex-1">
             <h2 className="text-base sm:text-lg font-normal text-stone-900 font-serif craft-serif tracking-tight">
-              很好，这一轮我已经从你的经历中确认了 <span className="text-amber-800 font-bold font-mono">{confirmedThisRound.length || confirmedCount}</span> 张能力卡。
+              本轮经历已提炼 <span className="text-amber-800 font-bold font-mono">{confirmedThisRound.length || confirmedCount}</span> 张候选能力卡。
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-normal">
-              你的能力库正在逐渐丰富，更多经历会帮助我形成更完整的职业判断。
+              只有经用户核对并确认的内容会写入能力库；后续任务将用于补充可观察证据。
             </p>
           </div>
         </motion.div>

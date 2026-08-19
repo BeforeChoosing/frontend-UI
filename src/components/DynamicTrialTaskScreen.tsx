@@ -12,16 +12,13 @@ import {
 } from 'lucide-react';
 import { useDynamicTrialTask } from '../hooks/useDynamicTrialTask';
 import type { ApiDynamicTrialAnswer, TrialTaskId } from '../types/api';
+import { TaskStepInput } from './TaskStepInput';
 
 interface DynamicTrialTaskScreenProps {
   taskId: TrialTaskId;
   onBackToExplore: () => void;
   onEnterProfile: () => void;
   onTrialComplete?: () => Promise<unknown> | void;
-}
-
-function countCharacters(value: string) {
-  return Array.from(value).length;
 }
 
 export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
@@ -70,7 +67,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
           </div>
 
           <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
-            <p className="text-xs font-bold text-stone-900">Level 判断依据</p>
+            <p className="text-xs font-bold text-stone-900">能力等级判断依据</p>
             <p className="mt-1.5 text-xs leading-relaxed text-stone-600">{evaluation.level_reason}</p>
           </div>
 
@@ -224,7 +221,13 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
               </div>
             )}
 
-            <label className="block"><span className="text-xs font-bold text-stone-800">结构化作答</span><textarea maxLength={500} rows={7} value={answer.step_answers[currentStep?.id || ''] || ''} onChange={event => updateStepAnswer(event.target.value)} placeholder="按任务要求填写当前步骤，建议使用短句、分类或编号。" className="mt-2 w-full resize-none rounded-2xl border border-stone-200 bg-white p-3 text-sm leading-relaxed outline-none focus:border-purple-300" /><span className="mt-1 block text-right text-[10px] text-stone-400">{countCharacters(answer.step_answers[currentStep?.id || ''] || '')}/500</span></label>
+            <TaskStepInput
+              value={answer.step_answers[currentStep?.id || ''] || ''}
+              inputMode={currentStep?.input_mode || '结构化文本'}
+              instruction={currentStep?.instruction || ''}
+              onChange={updateStepAnswer}
+              disabled={isBusy}
+            />
 
             {stepIndex === 4 && (
               <div className="grid grid-cols-1 sm:grid-cols-[180px_minmax(0,1fr)] gap-3">
@@ -241,9 +244,9 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
 
           <aside className="xl:w-[280px] space-y-3">
             <div className="rounded-2xl border border-stone-800 bg-stone-900 p-4 text-white shadow-sm">
-              <h2 className="flex items-center gap-2 text-sm font-bold"><Bot className="w-4 h-4 text-purple-300" />Coach Agent</h2>
+              <h2 className="flex items-center gap-2 text-sm font-bold"><Bot className="w-4 h-4 text-purple-300" />任务教练</h2>
               <p className="mt-2 text-[11px] leading-relaxed text-stone-300">只解释概念、澄清材料和提供有限提示，不替你完成核心判断。提示级别会记录为过程证据。</p>
-              <div className="mt-3 grid grid-cols-3 gap-1.5">{([1, 2, 3] as const).map(level => <button key={level} onClick={() => void handleCoach(level)} disabled={isBusy} className="rounded-full bg-white/10 px-2 py-1.5 text-[10px] text-stone-200 hover:bg-white/15">{level === 1 ? '方向' : level === 2 ? '框架' : '半成品'}</button>)}</div>
+              <div className="mt-3 grid grid-cols-3 gap-1.5">{([1, 2, 3] as const).map(level => <button key={level} onClick={() => void handleCoach(level)} disabled={isBusy} className="rounded-full bg-white/10 px-2 py-1.5 text-[10px] text-stone-200 hover:bg-white/15">{level === 1 ? '方向提示' : level === 2 ? '分析框架' : '示例片段'}</button>)}</div>
               {coachText && <div className="mt-3 rounded-xl bg-white/10 p-3 text-xs leading-relaxed text-stone-200">{coachText}</div>}
               <p className="mt-3 text-[10px] text-stone-400">已调用 {session.answer.coach_usage.length} 次</p>
             </div>

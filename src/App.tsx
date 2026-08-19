@@ -1,23 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { ScreenMode, SkillCard, WorkplaceDoc, EvaluationReport, UserAuth } from './types';
-import { HERO_FLOATING_CARDS, STAGE_ONE_TASK } from './data/mockData';
+import { ScreenMode, SkillCard, UserAuth } from './types';
+import { HERO_FLOATING_CARDS } from './data/mockData';
 import { Header } from './components/Header';
 import { LandingHero } from './components/LandingHero';
 import { ExperienceInputScreen } from './components/ExperienceInputScreen';
 import { AbilityCardVerificationScreen } from './components/AbilityCardVerificationScreen';
 import { CareerExploreScreen } from './components/CareerExploreScreen';
-import { A02TrialTaskScreen } from './components/A02TrialTaskScreen';
 import { DynamicTrialTaskScreen } from './components/DynamicTrialTaskScreen';
-import { ExperienceEndScreen } from './components/ExperienceEndScreen';
 import { AuthModal } from './components/AuthModal';
-import { DocumentViewerModal } from './components/DocumentViewerModal';
 import { CardDetailModal } from './components/CardDetailModal';
 import { CareerWikiModal } from './components/CareerWikiModal';
 import { ExampleShowcaseModal } from './components/ExampleShowcaseModal';
 import { FigmaGuideModal } from './components/FigmaGuideModal';
-import { ReportModal } from './components/ReportModal';
 import { UserProfileScreen } from './components/UserProfileScreen';
-import { GlobalAIAgentWidget } from './components/GlobalAIAgentWidget';
 import { useProfileCards } from './hooks/useProfileCards';
 import type { ProfileCardPatchRequest, TrialTaskId } from './types/api';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,18 +28,16 @@ export default function App() {
   const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>('A-02');
   const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>(HERO_FLOATING_CARDS.slice(0, 3));
   const [draftCards, setDraftCards] = useState<SkillCard[]>(HERO_FLOATING_CARDS.slice(0, 3));
-  const [activeSlottedCards, setActiveSlottedCards] = useState<(SkillCard | null)[]>([]);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
   const [isFigmaGuideOpen, setIsFigmaGuideOpen] = useState(false);
-  const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<SkillCard | null>(null);
-  const [selectedDoc, setSelectedDoc] = useState<WorkplaceDoc | null>(null);
   const {
     cards: persistedCards,
     version: profileVersion,
     updatedAt: profileUpdatedAt,
+    evidence: profileEvidence,
     refresh: refreshProfile,
     confirmCards,
     updateCard,
@@ -74,27 +67,6 @@ export default function App() {
     isLoggedIn: false,
   });
 
-  const [evaluationReport, setEvaluationReport] = useState<EvaluationReport | null>({
-    score: 96,
-    grade: 'S',
-    summary: '你的方案展现出卓越的AI产品经理业务直觉与结构化落地功底！准确通过数据与日志溯源，并提出了高ROI的交互闭环。',
-    radarScores: [
-      { dimension: '用户同理与痛点洞察', score: 98, description: '精准命中46%冗长回答抱怨，提出结论先行原则' },
-      { dimension: 'AI架构与技术理解', score: 94, description: '提出意图识别分流与Prompt降耗，技术可行性高' },
-      { dimension: '交互体验与微创新', score: 96, description: '引入主动追问澄清Pill芯片，显著提升人机交互流畅度' },
-      { dimension: '商业价值与ROI度量', score: 95, description: '清晰量化Token降本25%与留存提升目标，具备商业闭环' }
-    ],
-    strengths: [
-      '逻辑严密：从工单定性到漏斗定量，形成了完美的双向归因验证',
-      '懂AI边界：没有盲目堆砌模型参数，而是善用交互卡片弥补模型的不确定性',
-      '交付感强：PRD结构清晰，研发与设计同学能直接执行落地'
-    ],
-    recommendations: [
-      '可进一步细化多模态（如表格与代码导出）的复制交互规格',
-      '可增加灰度A/B测试方案的分组比例与防穿帮指标（Guardrail Metrics）'
-    ],
-    careerFitAdvice: '你非常适合AI产品经理（AI PM）及AI体验架构师岗位，具备极强的端到端产品定义力！'
-  });
 
   const handleLoginSuccess = (email: string) => {
     setAuth({
@@ -105,26 +77,6 @@ export default function App() {
         unlockedCards: unlockedCards,
       },
     });
-  };
-
-  const handleStageTwoSubmit = (report: EvaluationReport) => {
-    setEvaluationReport(report);
-    // Add new skill card
-    const newCard: SkillCard = {
-      id: 'card-prd-pro',
-      title: 'AI产品落地与PRD交付',
-      category: '协作沟通',
-      description: '将大模型能力转化为清晰的高质量PRD与人机交互规格说明',
-      detail: '具备完整的架构分流定义、主动澄清卡片交互与ROI度量能力。',
-      icon: 'Award',
-      colorTone: 'emerald',
-      workplaceApplication: '在真实团队中带领研发与算法敏捷落地AI功能。'
-    };
-    if (!unlockedCards.some(c => c.id === newCard.id)) {
-      setUnlockedCards([...unlockedCards, newCard]);
-    }
-    // Navigate to Experience End Screen matching Image 4
-    setCurrentScreen('experience-end');
   };
 
   const [isStageTwoFocusMode, setIsStageTwoFocusMode] = useState<boolean>(false);
@@ -148,7 +100,7 @@ export default function App() {
           {/* Subtle stage-adaptive soft glow top right */}
           <div className={`absolute top-0 -right-20 w-[420px] h-[420px] rounded-full blur-3xl transition-colors duration-700 ${
             currentScreen === 'input-experience' || currentScreen === 'verify-cards' ? 'bg-emerald-100/20' :
-            currentScreen === 'career-explore' || currentScreen === 'stage1' ? 'bg-amber-100/25' :
+            currentScreen === 'career-explore' ? 'bg-amber-100/25' :
             currentScreen === 'stage2' ? 'bg-sky-100/20' :
             'bg-orange-100/20'
           }`} />
@@ -190,7 +142,7 @@ export default function App() {
               <LandingHero
                 onStartExplore={() => setCurrentScreen('input-experience')}
                 onOpenWiki={() => setIsWikiOpen(true)}
-                onOpenExample={() => setCurrentScreen('stage1')}
+                onOpenExample={() => setCurrentScreen('stage2')}
                 onOpenAbout={() => setIsExampleOpen(true)}
                 onSelectCard={(card) => setSelectedCard(card)}
               />
@@ -259,29 +211,6 @@ export default function App() {
                 }}
                 onOpenWikiModal={() => setIsWikiOpen(true)}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
-                onOpenAgentChat={(agentId) => {
-                  window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'career_path' } }));
-                }}
-                onSlotsChange={(slots) => setActiveSlottedCards(slots)}
-              />
-            </motion.div>
-          )}
-
-          {currentScreen === 'stage1' && (
-            <motion.div
-              key="stage1"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-            >
-              <A02TrialTaskScreen
-                onBackToExplore={() => setCurrentScreen('career-explore')}
-                onEnterProfile={() => setCurrentScreen('profile')}
-                onTrialComplete={refreshProfile}
-                onOpenAgentChat={(agentId) => {
-                  window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'task_coach' } }));
-                }}
               />
             </motion.div>
           )}
@@ -303,31 +232,6 @@ export default function App() {
             </motion.div>
           )}
 
-          {currentScreen === 'experience-end' && (
-            <motion.div
-              key="experience-end"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-            >
-              <ExperienceEndScreen
-                allAccumulatedCards={unlockedCards}
-                onEnterProfile={() => {
-                  setCurrentScreen('profile');
-                }}
-                onContinueExplore={() => setCurrentScreen('career-explore')}
-                onAddExperience={() => setCurrentScreen('input-experience')}
-                onOpenAgentChat={(agentId) => {
-                  window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'review_reflection' } }));
-                }}
-                onUpdateDeckSuccess={async (cards) => {
-                  const storedCards = await confirmCards(cards);
-                  setUnlockedCards(prev => mergeCardsById(prev, storedCards));
-                }}
-              />
-            </motion.div>
-          )}
 
           {currentScreen === 'report' && (
             <motion.div
@@ -338,8 +242,8 @@ export default function App() {
               transition={{ duration: 0.25 }}
             >
               <UserProfileScreen
-                unlockedCards={unlockedCards}
                 persistedCards={persistedCards}
+                profileEvidence={profileEvidence}
                 profileVersion={profileVersion}
                 profileUpdatedAt={profileUpdatedAt}
                 auth={auth}
@@ -347,10 +251,6 @@ export default function App() {
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onUpdateCard={handleUpdateProfileCard}
                 onDeleteCard={handleDeleteProfileCard}
-                onOpenAgentChat={(agentId) => {
-                  window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'review_reflection' } }));
-                }}
-                onStartNewTask={() => setCurrentScreen('stage2')}
                 initialArchTab="reports"
               />
             </motion.div>
@@ -365,8 +265,8 @@ export default function App() {
               transition={{ duration: 0.25 }}
             >
               <UserProfileScreen
-                unlockedCards={unlockedCards}
                 persistedCards={persistedCards}
+                profileEvidence={profileEvidence}
                 profileVersion={profileVersion}
                 profileUpdatedAt={profileUpdatedAt}
                 auth={auth}
@@ -374,10 +274,6 @@ export default function App() {
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onUpdateCard={handleUpdateProfileCard}
                 onDeleteCard={handleDeleteProfileCard}
-                onOpenAgentChat={(agentId) => {
-                  window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: agentId || 'review_reflection' } }));
-                }}
-                onStartNewTask={() => setCurrentScreen('stage2')}
                 initialArchTab="insight"
               />
             </motion.div>
@@ -397,7 +293,7 @@ export default function App() {
         onClose={() => setIsWikiOpen(false)}
         onSelectCareer={() => {
           setIsWikiOpen(false);
-          setCurrentScreen('stage1');
+          setCurrentScreen('stage2');
         }}
       />
 
@@ -417,24 +313,9 @@ export default function App() {
           setIsFigmaGuideOpen(false);
           if (step === 1) setCurrentScreen('input-experience');
           else if (step === 2) setCurrentScreen('career-explore');
-          else if (step === 3) setCurrentScreen('stage1');
+          else if (step === 3) setCurrentScreen('stage2');
           else if (step === 4) setCurrentScreen('stage2');
-          else if (step === 5) setCurrentScreen('experience-end');
-          else if (step === 6) setIsReportOpen(true);
-        }}
-      />
-
-      <ReportModal
-        isOpen={isReportOpen}
-        onClose={() => setIsReportOpen(false)}
-        report={evaluationReport}
-        onRestart={() => {
-          setIsReportOpen(false);
-          setCurrentScreen('career-explore');
-        }}
-        onViewAllCards={() => {
-          setIsReportOpen(false);
-          setCurrentScreen('profile');
+          else if (step === 5 || step === 6) setCurrentScreen('profile');
         }}
       />
 
@@ -442,21 +323,6 @@ export default function App() {
         isOpen={!!selectedCard}
         onClose={() => setSelectedCard(null)}
         card={selectedCard}
-      />
-
-      <DocumentViewerModal
-        isOpen={!!selectedDoc}
-        onClose={() => setSelectedDoc(null)}
-        doc={selectedDoc}
-      />
-
-      {/* Global Conversational AI Agent Widget (Apple Liquid Glass Floating Copilot) */}
-      <GlobalAIAgentWidget
-        currentScreen={currentScreen}
-        unlockedCards={unlockedCards}
-        slottedCards={activeSlottedCards}
-        onNavigateToScreen={(screen) => setCurrentScreen(screen)}
-        onOpenWiki={() => setIsWikiOpen(true)}
       />
 
     </div>

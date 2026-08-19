@@ -41,7 +41,7 @@ export const FigmaGuideModal: React.FC<FigmaGuideModalProps> = ({
             <FileCode2 className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-stone-900 text-lg">如何将 Figma 完整交互流程同步给 AI？</h3>
+            <h3 className="font-bold text-stone-900 text-lg">Figma 交互流程同步规范</h3>
             <p className="text-xs text-stone-500">4 种最快、最高效的原型交互传递方式</p>
           </div>
         </div>
@@ -55,7 +55,7 @@ export const FigmaGuideModal: React.FC<FigmaGuideModalProps> = ({
             <div>
               <h4 className="font-bold text-stone-900 text-sm mb-0.5">方式 1：Frame 截图 / 导出图片批量拖入 (最直观推荐 ⭐⭐⭐)</h4>
               <p className="text-stone-600 text-xs leading-relaxed">
-                在 Figma 中选中画板（Frame）或流程连线图，按 <code className="px-1.5 py-0.5 rounded bg-white border border-stone-200 font-mono text-[11px]">Cmd/Ctrl + Shift + C</code> 复制为 PNG，直接在对话框中粘贴（或保存为图片拖入）。AI 能即刻理解布局、视觉层级与状态分支。
+                在 Figma 中选中画板（Frame）或流程连线图，按 <code className="px-1.5 py-0.5 rounded bg-white border border-stone-200 font-mono text-[11px]">Cmd/Ctrl + Shift + C</code> 复制为 PNG，保存后作为设计说明附件提交。页面据此记录布局、视觉层级与状态分支。
               </p>
             </div>
           </div>
@@ -68,7 +68,7 @@ export const FigmaGuideModal: React.FC<FigmaGuideModalProps> = ({
             <div>
               <h4 className="font-bold text-stone-900 text-sm mb-0.5">方式 2：复制文字 / FigJam 流程树描述</h4>
               <p className="text-stone-600 text-xs leading-relaxed">
-                将 Figma 中的关键文案、卡片配置、弹窗触发逻辑或分支判断以列表文字形式发送到对话中，AI 会直接将其编码为真实可交互的功能模块。
+                将 Figma 中的关键文案、卡片配置、弹窗触发逻辑或分支判断整理为列表，作为实现说明提交。开发时按照清单逐项映射为可交互功能模块。
               </p>
             </div>
           </div>

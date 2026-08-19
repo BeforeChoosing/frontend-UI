@@ -61,7 +61,7 @@ const PRESET_EXPERIENCES: QuickPreset[] = [
     label: '一次项目经历',
     category: '产品/实践',
     sampleText: '大三时我带队做了一个校园二手书流转小程序。最初大家都在抱怨买卖信息分散，我们花了一周走访了6栋宿舍楼，发现核心痛点是信任成本高和交易碰头麻烦。于是我们设计了宿舍楼集中转交点和评分机制，上线首月撮合了800多笔书籍流转。',
-    aiFollowUp: '这个经历非常扎实！你通过一线走访抓住了「信任」与「履约效率」两个核心矛盾，并用机制解决了问题。在协调各宿舍楼转交点时，你是如何打消大家的顾虑推动落地的呢？',
+    aiFollowUp: '这个经历具备明确的落地结果。你通过一线走访识别了「信任」与「履约效率」两个核心矛盾，并用机制推动解决。后续可补充协调各宿舍楼转交点时采用的具体推进方式。',
     cards: [
       {
         id: 'card-problem-decompose',
@@ -490,13 +490,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       let signals: string[] = [];
 
       if (text.includes('书') || text.includes('小程序') || text.includes('项目') || text.includes('团队')) {
-        aiReply = '这真是一次非常有代表性的落地实践！在面对真实用户和繁琐流程时，你展现了敏锐的问题拆解能力。当时在推动多方配合时，有没有遇到什么具体的挑战？';
+        aiReply = '这是一段具有代表性的落地实践。在面对真实用户和复杂流程时，你展现了问题拆解能力。经历记录可继续补充多方协作中的具体阻力与处理结果。';
         signals = ['问题拆解', '复杂协同', 'MVP敏捷验证'];
       } else if (text.includes('摄影') || text.includes('兴趣') || text.includes('拍摄') || text.includes('故事')) {
         aiReply = '能把长期兴趣转化为有深度叙事的作品，非常棒！在与他人沟通破冰、捕捉关键细节的过程中，你锻炼出了非常细腻的同理心与用户洞察力。';
         signals = ['用户同理心', '叙事架构', '自驱探索'];
       } else if (text.includes('考研') || text.includes('选择') || text.includes('岗位') || text.includes('决策')) {
-        aiReply = '用系统化的调研和能力差距表来指导职业方向，这种理性决策的框架感非常强！你当时梳理出的核心能力差异是什么？';
+        aiReply = '你使用系统化调研和能力差距表支持职业方向判断，决策过程清晰。经历记录可继续补充当时梳理出的核心能力差异。';
         signals = ['结构化决策', '技术敏锐度', '业务建模'];
       } else if (text.includes('场地') || text.includes('冲突') || text.includes('危机') || text.includes('紧急')) {
         aiReply = '突发状况最考验一个人的情绪韧性与调度效率！在2小时内敏捷启用备用方案并分流，展现了高抗压和项目管控能力。';
@@ -782,7 +782,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             <div className="space-y-1.5 flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight flex items-center gap-2">
-                  <span>潜能挖掘助手</span>
+                  <span>经历提取提示</span>
                   <span className="craft-chip-green text-[10px] font-medium px-2 py-0.5 rounded-full font-mono">
                     01 · 认识自己
                   </span>
@@ -838,7 +838,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     >
                       {msg.role === 'ai' && (
                         <div className="w-6 h-6 rounded-full bg-stone-900 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5 text-[10px]">
-                          AI
+                            提取
                         </div>
                       )}
                       
@@ -1043,7 +1043,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
           {/* Subtitle / Footnote */}
           <p className="text-center text-[11px] sm:text-xs text-stone-500 font-normal">
-            AI将根据你的描述与材料，提取 2-3 张初步能力卡，你可以保留、修改或删除。
+            提交后，系统将根据经历描述和材料提炼 2–3 张候选能力卡，可在确认页保留、修改或删除。
           </p>
         </motion.div>
 
@@ -1177,7 +1177,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   上传个人简历或过去作品
                 </h3>
                 <p className="text-xs text-stone-600">
-                  AI 将自动提炼文档中的客观事实、项目角色与核心产出，辅助进行能力提取。
+                    系统将提炼文档中的客观事实、项目角色与核心产出，辅助完成能力提取。
                 </p>
               </div>
 
@@ -1305,7 +1305,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
                   <div className="p-3 rounded-xl bg-[#EDE7DF] text-xs text-stone-600 space-y-1">
                     <p className="font-bold text-stone-800">💡 提示：</p>
-                    <p>AI 将抓取并分析链接中的项目概述、功能架构与实践说明。</p>
+                    <p>系统将读取链接中的项目概述、功能架构与实践说明。</p>
                   </div>
                 </div>
               )}

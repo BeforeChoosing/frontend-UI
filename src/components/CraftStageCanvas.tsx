@@ -204,16 +204,16 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
 
             {/* 2. 能力验证 (Green - Image 3: 整理/能力) */}
             <button
-              onClick={() => onStageChange('stage1')}
+              onClick={() => onStageChange('stage2')}
               className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                activeStageKey === 'stage1'
+                activeStageKey === 'stage1' || activeStageKey === 'stage2'
                   ? 'bg-[#96D4A7] text-[#0E2916] shadow-xs scale-105'
                   : 'text-stone-600 hover:text-black hover:bg-white/60'
               }`}
               id="craft-stage-btn-stage1"
             >
               <Folder className="w-3.5 h-3.5" />
-              <span>能力验证</span>
+              <span>试路验证</span>
             </button>
 
             {/* 3. 工作台 (Blue - Image 2: 写作/工作台) */}

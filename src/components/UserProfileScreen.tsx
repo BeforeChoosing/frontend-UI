@@ -36,14 +36,12 @@ import {
   RefreshCw,
   Trash2
 } from 'lucide-react';
-import { CompletedTrialTask, SkillCard, UserExperienceRecord, UserAuth, ScreenMode, EvaluationReport } from '../types';
-import type { ProfileCardPatchRequest } from '../types/api';
-import { COMPLETED_TRIAL_TASKS, HERO_FLOATING_CARDS, USER_PAST_EXPERIENCES } from '../data/mockData';
-import { TrialTaskDetailModal } from './TrialTaskDetailModal';
+import { SkillCard, UserAuth, ScreenMode } from '../types';
+import type { ApiProfileEvidence, ProfileCardPatchRequest } from '../types/api';
 
 interface UserProfileScreenProps {
-  unlockedCards: SkillCard[];
   persistedCards?: SkillCard[];
+  profileEvidence?: ApiProfileEvidence[];
   profileVersion?: number;
   profileUpdatedAt?: string | null;
   auth: UserAuth;
@@ -51,8 +49,6 @@ interface UserProfileScreenProps {
   onOpenCardDetail: (card: SkillCard) => void;
   onUpdateCard?: (cardId: string, patch: ProfileCardPatchRequest) => Promise<void> | void;
   onDeleteCard?: (cardId: string) => Promise<void> | void;
-  onOpenAgentChat?: (agentId?: string) => void;
-  onStartNewTask?: () => void;
   initialArchTab?: 'insight' | 'cards' | 'paths' | 'reports';
 }
 
@@ -333,8 +329,8 @@ const AI_RECENT_OBSERVATIONS = [
 ];
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
-  unlockedCards,
   persistedCards = [],
+  profileEvidence = [],
   profileVersion = 0,
   profileUpdatedAt = null,
   auth,
@@ -342,8 +338,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onOpenCardDetail,
   onUpdateCard,
   onDeleteCard,
-  onOpenAgentChat,
-  onStartNewTask,
   initialArchTab = 'insight'
 }) => {
   // Bottom Arch Navigation State (4 states from the Figma wireframe: 'insight' | 'cards' | 'paths' | 'reports')
@@ -353,10 +347,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [selectedCardCategory, setSelectedCardCategory] = useState<string>('all');
   
   // Selected Report for full detailed view
-  const [selectedReportDetail, setSelectedReportDetail] = useState<typeof EXPLORED_REPORTS[0] | null>(null);
 
   // Task detail modal state
-  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<CompletedTrialTask | null>(null);
 
   // User Profile Info
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -372,17 +364,73 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [isSavingCard, setIsSavingCard] = useState(false);
   const [cardActionError, setCardActionError] = useState<string | null>(null);
 
-  // Merged cards list (defaults to 14 cards pool plus cards confirmed through the API)
-  const allDisplayCards = (() => {
-    const cardsById = new Map<string, SkillCard & { statusTag: string; addedDate: string }>();
-    ACCUMULATED_14_CARDS.forEach(card => cardsById.set(card.id, card));
-    persistedCards.forEach(card => cardsById.set(card.id, {
-      ...card,
-      statusTag: '已确认',
-      addedDate: '已同步',
-    }));
-    return Array.from(cardsById.values());
-  })();
+  const formatEvidenceDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '时间未记录';
+    return new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  };
+
+  const liveReports = profileEvidence.map(record => {
+    const evaluation = record.evaluation;
+    return {
+      id: record.session_id,
+      role: 'AI 产品经理试路',
+      title: `${record.task_id} 试路评价`,
+      date: formatEvidenceDate(record.created_at),
+      timeSpent: '以工作台记录为准',
+      keyDiscovery: evaluation?.summary || record.observed_evidence.statement,
+      radarScores: evaluation?.dimensions || [],
+      mentorComment: evaluation?.next_step || '本次任务已形成可追溯的过程证据。',
+      strengths: evaluation?.strengths || [],
+      recommendations: evaluation?.gaps || [],
+      observedLevel: record.observed_evidence.observed_level || '证据不足',
+      confidence: record.observed_evidence.confidence || '未记录',
+      score: null as number | null,
+      grade: null as string | null,
+    };
+  });
+
+  const livePaths = profileEvidence.length > 0
+    ? [{
+        id: 'path-ai-pm',
+        title: 'AI 产品经理',
+        englishTitle: 'AI Product Manager',
+        status: '进行中',
+        statusTag: `已完成 ${profileEvidence.length} 项试路任务`,
+        statusColor: 'bg-amber-100 text-amber-900 border-amber-200',
+        description: '基于已确认能力卡和试路证据持续验证产品洞察、方案设计与 AI 产品化能力。',
+        completedChallenges: profileEvidence.length,
+        totalChallenges: 12,
+        latestActivity: `最近记录：${profileEvidence[0].task_id} 任务评价已写入档案`,
+        icon: 'Briefcase',
+        colorTone: 'amber',
+      }]
+    : [];
+
+  const liveObservations = profileEvidence.slice(0, 3).map(record => ({
+    id: record.session_id,
+    quote: record.evaluation?.summary || record.observed_evidence.statement,
+    timestamp: `记录于 ${formatEvidenceDate(record.created_at)}`,
+    context: `${record.task_id} 试路任务评价`,
+    tag: record.observed_evidence.observed_level || '过程证据',
+    tagColor: 'bg-emerald-100 text-emerald-800',
+  }));
+
+  const profileProgressIntro = `已确认 ${persistedCards.length} 张能力卡，完成 ${profileEvidence.length} 项试路任务，最近一次记录来自${profileEvidence.length > 0 ? `「${profileEvidence[0].task_id}」` : '尚未提交的任务'}`;
+
+  // The profile shows only cards confirmed through the backend. Landing-page
+  // examples are intentionally not presented as personal evidence.
+  const allDisplayCards = persistedCards.map(card => ({
+    ...card,
+    statusTag: '已确认',
+    addedDate: '已同步',
+  }));
   const persistedCardIds = new Set(persistedCards.map(card => card.id));
   const filteredDisplayCards = selectedCardCategory === 'all' 
     ? allDisplayCards 
@@ -506,21 +554,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               {/* Bottom Line: (进度简介) 已积累 14 张能力卡片，探索 2 条职业路径，最近一次更新来自「AI 产品经理试路任务」 */}
               <p className="text-xs sm:text-sm text-stone-500 leading-relaxed font-normal">
                 <span className="text-stone-400 font-mono">(进度简介) </span>
-                {userProgressIntro}
+                {persistedCards.length > 0 || profileEvidence.length > 0 ? profileProgressIntro : userProgressIntro}
               </p>
             </div>
 
             {/* Quick Agent Consult Pill */}
             <div className="shrink-0 pt-2 sm:pt-0">
               <button
-                onClick={() => {
-                  if (onOpenAgentChat) onOpenAgentChat('growth_companion');
-                  else window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: 'growth_companion' } }));
-                }}
+                onClick={() => setActiveArchTab('reports')}
                 className="craft-btn-secondary px-3.5 py-1.5 text-xs flex items-center gap-1.5"
               >
-                <Bot className="w-3.5 h-3.5 text-orange-600" />
-                <span>AI 顾问助手</span>
+                <FileText className="w-3.5 h-3.5 text-orange-600" />
+                <span>查看试路评价</span>
               </button>
             </div>
 
@@ -552,7 +597,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 更新我的能力画像
               </h2>
               <p className="text-xs sm:text-sm text-stone-500 leading-relaxed font-normal">
-                分享新的经历或反思，让Agent继续完善对你的理解。
+                分享新的经历或反思，继续补充个人能力证据。
               </p>
             </div>
 
@@ -570,13 +615,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 </button>
                 <button
                   onClick={() => {
-                    if (onOpenAgentChat) onOpenAgentChat('growth_companion');
-                    else window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: 'growth_companion' } }));
+                    setActiveArchTab('insight');
                   }}
                   className="craft-btn-secondary px-3.5 py-2 text-xs"
                   id="btn-review-reflection"
                 >
-                  回顾问导
+                  查看成长记录
                 </button>
               </div>
 
@@ -702,7 +746,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>AI 洞察看板</span>
+              <span>成长观察</span>
             </button>
           </div>
 
@@ -751,10 +795,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
                   <div>
                     <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                      你已经积累了 <span className="text-amber-800">产品分析</span>、<span className="text-amber-800">用户洞察</span> 等 {allDisplayCards.length} 张能力卡片
+                      {allDisplayCards.length > 0 ? `已确认 ${allDisplayCards.length} 张能力卡片` : '尚未确认能力卡片'}
                     </h3>
                     <p className="text-xs text-stone-500 mt-0.5">
-                      来自你的个人经历拆解与试路任务推演，点击任意卡牌查看详情
+                      能力卡来自后端保存的用户确认结果，点击卡片查看详情
                     </p>
                     {profileVersion > 0 && (
                       <p className="text-[10px] text-stone-400 font-mono mt-1">
@@ -783,7 +827,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
                 {/* Cards List matching wireframe bullet style */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
-                  {filteredDisplayCards.map((card) => (
+                  {filteredDisplayCards.length > 0 ? filteredDisplayCards.map((card) => (
                     <div
                       key={card.id}
                       onClick={() => onOpenCardDetail(card)}
@@ -835,7 +879,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         {card.description}
                       </p>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="md:col-span-2 rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
+                      完成经历提取并确认能力卡后，个人档案会在这里显示真实卡片。
+                    </div>
+                  )}
                 </div>
 
                 {cardActionError && (
@@ -874,7 +922,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               }`}>
                 <Compass className="w-6 h-6" />
               </div>
-              <div className="text-2xl font-black tracking-tight">{EXPLORED_CAREER_PATHS.length}</div>
+              <div className="text-2xl font-black tracking-tight">{livePaths.length}</div>
               <div className="text-xs font-bold">职业路径</div>
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                 activeArchTab === 'paths' ? 'bg-white/20 text-stone-200' : 'bg-stone-100 text-stone-500'
@@ -896,16 +944,16 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 {/* Panel Header */}
                 <div className="border-b border-stone-100 pb-3">
                   <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                    你已经探索过 <span className="text-amber-800">交互设计师</span>、<span className="text-amber-800">AI产品经理</span> 等 {EXPLORED_CAREER_PATHS.length} 条职业路径
+                    {livePaths.length > 0 ? `已记录 ${livePaths.length} 条职业路径` : '尚未形成职业路径记录'}
                   </h3>
                   <p className="text-xs text-stone-500 mt-0.5">
-                    基于能力卡牌组推演与工作台实战交付，清晰记录各路径探索进度与能力匹配度
+                    基于已确认能力卡和任务证据记录路径探索进度，不输出缺少证据支持的匹配百分比。
                   </p>
                 </div>
 
                 {/* Paths List */}
                 <div className="space-y-3">
-                  {EXPLORED_CAREER_PATHS.map((path) => (
+                  {livePaths.length > 0 ? livePaths.map((path) => (
                     <div
                       key={path.id}
                       className="p-4 rounded-2xl bg-stone-50/80 hover:bg-stone-100 border border-stone-200/70 transition space-y-2.5 group"
@@ -919,11 +967,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                             {path.statusTag}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            匹配度 {path.matchScore}%
-                          </span>
-                        </div>
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          已形成任务证据
+                        </span>
                       </div>
 
                       <p className="text-xs text-stone-600 leading-relaxed">
@@ -935,7 +981,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         <button
                           onClick={() => {
                             if (path.id === 'path-ai-pm') onNavigate('stage2');
-                            else onNavigate('stage1');
+                            else onNavigate('stage2');
                           }}
                           className="text-stone-900 font-bold hover:text-amber-800 flex items-center gap-1 cursor-pointer"
                         >
@@ -943,7 +989,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         </button>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
+                      完成至少一项试路任务后，这里会显示真实的路径进度与最近活动。
+                    </div>
+                  )}
                 </div>
 
                 {/* Bottom Link Action */}
@@ -976,7 +1026,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               }`}>
                 <Award className="w-6 h-6" />
               </div>
-              <div className="text-2xl font-black tracking-tight">{EXPLORED_REPORTS.length}</div>
+              <div className="text-2xl font-black tracking-tight">{liveReports.length}</div>
               <div className="text-xs font-bold">探索报告</div>
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                 activeArchTab === 'reports' ? 'bg-white/20 text-stone-200' : 'bg-stone-100 text-stone-500'
@@ -999,21 +1049,21 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
                   <div>
                     <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                      你已经积累了 <span className="text-amber-800">AI产品经理试路报告</span>、<span className="text-amber-800">交互设计潜能报告</span> 等 {EXPLORED_REPORTS.length} 份探索报告
+                      {liveReports.length > 0 ? `已形成 ${liveReports.length} 份试路评价记录` : '尚未形成试路评价记录'}
                     </h3>
                     <p className="text-xs text-stone-500 mt-0.5">
-                      潜能报告已并入个人档案，点击任意报告展开完整雷达维度、实战得分与导师建议
+                      评价结果来自已提交任务的 Rubric 维度和 Observed Evidence，不代表岗位认证或录用结论。
                     </p>
                   </div>
 
                   <span className="text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 shrink-0">
-                    实战认证 Grade S / A+
+                    仅展示有来源的评价结果
                   </span>
                 </div>
 
                 {/* Reports List */}
                 <div className="space-y-4">
-                  {EXPLORED_REPORTS.map((report) => (
+                  {liveReports.length > 0 ? liveReports.map((report) => (
                     <div
                       key={report.id}
                       className="p-4 sm:p-5 rounded-2xl bg-stone-50/80 border border-stone-200/80 space-y-3 transition"
@@ -1026,7 +1076,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="px-3 py-1 rounded-full bg-stone-900 text-white text-xs font-bold font-mono">
-                            Grade {report.grade} ({report.score}分)
+                            {report.observedLevel} · 置信度 {report.confidence}
                           </div>
                         </div>
                       </div>
@@ -1058,24 +1108,25 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       <div className="flex items-center justify-between pt-2 border-t border-stone-200/50 text-xs">
                         <span className="text-stone-500 text-[11px]">实战耗时：{report.timeSpent}</span>
                         <button
-                          onClick={() => {
-                            const taskMatch = COMPLETED_TRIAL_TASKS.find(t => t.score === report.score);
-                            if (taskMatch) setSelectedTaskForDetail(taskMatch);
-                          }}
+                          onClick={() => onNavigate('stage2')}
                           className="text-stone-900 font-bold hover:text-amber-800 flex items-center gap-1 cursor-pointer"
                         >
-                          <span>查看完整 PRD 与任务交付物 ➔</span>
+                          <span>继续完成下一项任务 ➔</span>
                         </button>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
+                      完成并提交试路任务后，评价结果会自动显示在这里。
+                    </div>
+                  )}
                 </div>
 
                 {/* Merged Potential Report Summary Banner */}
                 <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-400/10 to-emerald-500/10 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-0.5">
-                    <div className="font-bold text-stone-900">潜能报告已全面与个人档案打通</div>
-                    <div className="text-stone-600">完成任意试路工作台模拟后，AI复盘Agent会自动将实战证据与雷达评测更新至此。</div>
+                    <div className="font-bold text-stone-900">任务评价已与个人档案关联</div>
+                    <div className="text-stone-600">提交任务后，Observed Evidence 和评价维度会自动写入本机档案。</div>
                   </div>
                   <button
                     onClick={() => onNavigate('stage2')}
@@ -1102,31 +1153,28 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
                   <div className="space-y-0.5">
                     <h3 className="text-sm sm:text-base font-bold text-stone-900 flex items-center gap-2">
-                      <span>AI 最近注意到……</span>
+                      <span>近期成长观察</span>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-bold">
-                        3 条新洞察
+                        {liveObservations.length} 条记录
                       </span>
                     </h3>
                     <p className="text-xs text-stone-500">
-                      基于你在经历提取、出牌推演与工作台实战中的行为模式自动沉淀
+                      依据已提交任务中的过程证据和评价结果形成
                     </p>
                   </div>
 
                   <button
-                    onClick={() => {
-                      if (onOpenAgentChat) onOpenAgentChat('growth_companion');
-                      else window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: 'growth_companion' } }));
-                    }}
+                    onClick={() => setActiveArchTab('reports')}
                     className="text-xs font-semibold text-stone-700 hover:text-stone-950 px-3 py-1.5 rounded-full bg-stone-100 hover:bg-stone-200 transition cursor-pointer flex items-center gap-1"
                   >
-                    <Bot className="w-3.5 h-3.5 text-purple-600" />
-                    <span>查看更多洞察 / 与Agent对话</span>
+                    <FileText className="w-3.5 h-3.5 text-purple-600" />
+                    <span>查看试路评价</span>
                   </button>
                 </div>
 
                 {/* AI Observation Quotes List matching Figma Wireframe */}
                 <div className="space-y-3">
-                  {AI_RECENT_OBSERVATIONS.map((obs) => (
+                  {liveObservations.length > 0 ? liveObservations.map((obs) => (
                     <div
                       key={obs.id}
                       className="p-4 rounded-2xl bg-stone-50/80 hover:bg-stone-100/90 border border-stone-200/70 transition space-y-2"
@@ -1146,27 +1194,28 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-500 pl-6 gap-2">
                         <span>{obs.timestamp} · {obs.context}</span>
                         <button
-                          onClick={() => {
-                            if (onOpenAgentChat) onOpenAgentChat('review_reflection');
-                            else window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: 'review_reflection' } }));
-                          }}
+                          onClick={() => setActiveArchTab('reports')}
                           className="text-amber-800 font-bold hover:underline cursor-pointer"
                         >
-                          深入探讨 ➔
+                          查看任务评价 ➔
                         </button>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
+                      提交试路任务后，这里会根据真实评价结果生成成长观察。
+                    </div>
+                  )}
                 </div>
 
                 {/* Bottom Guidance */}
                 <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs text-stone-400">
-                  <span>点击左侧卡牌可展开「能力卡库」、「职业路径」或「探索报告」</span>
+                  <span>点击左侧卡牌可查看能力卡、职业路径和试路评价</span>
                   <button
                     onClick={() => setActiveArchTab('reports')}
                     className="text-stone-700 font-bold hover:text-stone-950 flex items-center gap-1 cursor-pointer"
                   >
-                    <span>查看潜能报告全景 ↗</span>
+                    <span>查看试路评价 ↗</span>
                   </button>
                 </div>
               </motion.div>
@@ -1327,14 +1376,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </motion.div>
         </div>
       )}
-
-      {/* Task PRD Detail Modal */}
-      <TrialTaskDetailModal
-        task={selectedTaskForDetail}
-        isOpen={!!selectedTaskForDetail}
-        onClose={() => setSelectedTaskForDetail(null)}
-        onSelectCard={(c) => onOpenCardDetail(c)}
-      />
 
     </div>
   );

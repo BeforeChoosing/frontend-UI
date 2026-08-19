@@ -59,6 +59,19 @@ export interface ProfileCardsResponse {
   notice: string;
 }
 
+export interface ApiProfileEvidence {
+  session_id: string;
+  task_id: string;
+  created_at: string;
+  observed_evidence: ApiObservedEvidence;
+  evaluation?: ApiTrialEvaluation | null;
+}
+
+export interface ProfileOverviewResponse extends ProfileCardsResponse {
+  evidence: ApiProfileEvidence[];
+  completed_task_ids: string[];
+}
+
 export interface ProfileCardPatchRequest {
   title?: string;
   description?: string;

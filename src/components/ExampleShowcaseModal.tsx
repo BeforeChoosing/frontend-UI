@@ -50,7 +50,7 @@ export const ExampleShowcaseModal: React.FC<ExampleShowcaseModalProps> = ({
 
         <div className="space-y-4 my-6 text-stone-700 text-xs sm:text-sm leading-relaxed">
           <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/70">
-            <h4 className="font-semibold text-stone-900 mb-1">🎯 为什么选择真实任务模拟？</h4>
+            <h4 className="font-semibold text-stone-900 mb-1">🎯 真实任务模拟的使用价值</h4>
             <p className="text-stone-600">
               传统的职业性格测试仅提供抽象标签，而「选择之前」采用 Craft 文档级工作桌面，让你直接操作真实工单、Log 日志和数据漏斗，在解决真实 AI 业务问题的过程中建立对岗位的真切感知。
             </p>
