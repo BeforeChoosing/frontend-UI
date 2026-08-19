@@ -249,7 +249,7 @@ export const STAGE_TWO_SIMULATION: SimulationTask = {
 export const CAREER_WIKI_ENTRIES = [
   {
     role: 'AI产品经理 (AI PM)',
-    match: '96% 匹配度',
+    match: '岗位资料',
     description: '负责将前沿大语言模型与多模态能力转化为用户可感知的杀手级应用，平衡模型幻觉、Token成本与用户心智。',
     cityDistribution: '北京 (38%)、上海 (26%)、深圳 (20%)、杭州 (12%)',
     salaryRange: '25k~45k · 15~18薪 (年薪 35w~80w)',
@@ -267,7 +267,7 @@ export const CAREER_WIKI_ENTRIES = [
   },
   {
     role: 'AI交互体验设计师 (UX/Agent Designer)',
-    match: '88% 匹配度',
+    match: '岗位资料',
     description: '重新定义AI时代的人机交互模式，从传统GUI向LUI与智能体协同演进，设计流式加载、主动澄清与拟人反馈。',
     cityDistribution: '上海 (34%)、北京 (30%)、深圳 (22%)、广州/杭州 (14%)',
     salaryRange: '20k~38k · 14~16薪 (年薪 28w~60w)',
@@ -285,7 +285,7 @@ export const CAREER_WIKI_ENTRIES = [
   },
   {
     role: '数据与增长策略专家 (AI Growth)',
-    match: '82% 匹配度',
+    match: '岗位资料',
     description: '通过数据挖掘用户对话与流失漏斗，通过精细化策略驱动模型对话深度、留存与付费转化。',
     cityDistribution: '北京 (35%)、深圳 (30%)、杭州 (22%)、上海 (13%)',
     salaryRange: '22k~40k · 15~17薪 (年薪 32w~68w)',
