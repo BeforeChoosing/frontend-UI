@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build && cp dist/index.html standalone-app.html && mkdir -p public && cp dist/index.html public/standalone-app.html && cp dist/index.html public/preview.html",
+    "build": "vite build && node scripts/build-artifacts.mjs copy",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "node scripts/build-artifacts.mjs clean",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

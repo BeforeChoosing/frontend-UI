@@ -80,7 +80,7 @@ export const CareerWikiModal: React.FC<CareerWikiModalProps> = ({
                   }}
                   className="craft-btn-black text-xs px-3.5 py-1.5 font-bold flex items-center gap-1 cursor-pointer shadow-xs"
                 >
-                  <span>选择此岗位推演</span>
+                  <span>选择这个方向看看</span>
                   <ArrowRight className="w-3 h-3 text-amber-300" />
                 </button>
               </div>

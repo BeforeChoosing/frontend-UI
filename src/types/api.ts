@@ -4,6 +4,14 @@ export interface ProfileProposalRequest {
   existing_card_titles?: string[];
 }
 
+export interface MaterialExtractResponse {
+  file_name: string;
+  text: string;
+  char_count: number;
+  truncated: boolean;
+  notice: string;
+}
+
 export interface ApiExperienceSummary {
   title: string;
   actions: string[];

@@ -98,16 +98,16 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100/70 border border-amber-200 text-amber-900 text-xs font-semibold font-mono mb-4">
             <span>before.choosing</span>
             <span className="w-1 h-1 rounded-full bg-amber-500" />
-            <span>职业探索与能力验证平台</span>
+            <span>把经历变成下一步</span>
           </div>
 
           <h1 className="craft-serif text-4xl sm:text-6xl md:text-7xl font-normal text-stone-900 tracking-tight leading-[1.18] mb-6">
-            before.choosing 不只记录经历，<br />
-            更用于验证职业方向。
+            写下做过的事，<br />
+            看清下一步往哪走。
           </h1>
 
           <p className="text-base sm:text-xl text-stone-600 max-w-2xl mx-auto leading-relaxed mb-10 font-normal">
-            将每一次真实的经历、长期的爱好与未被定义的思考，转化为清晰的个人能力卡，在真实岗位任务中验证可能。
+            从一段项目、实习或兴趣开始，整理出你真正做过的事，再用一个小任务试试职业方向。
           </p>
 
           {/* Craft 5 Outline Icons Row */}
@@ -119,7 +119,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               <div className="w-12 h-12 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex items-center justify-center group-hover:border-stone-400 transition-colors">
                 <FileText className="w-6 h-6 text-stone-800 stroke-[1.5]" />
               </div>
-              <span className="text-xs sm:text-sm font-medium text-stone-700">经历文档</span>
+              <span className="text-xs sm:text-sm font-medium text-stone-700">写下经历</span>
             </button>
 
             <button 
@@ -129,7 +129,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               <div className="w-12 h-12 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex items-center justify-center group-hover:border-stone-400 transition-colors">
                 <Layers className="w-6 h-6 text-stone-800 stroke-[1.5]" />
               </div>
-              <span className="text-xs sm:text-sm font-medium text-stone-700">能力卡片</span>
+              <span className="text-xs sm:text-sm font-medium text-stone-700">看看优势</span>
             </button>
 
             <button 
@@ -139,7 +139,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               <div className="w-12 h-12 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex items-center justify-center group-hover:border-stone-400 transition-colors">
                 <CheckSquare className="w-6 h-6 text-stone-800 stroke-[1.5]" />
               </div>
-              <span className="text-xs sm:text-sm font-medium text-stone-700">岗位任务</span>
+              <span className="text-xs sm:text-sm font-medium text-stone-700">了解岗位</span>
             </button>
 
             <button 
@@ -149,7 +149,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               <div className="w-12 h-12 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex items-center justify-center group-hover:border-stone-400 transition-colors">
                 <Compass className="w-6 h-6 text-stone-800 stroke-[1.5]" />
               </div>
-              <span className="text-xs sm:text-sm font-medium text-stone-700">职场模拟</span>
+              <span className="text-xs sm:text-sm font-medium text-stone-700">动手试试</span>
             </button>
 
             <button 
@@ -159,7 +159,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               <div className="w-12 h-12 rounded-2xl bg-white border border-stone-200/80 shadow-xs flex items-center justify-center group-hover:border-stone-400 transition-colors">
                 <Edit3 className="w-6 h-6 text-stone-800 stroke-[1.5]" />
               </div>
-              <span className="text-xs sm:text-sm font-medium text-stone-700">雷达评估</span>
+              <span className="text-xs sm:text-sm font-medium text-stone-700">回看成长</span>
             </button>
           </div>
 
@@ -170,7 +170,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               className="px-8 py-3.5 rounded-full bg-black text-white text-base font-medium hover:bg-stone-800 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
               id="hero-craft-start-btn"
             >
-              <span>立即输入经历开始</span>
+              <span>从一段经历开始</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -185,20 +185,20 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
             {/* Left Description */}
             <div className="lg:col-span-5 text-left">
               <span className="craft-chip-yellow text-[11px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full inline-block mb-3">
-                01 · 能力提取
+                01 · 看见自己
               </span>
               <h2 className="craft-serif text-3xl sm:text-4xl text-stone-900 font-normal leading-tight mb-4">
-                将经历记录<br />
-                转化为可验证能力
+                看见经历里<br />
+                真正做成的事
               </h2>
               <p className="text-stone-600 text-sm sm:text-base leading-relaxed mb-6 font-normal">
-                将日常经历与兴趣记录转化为能力卡片，并在工作台中关联真实业务上下文，形成从经历记录到岗位验证的连续流程。
+                我们会帮你整理行动、结果和还不确定的地方。每张卡都可以自己修改或删除。
               </p>
               <button
                 onClick={onStartExplore}
                 className="craft-btn-secondary px-6 py-2 text-xs sm:text-sm cursor-pointer"
               >
-                了解提取流程
+                看看怎么整理
               </button>
             </div>
 
@@ -214,7 +214,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                 <div className="bg-stone-50/80 rounded-xl p-4 mt-3 border border-stone-100/80">
                   <div className="text-xs text-stone-500 font-medium font-mono">2026.08.17</div>
                   <div className="text-lg font-bold text-stone-900 mt-0.5">今天</div>
-                  <div className="text-xs text-stone-600">周一 · 职业能力探索与验证</div>
+                  <div className="text-xs text-stone-600">周一 · 整理经历，试试方向</div>
                 </div>
               </div>
 
@@ -245,7 +245,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                     <div className={`w-4 h-4 rounded-md flex items-center justify-center border ${checkedTasks['task-2'] ? 'bg-stone-900 border-stone-900 text-white' : 'border-stone-300'}`}>
                       {checkedTasks['task-2'] && <Check className="w-3 h-3 stroke-[3]" />}
                     </div>
-                    <span className={`flex-1 ${checkedTasks['task-2'] ? 'line-through text-stone-400' : 'text-stone-700'}`}>提取「共情洞察」能力卡</span>
+                    <span className={`flex-1 ${checkedTasks['task-2'] ? 'line-through text-stone-400' : 'text-stone-700'}`}>整理出「共情观察」</span>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-200/50">已提取</span>
                   </div>
 
@@ -256,7 +256,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                     <div className={`w-4 h-4 rounded-md flex items-center justify-center border ${checkedTasks['task-3'] ? 'bg-stone-900 border-stone-900 text-white' : 'border-stone-300'}`}>
                       {checkedTasks['task-3'] && <Check className="w-3 h-3 stroke-[3]" />}
                     </div>
-                    <span className={`flex-1 ${checkedTasks['task-3'] ? 'line-through text-stone-400' : 'text-stone-700'}`}>模拟 AI 需求分析 PRD</span>
+                    <span className={`flex-1 ${checkedTasks['task-3'] ? 'line-through text-stone-400' : 'text-stone-700'}`}>试做一份 AI 需求方案</span>
                     <span className="px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-medium border border-sky-200/50">待验证</span>
                   </div>
                 </div>
@@ -285,11 +285,11 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                 <div className="space-y-2 text-xs">
                   <div className="flex items-baseline gap-2">
                     <span className="font-mono text-amber-700 font-bold text-[11px]">14:00</span>
-                    <span className="text-stone-700">完成阶段02的能力卡槽推演</span>
+                    <span className="text-stone-700">选几张卡，看看先试什么</span>
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="font-mono text-orange-700 font-bold text-[11px]">16:30</span>
-                    <span className="text-stone-700">形成四维能力评估报告</span>
+                    <span className="text-stone-700">记录这次尝试带来的发现</span>
                   </div>
                 </div>
               </div>
@@ -319,7 +319,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                     AI产品经理实战工作台.craft
                   </div>
                   <span className="px-2 py-0.5 rounded-full bg-sky-50 text-sky-800 text-[10px] font-medium border border-sky-200/60">
-                    实战工作台
+                    试做工作台
                   </span>
                 </div>
 
@@ -328,7 +328,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                     AI 产品经理：搜索改版方案 PRD
                   </h3>
                   <p className="text-xs text-stone-600 leading-relaxed">
-                    在阅读 4 份真实业务资料（用户差评工单、接口调用延时 JSON、漏斗分析 CSV）后，产出结构化重构方案：
+                    读完用户反馈、接口耗时和漏斗数据后，完成一份清楚的改进方案：
                   </p>
 
                   <div className="bg-[#FAF9F6] p-3.5 rounded-xl border border-stone-200/60 text-xs space-y-1.5">
@@ -347,14 +347,14 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
             {/* Right Feature Description */}
             <div className="lg:col-span-5 text-left">
               <span className="craft-chip-blue text-[11px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full inline-block mb-3">
-                03 · 试路实战
+                03 · 动手试试
               </span>
               <h2 className="craft-serif text-3xl sm:text-4xl text-stone-900 font-normal leading-tight mb-4">
-                从最初的经历<br />
-                到真实的产出
+                不只想一想<br />
+                也亲手做一次
               </h2>
               <p className="text-stone-600 text-sm sm:text-base leading-relaxed mb-6 font-normal">
-                在选择之前，思考随你而动——即时捕捉跨领域经历中的高光能力，置入真实的业务任务与文档中进行实战打磨。
+                打开一份小任务，看看资料、做出判断，再把这次真实表现记回个人档案。
               </p>
               
               <div className="grid grid-cols-2 gap-3 mb-6">
@@ -362,25 +362,25 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                   <div className="w-7 h-7 rounded-xl bg-stone-100 flex items-center justify-center">
                     <FileText className="w-3.5 h-3.5 text-stone-700" />
                   </div>
-                  <span>真实业务资料</span>
+                  <span>任务资料</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-medium text-stone-800">
                   <div className="w-7 h-7 rounded-xl bg-amber-50 flex items-center justify-center">
                     <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                   </div>
-                  <span>任务教练</span>
+                  <span>按需提示</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-medium text-stone-800">
                   <div className="w-7 h-7 rounded-xl bg-stone-100 flex items-center justify-center">
                     <Layers className="w-3.5 h-3.5 text-stone-700" />
                   </div>
-                  <span>能力卡装配</span>
+                  <span>选择能力卡</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-medium text-stone-800">
                   <div className="w-7 h-7 rounded-xl bg-emerald-50 flex items-center justify-center">
                     <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />
                   </div>
-                  <span>雷达评分</span>
+                  <span>完成后复盘</span>
                 </div>
               </div>
 
@@ -388,7 +388,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                 onClick={onOpenExample}
                 className="craft-btn-black px-6 py-2.5 text-xs sm:text-sm cursor-pointer"
               >
-                体验模拟工作台
+                打开试做工作台
               </button>
             </div>
 
@@ -399,12 +399,13 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
       {/* 4. CRAFT STYLE CARDS SKINS GALLERY (Exact Screenshot 7 Gallery) */}
       <section className="px-4 sm:px-6 max-w-6xl mx-auto mb-20 text-center">
         <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2 block">
-          自定义设置
+          卡片样式
         </span>
         <h2 className="craft-serif text-3xl sm:text-5xl font-normal text-stone-900 mb-4">
-          打造属于你的风格
+          选择喜欢的卡片样式
         </h2>
         <p className="text-sm sm:text-base text-stone-600 max-w-xl mx-auto mb-8 font-normal">
+          样式只改变卡片的感觉，不会改变你确认过的内容。
           为每一张能力卡定制独特的质感与视觉外观。选择你喜欢的 Craft 主题皮肤：
         </p>
 
@@ -439,6 +440,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
       {/* 5. USER STORIES / TESTIMONIALS (Screenshot 4) */}
       <section className="px-4 sm:px-6 max-w-6xl mx-auto mb-16 text-center">
         <h2 className="craft-serif text-2xl sm:text-4xl font-normal text-stone-900 mb-10">
+          不同经历，都能从这里开始
           人们如何使用「选择之前」
         </h2>
 
@@ -473,7 +475,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               <span className="text-3xl">🚀</span>
             </div>
             <div className="text-xs font-semibold text-stone-900 uppercase">STEPHEN, 跨界探索者</div>
-            <p className="text-[11px] text-stone-500 mt-1">能力迁移、目标清单、证据验证</p>
+            <p className="text-[11px] text-stone-500 mt-1">整理优势、试试方向、记录成长</p>
           </div>
 
           <div className="flex flex-col items-center text-center group cursor-pointer" onClick={onStartExplore}>
@@ -492,23 +494,23 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           <div>
             <div className="text-2xl mb-1">🏆</div>
-            <div className="text-xs font-semibold text-stone-900">App Store 体验</div>
-            <div className="text-[11px] text-stone-500">年度优秀交互范式</div>
+            <div className="text-xs font-semibold text-stone-900">内容由你确认</div>
+            <div className="text-[11px] text-stone-500">不擅自写入个人档案</div>
           </div>
           <div>
             <div className="text-3xl leading-none mb-1 font-sans"></div>
-            <div className="text-xs font-semibold text-stone-900">Apple 设计美学</div>
-            <div className="text-[11px] text-stone-500">极简工艺与克制体验</div>
+            <div className="text-xs font-semibold text-stone-900">资料有出处</div>
+            <div className="text-[11px] text-stone-500">建议可以回看来源</div>
           </div>
           <div>
             <div className="text-2xl mb-1">⌨️</div>
-            <div className="text-xs font-semibold text-stone-900">Webby 奖项</div>
-            <div className="text-[11px] text-stone-500">涵盖多领域创新</div>
+            <div className="text-xs font-semibold text-stone-900">任务可续接</div>
+            <div className="text-[11px] text-stone-500">刷新页面也能继续</div>
           </div>
           <div>
             <div className="text-2xl mb-1">📐</div>
-            <div className="text-xs font-semibold text-stone-900">德国设计奖</div>
-            <div className="text-[11px] text-stone-500">卓越沟通设计交互体验</div>
+            <div className="text-xs font-semibold text-stone-900">结果可修改</div>
+            <div className="text-[11px] text-stone-500">能力卡随时可以调整</div>
           </div>
         </div>
       </section>

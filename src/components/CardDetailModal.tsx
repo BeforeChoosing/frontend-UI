@@ -75,7 +75,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             <div className="p-3.5 rounded-2xl bg-purple-50/70 shadow-2xs">
               <h4 className="text-xs font-bold text-purple-950 mb-1 flex items-center gap-1.5">
                 <Briefcase className="w-3.5 h-3.5 text-purple-700" />
-                <span>岗位实战应用场景</span>
+                <span>可以用在哪些工作场景</span>
               </h4>
               <p className="text-xs text-purple-900 leading-relaxed">
                 {card.workplaceApplication}

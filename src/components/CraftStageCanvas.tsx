@@ -34,7 +34,7 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
       pillActive: 'bg-white text-stone-900 shadow-md',
       tagBg: 'bg-[#F2D752] text-[#4A3C08]',
       stageName: '职业探索',
-      stageDesc: '基于能力线索推演职业方向',
+      stageDesc: '根据已有经历，看看哪些方向值得先试',
     },
     green: {
       bgClass: 'bg-[#96D4A7]', // Image 3: Craft Organize/整理 (Mint Green)
@@ -43,8 +43,8 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
       titleDark: 'text-[#0E2916]',
       pillActive: 'bg-white text-stone-900 shadow-md',
       tagBg: 'bg-[#7ECA92] text-[#0A2612]',
-      stageName: '能力验证',
-      stageDesc: '沉淀可追溯的结构化能力证据',
+      stageName: '动手试试',
+      stageDesc: '做一个小任务，看看能力怎样用出来',
     },
     blue: {
       bgClass: 'bg-[#B8CEFA]', // Image 2: Craft Write/写作 (Periwinkle Blue)
@@ -54,7 +54,7 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
       pillActive: 'bg-white text-stone-900 shadow-md',
       tagBg: 'bg-[#A3BEF8] text-[#0A1633]',
       stageName: '工作台',
-      stageDesc: '统一的实战模拟环境，模拟真实业务命题',
+      stageDesc: '在练习材料中完成一份小交付',
     },
     peach: {
       bgClass: 'bg-[#F4BF87]', // Image 4: Craft Customize/自定义 (Golden Peach)
@@ -63,8 +63,8 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
       titleDark: 'text-[#3B1E05]',
       pillActive: 'bg-white text-stone-900 shadow-md',
       tagBg: 'bg-[#EDB070] text-[#331802]',
-      stageName: '能力报告',
-      stageDesc: '形成基于证据的职业能力画像',
+      stageName: '成长记录',
+      stageDesc: '把每次任务的表现和收获放在一起',
     },
     neutral: {
       bgClass: 'bg-[#FAF9F5]',
@@ -74,7 +74,7 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
       pillActive: 'bg-stone-900 text-white shadow-md',
       tagBg: 'bg-stone-200 text-stone-800',
       stageName: '经历提取',
-      stageDesc: '结构化提取过往真实项目与经验',
+      stageDesc: '从做过的事里整理行动和结果',
     }
   }[theme];
 
@@ -213,7 +213,7 @@ export const CraftStageCanvas: React.FC<CraftStageCanvasProps> = ({
               id="craft-stage-btn-stage2"
             >
               <Folder className="w-3.5 h-3.5" />
-              <span>试路验证</span>
+              <span>动手试试</span>
             </button>
 
             {/* 3. 工作台 (Blue - Image 2: 写作/工作台) */}

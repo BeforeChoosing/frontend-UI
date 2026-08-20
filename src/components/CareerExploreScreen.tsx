@@ -16,6 +16,7 @@ import { SkillCard } from '../types';
 import { createCareerRecommendation } from '../api/career';
 import type { ApiCareerRecommendation } from '../types/api';
 import type { TrialTaskId } from '../types/api';
+import { PlayableAbilityCard } from './PlayableAbilityCard';
 
 interface CareerExploreScreenProps {
   confirmedCards?: SkillCard[];
@@ -42,7 +43,6 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
 
   // Sort & Filter state for Hand Cards
   const [sortMode, setSortMode] = useState<'confidence' | 'category' | 'time'>('confidence');
-  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const [dragOverSlotIndex, setDragOverSlotIndex] = useState<number | null>(null);
   const [showExploreResultModal, setShowExploreResultModal] = useState<boolean>(false);
   const [recommendation, setRecommendation] = useState<ApiCareerRecommendation | null>(null);
@@ -63,6 +63,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     }
     return list;
   }, [confirmedCards, sortMode]);
+  const handCards = processedHandCards.filter(card => !isCardInDeck(card.id));
 
   // Click card to play (slides smoothly into first empty slot)
   const handleCardClick = (card: SkillCard) => {
@@ -159,7 +160,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
       setRecommendationStatus('idle');
     } catch (cause) {
       setRecommendationStatus('error');
-      setRecommendationError(cause instanceof Error ? cause.message : '职业推演失败，请稍后重试。');
+      setRecommendationError(cause instanceof Error ? cause.message : '暂时没能生成建议，请稍后再试。');
     }
   };
 
@@ -199,17 +200,17 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
 
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <span className="bg-amber-100 text-amber-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-              阶段 02 · 职业路径推演
+              第 2 步 · 看看方向
             </span>
             <span className="text-xs text-stone-500 hidden sm:inline font-normal">
-              基于已确认能力卡形成下一步验证建议
+              选几张你认可的卡，看看下一步值得先试什么
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="text-xs font-normal text-stone-700 bg-stone-100/90 px-3 py-1 rounded-full border border-stone-200/50">
-            已装配 <span className="text-amber-800 font-mono font-bold">{equippedCount}/4</span>
+            已选择 <span className="text-amber-800 font-mono font-bold">{equippedCount}/4</span>
           </div>
 
           <button
@@ -231,14 +232,39 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
         showExploreResultModal ? 'lg:pr-[460px]' : ''
       }`}>
         
-        <div className="text-center mb-3">
+        <div className="mb-3 flex flex-col items-center justify-center gap-1.5 text-center sm:flex-row sm:gap-3">
           <h2 className="text-base sm:text-lg font-bold text-stone-900 tracking-tight font-serif craft-serif">
-            核心能力组合矩阵
+            这次带上哪些能力卡
           </h2>
+          <motion.div
+            key={`deck-progress-${equippedCount}`}
+            initial={{ opacity: 0.55, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-stone-200/80 bg-white/80 px-2.5 py-1 shadow-2xs"
+          >
+            <span className="flex gap-1" aria-hidden="true">
+              {[0, 1, 2, 3].map((slotIndex) => (
+                <span
+                  key={slotIndex}
+                  className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                    slotIndex < equippedCount ? 'bg-amber-500' : 'bg-stone-200'
+                  }`}
+                />
+              ))}
+            </span>
+            <span className="text-[10px] font-semibold text-stone-600">
+              {equippedCount === 0 ? '等待出牌' : `已上场 ${equippedCount} 张`}
+            </span>
+          </motion.div>
         </div>
 
         {/* 4 SLOTS (SLOT 01 ~ SLOT 04) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 w-full max-w-4xl mx-auto items-center">
+        <div className="relative grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 w-full max-w-4xl mx-auto items-center rounded-[30px] border border-white/80 bg-white/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_18px_45px_-35px_rgba(28,25,23,0.35)] backdrop-blur-sm">
+          <motion.div
+            aria-hidden="true"
+            animate={{ opacity: equippedCount > 0 ? 0.8 : 0.25, scale: equippedCount > 0 ? 1 : 0.92 }}
+            className="pointer-events-none absolute inset-x-[12%] top-1/2 h-20 -translate-y-1/2 rounded-full bg-gradient-to-r from-amber-200/20 via-purple-200/25 to-emerald-200/20 blur-3xl"
+          />
           {deckSlots.map((slotCard, idx) => {
             const isDragOver = dragOverSlotIndex === idx;
             const categoryColors = slotCard ? getCategoryColor(slotCard.category) : null;
@@ -268,24 +294,34 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                     /* POPULATED SLOT */
                     <motion.div
                       key={`matrix-card-${slotCard.id}`}
-                      initial={{ scale: 0.85, opacity: 0, y: 15 }}
-                      animate={{ scale: 1, opacity: 1, y: 0 }}
-                      exit={{ scale: 0.85, opacity: 0, y: -15 }}
-                      className="craft-card w-full h-full rounded-2xl sm:rounded-3xl bg-white p-3.5 flex flex-col justify-between relative border border-stone-200/80 shadow-[0_4px_16px_rgba(0,0,0,0.04)] overflow-hidden cursor-pointer group"
+                      layoutId={`ability-card-${slotCard.id}`}
+                      initial={{ scale: 0.76, opacity: 0, y: 72, rotateZ: -7 }}
+                      animate={{ scale: 1, opacity: 1, y: 0, rotateZ: 0 }}
+                      exit={{ scale: 0.78, opacity: 0, y: 55, rotateZ: 6 }}
+                      whileHover={{ y: -5, scale: 1.018 }}
+                      transition={{ type: 'spring', stiffness: 360, damping: 28 }}
+                      className="craft-card w-full h-full rounded-2xl sm:rounded-3xl bg-white p-3.5 flex flex-col justify-between relative border border-stone-200/80 shadow-[0_12px_28px_-18px_rgba(28,25,23,0.5)] overflow-hidden cursor-pointer group"
                       onClick={() => onOpenCardDetail(slotCard)}
                     >
+                      <motion.div
+                        aria-hidden="true"
+                        initial={{ opacity: 0.8, scale: 0.7 }}
+                        animate={{ opacity: 0, scale: 1.35 }}
+                        transition={{ duration: 0.65 }}
+                        className="pointer-events-none absolute inset-0 rounded-3xl border-2 border-amber-300"
+                      />
                       {/* Top status */}
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex min-w-0 items-center gap-1.5">
                           <span className={`w-2 h-2 rounded-full ${categoryColors?.dot || 'bg-stone-500'}`} />
-                          <span className="text-[10px] font-bold text-stone-700">
+                          <span className="max-w-[56px] truncate whitespace-nowrap text-[10px] font-bold text-stone-700">
                             {slotCard.category}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-1">
                           <span className="bg-amber-100/90 text-amber-900 text-[9px] font-mono font-bold px-1.5 py-0.2 rounded">
-                            槽位 0{idx + 1}
+                            卡位 0{idx + 1}
                           </span>
                           <button
                             onClick={(e) => handleRemoveSlot(idx, e)}
@@ -335,6 +371,10 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                     /* EMPTY SLOT WIREFRAME */
                     <motion.div
                       key={`matrix-empty-${idx}`}
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={{ duration: 0.2 }}
                       className={`w-full h-full rounded-2xl sm:rounded-3xl border border-dashed transition-all flex flex-col items-center justify-center p-3 relative ${
                         isDragOver
                           ? 'border-stone-900 bg-amber-50/70 scale-102'
@@ -343,7 +383,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                     >
                       {/* Top slot badge */}
                       <span className="absolute top-2.5 left-2.5 text-[9px] font-mono text-stone-400">
-                        槽位 0{idx + 1}
+                        卡位 0{idx + 1}
                       </span>
 
                       <div className="flex flex-col items-center text-center mt-2">
@@ -351,10 +391,10 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                           <Plus className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-xs font-medium text-stone-600">
-                          待装配能力
+                          等待出牌
                         </span>
                         <span className="text-[10px] text-stone-400 mt-0.5">
-                          拖入或点击卡牌
+                          点击下方卡牌
                         </span>
                       </div>
                     </motion.div>
@@ -378,7 +418,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
             id="btn-deduce-career"
           >
             <Compass className="w-4 h-4 text-stone-200" />
-            <span>{recommendationStatus === 'loading' ? '正在推演…' : '出牌探索路径'}</span>
+            <span>{recommendationStatus === 'loading' ? '正在整理建议…' : '用这组牌看看方向'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
 
@@ -388,7 +428,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
             className="craft-btn-secondary px-5 py-2 text-xs sm:text-sm flex items-center gap-1.5 shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Zap className="w-3.5 h-3.5 text-amber-600" />
-            <span>一键装配</span>
+            <span>帮我选 4 张</span>
           </button>
 
           {equippedCount > 0 && (
@@ -418,10 +458,10 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
         <div className="flex items-center justify-between px-2 pb-1.5">
           <div className="flex items-center gap-2">
             <span className="text-xs sm:text-sm font-bold text-stone-900 tracking-tight font-serif craft-serif">
-              我的手牌库
+              我的手牌
             </span>
             <span className="text-[10px] text-stone-500 hidden sm:inline">
-              拖拽或点击卡牌自动出牌滑入上方槽位
+              点击出牌，点卡槽右上角可收回
             </span>
           </div>
 
@@ -461,70 +501,27 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
             {processedHandCards.length === 0 ? (
               <div className="w-full min-w-[280px] rounded-2xl border border-dashed border-stone-300 bg-white/60 px-5 py-6 text-center">
                 <p className="text-sm font-semibold text-stone-700">还没有已确认的能力卡</p>
-                <p className="mt-1 text-xs text-stone-500">先完成经历提炼并确认能力卡，再开始职业推演。</p>
+                <p className="mt-1 text-xs text-stone-500">先写下一段经历并确认能力卡，再来看看方向。</p>
               </div>
-            ) : processedHandCards.map((card) => {
-              const inDeck = isCardInDeck(card.id);
-              const colors = getCategoryColor(card.category);
-
+            ) : handCards.length === 0 ? (
+              <div className="w-full min-w-[280px] rounded-2xl border border-amber-200/80 bg-amber-50/70 px-5 py-4 text-center">
+                <p className="text-sm font-semibold text-amber-950">手牌已经全部上场</p>
+                <p className="mt-1 text-xs text-amber-800/70">可以开始看方向，也可以从卡槽收回一张。</p>
+              </div>
+            ) : handCards.map((card, index) => {
               return (
-                <motion.div
+                <PlayableAbilityCard
                   key={card.id}
-                  layout
-                  onMouseEnter={() => setHoveredCardId(card.id)}
-                  onMouseLeave={() => setHoveredCardId(null)}
-                  whileHover={!inDeck ? { y: -8, scale: 1.02, zIndex: 30 } : undefined}
-                  whileTap={!inDeck ? { scale: 0.97 } : undefined}
-                  onClick={() => handleCardClick(card)}
-                  draggable={!inDeck}
+                  card={card}
+                  index={index}
+                  total={handCards.length}
+                  selected={false}
+                  onPlay={() => handleCardClick(card)}
+                  onOpenDetail={() => onOpenCardDetail(card)}
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/card-id', card.id);
                   }}
-                  className={`craft-card w-[122px] sm:w-[136px] h-[134px] rounded-2xl p-2.5 select-none flex flex-col justify-between relative transition-all duration-200 cursor-pointer ${
-                    inDeck
-                      ? 'bg-stone-100/60 opacity-40 grayscale cursor-default shadow-none border border-stone-200/50'
-                      : 'bg-white hover:bg-white border border-stone-200/80 shadow-2xs hover:shadow-md cursor-grab active:cursor-grabbing'
-                  }`}
-                >
-                  {/* Top category & score */}
-                  <div className="flex items-center justify-between text-[9px]">
-                    <div className="flex items-center gap-1">
-                      <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
-                      <span className="text-stone-600 font-bold truncate max-w-[55px]">{card.category}</span>
-                    </div>
-
-                    <span className="text-stone-400 font-mono text-[9px]">
-                      已确认
-                    </span>
-                  </div>
-
-                  {/* Title & Description */}
-                  <div className="my-auto py-0.5">
-                    <h5 className="font-bold text-stone-900 text-xs leading-snug line-clamp-2">
-                      {card.title}
-                    </h5>
-                    <p className="text-[9px] text-stone-500 line-clamp-2 mt-0.5 leading-relaxed">
-                      {card.description}
-                    </p>
-                  </div>
-
-                  {/* Bottom detail action */}
-                  <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenCardDetail(card);
-                    }}
-                    className="flex items-center justify-between text-[9px] text-stone-400 hover:text-stone-800 pt-1 border-t border-stone-100"
-                  >
-                    <div className="flex items-center gap-0.5">
-                      <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
-                      <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
-                      <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
-                      <span className="ml-0.5 font-mono">已确认</span>
-                    </div>
-                    <span>详情</span>
-                  </div>
-                </motion.div>
+                />
               );
             })}
           </div>
@@ -556,14 +553,14 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-stone-900 text-base">
-                        可比较职业路径推演
+                        你的下一步建议
                       </h3>
                       <span className="bg-amber-100 text-amber-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-                        来源与任务依据
+                        为什么这样建议
                       </span>
                     </div>
                     <p className="text-[11px] text-stone-500 mt-0.5">
-                      已结合你装配的 {equippedCount} 张能力卡与现实约束
+                      根据你选择的 {equippedCount} 张能力卡和岗位资料整理
                     </p>
                   </div>
                 </div>
@@ -582,20 +579,20 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                 {recommendationStatus === 'loading' && (
                   <div className="rounded-2xl bg-stone-50/80 border border-stone-200/70 p-5 text-center">
                     <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-stone-200 border-t-stone-900" />
-                    <p className="mt-3 text-sm font-semibold text-stone-800">正在检索岗位资料并生成推演</p>
-                    <p className="mt-1 text-xs text-stone-500">仅使用已确认能力卡与本地知识库，结果会附带引用。</p>
+                    <p className="mt-3 text-sm font-semibold text-stone-800">正在查看岗位资料</p>
+                    <p className="mt-1 text-xs text-stone-500">只使用你确认过的卡，建议会附上参考来源。</p>
                   </div>
                 )}
 
                 {recommendationStatus === 'error' && (
                   <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-                    <p className="text-sm font-semibold text-rose-900">暂时无法完成职业推演</p>
+                    <p className="text-sm font-semibold text-rose-900">暂时没能生成建议</p>
                     <p className="mt-1 text-xs leading-relaxed text-rose-800">{recommendationError}</p>
                     <button
                       onClick={() => void handleStartExplore()}
                       className="mt-3 rounded-full bg-stone-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-black"
                     >
-                      重新推演
+                      再试一次
                     </button>
                   </div>
                 )}
@@ -604,24 +601,24 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                   <div className="rounded-2xl bg-stone-50/80 border border-stone-200/70 p-4">
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                        证据支持的职业路径
+                        目前更值得先试的方向
                       </span>
                       <span className="text-[11px] font-medium text-stone-500">
-                        依据强度：{recommendation.confidence}
+                        参考充分度：{recommendation.confidence}
                       </span>
                     </div>
 
                     <h4 className="text-base sm:text-lg font-bold text-stone-900">{recommendation.role_title}</h4>
-                    <p className="text-xs text-stone-500 mb-1">下一步验证任务：{recommendation.next_task_id} · {recommendation.next_task_title}</p>
+                    <p className="text-xs text-stone-500 mb-1">建议先做：{recommendation.next_task_id} · {recommendation.next_task_title}</p>
                     <p className="text-[10px] leading-relaxed text-stone-500 mb-3">{recommendation.next_task_reason}</p>
 
                     <div className="space-y-2 text-xs text-stone-700 bg-white/70 p-3 rounded-xl border border-stone-100 leading-relaxed">
                       <p>
-                        <strong className="text-stone-900 font-bold">推演摘要：</strong>
+                        <strong className="text-stone-900 font-bold">为什么：</strong>
                         {recommendation.summary}
                       </p>
                       <div>
-                        <strong className="text-stone-900 font-bold">已支持判断：</strong>
+                        <strong className="text-stone-900 font-bold">这些经历能帮上忙：</strong>
                         {recommendation.supported.length === 0 ? (
                           <span className="ml-1 text-stone-500">暂无足够材料形成明确判断。</span>
                         ) : (
@@ -650,7 +647,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                         )}
                       </div>
                       <div>
-                        <strong className="text-stone-900 font-bold">仍待验证：</strong>
+                        <strong className="text-stone-900 font-bold">还需要试一试：</strong>
                         <ul className="mt-1 space-y-1 pl-4 list-disc">
                           {recommendation.unknowns.map(item => <li key={item}>{item}</li>)}
                         </ul>
@@ -658,7 +655,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                     </div>
 
                     <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-[10px] leading-relaxed text-indigo-900">
-                      <p className="font-semibold">引用片段（{recommendation.citations.length}）</p>
+                      <p className="font-semibold">参考的岗位资料（{recommendation.citations.length}）</p>
                       {recommendation.citations.slice(0, 3).map(citation => (
                         <div key={citation.id} className="mt-2 border-t border-indigo-100 pt-2">
                           <p className="font-medium">{citation.document_title} · {citation.source_locator}</p>
@@ -675,7 +672,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                       }}
                       className="mt-3 w-full py-2.5 rounded-full bg-stone-900 hover:bg-black text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      <span>进入 {recommendation.next_task_id} 试路验证</span>
+                      <span>去做 {recommendation.next_task_id} 小任务</span>
                       <ChevronRight className="w-3.5 h-3.5 text-amber-300" />
                     </button>
                   </div>
@@ -687,14 +684,14 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
             <div className="pt-3 mt-3 border-t border-stone-100 flex items-center justify-between text-[11px]">
               <span className="text-stone-400 flex items-center gap-1">
                 <span>💡</span>
-                <span>可在左侧继续调整卡牌，实时重新推演</span>
+                <span>调整左侧卡片，建议也会跟着变化</span>
               </span>
 
               <button
                 onClick={() => setShowExploreResultModal(false)}
                 className="text-stone-500 hover:text-stone-900 font-medium cursor-pointer"
               >
-                收起推演面板
+                收起建议
               </button>
             </div>
           </motion.div>

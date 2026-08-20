@@ -75,7 +75,12 @@
     0 8px 24px -4px rgba(0, 0, 0, 0.03),
     0 20px 48px -12px rgba(0, 0, 0, 0.02),
     inset 0 1px 2px rgba(255, 255, 255, 0.95);
-  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.24s ease,
+    border-color 0.24s ease;
+  will-change: transform;
 }
 
 .craft-card:hover {
@@ -130,12 +135,30 @@
   font-weight: 500;
   box-shadow: 0 2px 8px rgba(28, 26, 24, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.15);
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.craft-btn-black::after {
+  content: "";
+  position: absolute;
+  inset: -80% auto -80% -40%;
+  width: 32%;
+  z-index: -1;
+  transform: rotate(18deg) translateX(-180%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .craft-btn-black:hover {
   background-color: #2C2926;
   transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(28, 26, 24, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.craft-btn-black:hover::after {
+  transform: rotate(18deg) translateX(520%);
 }
 
 .craft-btn-black:active {
@@ -210,6 +233,26 @@
   border-color: rgba(28, 26, 24, 0.3);
   box-shadow: 0 0 0 3px rgba(28, 26, 24, 0.04);
   outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(120, 113, 108, 0.65);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Custom smooth scrollbar */

@@ -43,8 +43,8 @@ export const ExampleShowcaseModal: React.FC<ExampleShowcaseModalProps> = ({
             <LayoutTemplate className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-stone-900 text-lg">体验示例：AI 产品经理从 0 到 1</h3>
-            <p className="text-xs text-stone-500">经典职场实战场景与能力卡演练链路</p>
+            <h3 className="font-bold text-stone-900 text-lg">体验示例：试做一次 AI 产品经理任务</h3>
+            <p className="text-xs text-stone-500">从一段经历开始，走完一次完整体验</p>
           </div>
         </div>
 
@@ -58,15 +58,15 @@ export const ExampleShowcaseModal: React.FC<ExampleShowcaseModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="p-3.5 rounded-xl border border-purple-100 bg-purple-50/50">
-                <span className="font-semibold text-purple-900 text-xs block mb-1">阶段 1：经历提取与能力确认</span>
+                <span className="font-semibold text-purple-900 text-xs block mb-1">第 1 步：写经历，确认能力卡</span>
                 <p className="text-[11px] text-purple-800">
-                从经历文字和材料中提取候选能力卡，由用户确认后写入能力库。
+                写下做过的事，确认哪些能力卡确实符合自己。
                 </p>
             </div>
             <div className="p-3.5 rounded-xl border border-blue-100 bg-blue-50/50">
-                <span className="font-semibold text-blue-900 text-xs block mb-1">阶段 2：岗位任务实战</span>
+                <span className="font-semibold text-blue-900 text-xs block mb-1">第 2 步：做一个岗位小任务</span>
                 <p className="text-[11px] text-blue-800">
-                根据已确认能力卡加载任务库材料，完成结构化交付并接收 Rubric 评价。
+                带着能力卡完成一份小交付，再看看这次做得怎么样。
                 </p>
             </div>
           </div>

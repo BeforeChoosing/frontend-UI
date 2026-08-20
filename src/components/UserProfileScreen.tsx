@@ -101,7 +101,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     return {
       id: record.session_id,
       role: 'AI 产品经理试路',
-      title: `${record.task_id} 试路评价`,
+      title: `${record.task_id} 任务复盘`,
       date: formatEvidenceDate(record.created_at),
       timeSpent: '以工作台记录为准',
       keyDiscovery: evaluation?.summary || record.observed_evidence.statement,
@@ -122,9 +122,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         title: 'AI 产品经理',
         englishTitle: 'AI Product Manager',
         status: '进行中',
-        statusTag: `已完成 ${profileEvidence.length} 项试路任务`,
+        statusTag: `已完成 ${profileEvidence.length} 个小任务`,
         statusColor: 'bg-amber-100 text-amber-900 border-amber-200',
-        description: '基于已确认能力卡和试路证据持续验证产品洞察、方案设计与 AI 产品化能力。',
+        description: '把确认过的能力卡和做过的小任务放在一起，看看自己正在积累什么。',
         completedChallenges: profileEvidence.length,
         totalChallenges: 12,
         latestActivity: `最近记录：${profileEvidence[0].task_id} 任务评价已写入档案`,
@@ -137,12 +137,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     id: record.session_id,
     quote: record.evaluation?.summary || record.observed_evidence.statement,
     timestamp: `记录于 ${formatEvidenceDate(record.created_at)}`,
-    context: `${record.task_id} 试路任务评价`,
+    context: `${record.task_id} 任务复盘`,
     tag: record.observed_evidence.observed_level || '过程证据',
     tagColor: 'bg-emerald-100 text-emerald-800',
   }));
 
-  const profileProgressIntro = `已确认 ${persistedCards.length} 张能力卡，完成 ${profileEvidence.length} 项试路任务，最近一次记录来自${profileEvidence.length > 0 ? `「${profileEvidence[0].task_id}」` : '尚未提交的任务'}`;
+  const profileProgressIntro = `已确认 ${persistedCards.length} 张能力卡，完成 ${profileEvidence.length} 个小任务，最近一次记录来自${profileEvidence.length > 0 ? `「${profileEvidence[0].task_id}」` : '尚未提交的任务'}`;
 
   // The profile shows only cards confirmed through the backend. Landing-page
   // examples are intentionally not presented as personal evidence.
@@ -203,7 +203,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   const handleDeleteCard = async (card: SkillCard & { statusTag: string; addedDate: string }) => {
     if (!persistedCardIds.has(card.id) || !onDeleteCard) return;
-    if (!window.confirm('将删除这张能力卡，并记录一次画像变更。')) return;
+    if (!window.confirm('确定删除这张能力卡吗？这次修改会保留在版本记录里。')) return;
     setCardActionError(null);
     setIsSavingCard(true);
     try {
@@ -285,7 +285,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 className="craft-btn-secondary px-3.5 py-1.5 text-xs flex items-center gap-1.5"
               >
                 <FileText className="w-3.5 h-3.5 text-orange-600" />
-                <span>查看试路评价</span>
+                <span>查看任务复盘</span>
               </button>
             </div>
 
@@ -310,14 +310,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <div className="space-y-1 relative z-10">
               <div className="flex items-center gap-2 mb-1">
                 <span className="craft-chip-green text-[10px] font-mono font-medium px-2 py-0.5 rounded-full">
-                  01 · 沉淀
+                  01 · 记录
                 </span>
               </div>
               <h2 className="text-base sm:text-lg font-normal text-stone-900 tracking-tight font-serif craft-serif">
-                更新我的能力画像
+                记录新的经历
               </h2>
               <p className="text-xs sm:text-sm text-stone-500 leading-relaxed font-normal">
-                分享新的经历或反思，继续补充个人能力证据。
+                写下新的经历或想法，让个人档案更完整。
               </p>
             </div>
 
@@ -421,7 +421,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <span className="text-stone-300">──</span>
                 <span className="flex items-center gap-1 text-orange-700 font-normal whitespace-nowrap">
                   <span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block" />
-                  <span>试路任务</span>
+                  <span>小任务</span>
                 </span>
                 <span className="text-stone-300">──</span>
                 <span className="flex items-center gap-1 text-stone-400 whitespace-nowrap">
@@ -452,7 +452,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           {/* Quick Tab Header / Explanatory Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-stone-800 tracking-tight">探索资产与成长沉淀</span>
+              <span className="text-xs font-bold text-stone-800 tracking-tight">我的记录与成长</span>
               <span className="text-[11px] text-stone-400">点击下方卡牌即可快速切换视图</span>
             </div>
 
@@ -522,7 +522,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     </p>
                     {profileVersion > 0 && (
                       <p className="text-[10px] text-stone-400 font-mono mt-1">
-                        画像版本 v{profileVersion}{profileUpdatedAt ? ` · 最近更新 ${formatProfileUpdatedAt(profileUpdatedAt)}` : ''}
+                        档案版本 v{profileVersion}{profileUpdatedAt ? ` · 最近更新 ${formatProfileUpdatedAt(profileUpdatedAt)}` : ''}
                       </p>
                     )}
                   </div>
@@ -667,7 +667,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     {livePaths.length > 0 ? `已记录 ${livePaths.length} 条职业路径` : '尚未形成职业路径记录'}
                   </h3>
                   <p className="text-xs text-stone-500 mt-0.5">
-                    基于已确认能力卡和任务证据记录路径探索进度，不输出缺少证据支持的匹配百分比。
+                    这里只记录你确认过的卡和做过的任务，不会给出没有依据的岗位匹配分。
                   </p>
                 </div>
 
@@ -705,13 +705,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                           }}
                           className="text-stone-900 font-bold hover:text-amber-800 flex items-center gap-1 cursor-pointer"
                         >
-                          <span>进入该方向实战 ➔</span>
+                          <span>去做一个相关任务 ➔</span>
                         </button>
                       </div>
                     </div>
                   )) : (
                     <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
-                      完成至少一项试路任务后，这里会显示真实的路径进度与最近活动。
+                      完成至少一个小任务后，这里会显示真实的方向进度与最近活动。
                     </div>
                   )}
                 </div>
@@ -747,11 +747,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <Award className="w-6 h-6" />
               </div>
               <div className="text-2xl font-black tracking-tight">{liveReports.length}</div>
-              <div className="text-xs font-bold">探索报告</div>
+              <div className="text-xs font-bold">任务记录</div>
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                 activeArchTab === 'reports' ? 'bg-white/20 text-stone-200' : 'bg-stone-100 text-stone-500'
               }`}>
-                含能力画像
+                含成长回看
               </span>
             </button>
 
@@ -769,10 +769,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
                   <div>
                     <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                      {liveReports.length > 0 ? `已形成 ${liveReports.length} 份试路评价记录` : '尚未形成试路评价记录'}
+                      {liveReports.length > 0 ? `已完成 ${liveReports.length} 次任务复盘` : '还没有完成任务复盘'}
                     </h3>
                     <p className="text-xs text-stone-500 mt-0.5">
-                      评价结果来自已提交任务的 Rubric 维度和 Observed Evidence，不代表岗位认证或录用结论。
+                      这里只记录你在任务里做过什么，不代表岗位认证或录用结论。
                     </p>
                   </div>
 
@@ -819,14 +819,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-100/80 text-xs text-purple-900 flex items-start gap-2">
                         <Bot className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
                         <div>
-                          <span className="font-bold">导师复盘：</span>
+                          <span className="font-bold">下一步建议：</span>
                           <span>{report.mentorComment}</span>
                         </div>
                       </div>
 
                       {/* Actions */}
                       <div className="flex items-center justify-between pt-2 border-t border-stone-200/50 text-xs">
-                        <span className="text-stone-500 text-[11px]">实战耗时：{report.timeSpent}</span>
+                        <span className="text-stone-500 text-[11px]">完成用时：{report.timeSpent}</span>
                         <button
                           onClick={() => onNavigate('stage2')}
                           className="text-stone-900 font-bold hover:text-amber-800 flex items-center gap-1 cursor-pointer"
@@ -837,7 +837,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     </div>
                   )) : (
                     <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
-                      完成并提交试路任务后，评价结果会自动显示在这里。
+                      完成并提交小任务后，评价结果会自动显示在这里。
                     </div>
                   )}
                 </div>
@@ -845,14 +845,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 {/* Merged Potential Report Summary Banner */}
                 <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-400/10 to-emerald-500/10 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-0.5">
-                    <div className="font-bold text-stone-900">任务评价已与个人档案关联</div>
-                    <div className="text-stone-600">提交任务后，Observed Evidence 和评价维度会自动写入本机档案。</div>
+                    <div className="font-bold text-stone-900">这次任务已经记入个人档案</div>
+                    <div className="text-stone-600">完成任务后，本次表现和改进建议会自动保存到本机。</div>
                   </div>
                   <button
                     onClick={() => onNavigate('stage2')}
                     className="craft-btn-black px-4 py-2 text-xs font-bold rounded-full cursor-pointer shrink-0"
                   >
-                    开启新试路测评
+                    再做一个小任务
                   </button>
                 </div>
               </motion.div>
@@ -879,7 +879,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       </span>
                     </h3>
                     <p className="text-xs text-stone-500">
-                      依据已提交任务中的过程证据和评价结果形成
+                      根据你已经完成的任务整理
                     </p>
                   </div>
 
@@ -888,7 +888,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     className="text-xs font-semibold text-stone-700 hover:text-stone-950 px-3 py-1.5 rounded-full bg-stone-100 hover:bg-stone-200 transition cursor-pointer flex items-center gap-1"
                   >
                     <FileText className="w-3.5 h-3.5 text-purple-600" />
-                    <span>查看试路评价</span>
+                    <span>查看任务复盘</span>
                   </button>
                 </div>
 
@@ -923,19 +923,19 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     </div>
                   )) : (
                     <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
-                      提交试路任务后，这里会根据真实评价结果生成成长观察。
+                      提交小任务后，这里会根据真实评价结果整理成长观察。
                     </div>
                   )}
                 </div>
 
                 {/* Bottom Guidance */}
                 <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs text-stone-400">
-                  <span>点击左侧卡牌可查看能力卡、职业路径和试路评价</span>
+                  <span>点击左侧卡片可查看能力卡、职业方向和任务复盘</span>
                   <button
                     onClick={() => setActiveArchTab('reports')}
                     className="text-stone-700 font-bold hover:text-stone-950 flex items-center gap-1 cursor-pointer"
                   >
-                    <span>查看试路评价 ↗</span>
+                    <span>查看任务复盘 ↗</span>
                   </button>
                 </div>
               </motion.div>
@@ -1028,7 +1028,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-base font-bold text-stone-900">编辑能力卡</h3>
-                <p className="text-xs text-stone-500 mt-1">修改会写入本机画像，并生成新的版本记录。</p>
+                <p className="text-xs text-stone-500 mt-1">修改会保存到本机，并生成新的版本记录。</p>
               </div>
               <button
                 type="button"
