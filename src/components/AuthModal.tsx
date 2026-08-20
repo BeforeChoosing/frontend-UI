@@ -15,10 +15,10 @@ import {
 const backgroundCards = [
   {
     id: 'bg-card-left',
-    category: '用户洞察 · STAGE 01',
+    category: '写下经历 · STAGE 01',
     categoryBg: 'bg-emerald-100 text-emerald-900',
-    title: '穿透式需求挖掘',
-    subtitle: '挖掘用户真实动机与隐性痛点',
+    title: '找到关键行动',
+    subtitle: '从真实经历里看见你做过什么',
     accentColor:
       'from-emerald-500/20 via-teal-500/10 to-transparent',
     borderColor: 'border-emerald-200/60',
@@ -31,10 +31,10 @@ const backgroundCards = [
   },
   {
     id: 'bg-card-top',
-    category: '系统架构 · STAGE 02',
+    category: '看看方向 · STAGE 02',
     categoryBg: 'bg-indigo-100 text-indigo-900',
-    title: '复杂逻辑树拆解',
-    subtitle: '业务命题解构与Prompt拓扑',
+    title: '选一个值得尝试的方向',
+    subtitle: '根据能力卡给出有出处的建议',
     accentColor:
       'from-indigo-500/20 via-purple-500/10 to-transparent',
     borderColor: 'border-indigo-200/60',
@@ -47,10 +47,10 @@ const backgroundCards = [
   },
   {
     id: 'bg-card-right',
-    category: '实战推演 · STAGE 03',
+    category: '动手试试 · STAGE 03',
     categoryBg: 'bg-amber-100 text-amber-950',
-    title: '高ROI体验创新',
-    subtitle: '设计主动追问芯片与降本模型',
+    title: '完成一个小任务',
+    subtitle: '用练习材料做出一份小交付',
     accentColor:
       'from-amber-500/20 via-orange-500/10 to-transparent',
     borderColor: 'border-amber-200/60',
@@ -63,10 +63,10 @@ const backgroundCards = [
   },
   {
     id: 'bg-card-bottom',
-    category: '画像沉淀 · STAGE 04',
+    category: '回看成长 · STAGE 04',
     categoryBg: 'bg-rose-100 text-rose-900',
-    title: '多维证据链写回',
-    subtitle: '生成不可篡改的职业能力卡组',
+    title: '保存每次收获',
+    subtitle: '把任务表现和下一步建议放在一起',
     accentColor:
       'from-rose-500/20 via-pink-500/10 to-transparent',
     borderColor: 'border-rose-200/60',
@@ -351,7 +351,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               "
             >
               <span className="font-mono">
-                卡牌背景 · 证据卡
+                卡片样式 · 能力卡
               </span>
 
               <Sparkles

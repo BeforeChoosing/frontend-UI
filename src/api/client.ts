@@ -39,6 +39,30 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   return payload as T;
 }
 
+export async function apiFormRequest<T>(path: string, form: FormData): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      body: form,
+    });
+  } catch {
+    throw new ApiClientError('无法连接后端，请确认 backend 已在 8000 端口启动。');
+  }
+
+  const payload = await response.json().catch(() => null) as
+    | { detail?: string }
+    | null;
+  if (!response.ok) {
+    throw new ApiClientError(
+      payload?.detail || `后端请求失败（${response.status}）`,
+      response.status,
+    );
+  }
+  return payload as T;
+}
+
 export function getApiBaseUrl() {
   return API_BASE_URL;
 }

@@ -115,7 +115,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
   const handleConfirmAndAdd = async () => {
     const confirmed = cards.filter(c => cardStatuses[c.id] === 'confirmed');
     if (confirmed.length === 0) {
-      alert('请至少保留 1 张确认符合经历的能力卡。');
+      alert('请至少保留 1 张符合你的能力卡。');
       return;
     }
 
@@ -165,9 +165,9 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
 
   // Derive Evidence Type tag based on card category/attributes
   const getEvidenceTypeTag = (card: SkillCard, idx: number) => {
-    if (card.matchReason?.includes('事实') || idx === 0) return '证据类型：客观事实提取';
-    if (card.matchReason?.includes('行动') || idx === 1) return '证据类型：主动实践推导';
-    return '证据类型：基于经历的能力意图推断';
+    if (card.matchReason?.includes('事实') || idx === 0) return '来自明确事实';
+    if (card.matchReason?.includes('行动') || idx === 1) return '来自你做过的事';
+    return '这是推测，待你确认';
   };
 
   // =========================================================================
@@ -207,7 +207,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                   02 · 确立坐标
                 </span>
                 <span className="text-[10px] text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full flex items-center gap-1 border border-stone-200/60">
-                  基于经历证据生成
+                  根据你写下的经历整理
                 </span>
               </div>
               <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight">
@@ -311,7 +311,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                         <div className="pt-2 text-center space-y-1 text-xs text-stone-500 leading-relaxed font-normal">
                           <p>• {card.detail || '在复杂情境中快速定位核心矛盾并组织资源'}</p>
                           <p>• {card.workplaceApplication ? `职场落地：${card.workplaceApplication}` : '具备敏捷试错与闭环度量意识'}</p>
-                          <p>• 经历溯源：{card.matchReason || '来源于自述中的实际行动与成果'}</p>
+                          <p>• 这张卡怎么来的：{card.matchReason || '来自你写下的行动和结果'}</p>
                         </div>
                       )}
                     </div>
@@ -336,7 +336,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                       }`}
                     >
                       <Check className="w-3 h-3 shrink-0" />
-                      <span>符合经历</span>
+                      <span>这像我</span>
                     </button>
 
                     {/* 暂不确定 */}
@@ -349,7 +349,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                       }`}
                     >
                       <HelpCircle className="w-3 h-3 shrink-0" />
-                      <span>暂不确定</span>
+                      <span>还不确定</span>
                     </button>
 
                     {/* 不属于我 */}
@@ -362,7 +362,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                       }`}
                     >
                       <X className="w-3 h-3 shrink-0" />
-                      <span>不属于我</span>
+                      <span>不像我</span>
                     </button>
                   </div>
 
@@ -381,7 +381,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
         <div className="pt-6 pb-2 space-y-3 relative z-10">
           {/* Summary Text: 已确认 X/3 张卡牌 */}
           <div className="text-center text-xs text-stone-500 font-normal">
-            已确认 <strong className="text-stone-900 font-bold font-mono">{confirmedCount}</strong>/3 张卡牌
+            已选择 <strong className="text-stone-900 font-bold font-mono">{confirmedCount}</strong>/{initialCards.length} 张卡
           </div>
 
           {/* 3 Buttons in a Row */}
@@ -401,7 +401,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
               className="craft-btn-secondary flex-1 py-2.5 px-4 text-xs sm:text-sm flex items-center justify-center gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin text-stone-900' : 'text-stone-600'}`} />
-              <span>{isRegenerating ? '提炼中...' : '重新生成'}</span>
+              <span>{isRegenerating ? '整理中…' : '重新整理'}</span>
             </button>
 
             {/* 加入能力库 */}
@@ -410,7 +410,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
               disabled={isSaving}
               className="craft-btn-black flex-1 py-2.5 px-4 text-xs sm:text-sm text-center disabled:opacity-60 disabled:cursor-wait"
             >
-              {isSaving ? '保存中…' : '加入能力库'}
+              {isSaving ? '保存中…' : '保存这些卡'}
             </button>
           </div>
           {saveError && (
@@ -461,10 +461,10 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
           {/* Agent Dialogue */}
           <div className="space-y-1.5 flex-1">
             <h2 className="text-base sm:text-lg font-normal text-stone-900 font-serif craft-serif tracking-tight">
-              本轮经历已提炼 <span className="text-amber-800 font-bold font-mono">{confirmedThisRound.length || confirmedCount}</span> 张候选能力卡。
+              这段经历整理出了 <span className="text-amber-800 font-bold font-mono">{confirmedThisRound.length || confirmedCount}</span> 张能力卡。
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-normal">
-              只有经用户核对并确认的内容会写入能力库；后续任务将用于补充可观察证据。
+              只有你确认过的内容才会保存。后面的小任务会帮你看看这些优势如何用出来。
             </p>
           </div>
         </motion.div>
@@ -534,7 +534,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                       <div className="flex flex-col justify-between h-full text-left space-y-2 p-1">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between border-b border-stone-800 pb-1.5">
-                            <span className="text-[10px] font-mono text-amber-300 font-medium">能力详情解析</span>
+                            <span className="text-[10px] font-mono text-amber-300 font-medium">这张卡怎么来的</span>
                             <RotateCw className="w-3 h-3 text-stone-400 group-hover:rotate-180 transition-transform" />
                           </div>
                           <p className="text-xs text-stone-300 leading-relaxed font-normal">
@@ -542,7 +542,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                           </p>
                           {card.workplaceApplication && (
                             <p className="text-[10px] text-amber-200/90 leading-tight">
-                              🎯 职场应用：{card.workplaceApplication}
+                              可以用在哪：{card.workplaceApplication}
                             </p>
                           )}
                         </div>
@@ -576,12 +576,12 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
         {/* Helper text based on card count */}
         <div className="space-y-0.5">
           <p className="text-xs sm:text-sm font-normal text-stone-800">
-            当前已积累 <span className="font-mono text-amber-800 font-bold text-sm sm:text-base">{totalCardCount}</span> 张能力卡
+            现在共有 <span className="font-mono text-amber-800 font-bold text-sm sm:text-base">{totalCardCount}</span> 张能力卡
           </p>
           <p className="text-[11px] sm:text-xs text-stone-500 font-normal">
             {isSufficientForCareer 
-              ? '可以开始组合探索职业方向' 
-              : '继续补充经历，可以获得更丰富的探索结果'}
+                ? '可以带着这些卡去看看方向了'
+              : '再补充一段经历，建议会更贴近你'}
           </p>
         </div>
 
@@ -605,7 +605,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                 className="craft-btn-secondary w-full py-2.5 px-6 text-xs sm:text-sm text-center"
                 id="btn-start-career-explore"
               >
-                开始职业探索
+                看看职业方向
               </button>
             </>
           ) : (
@@ -617,7 +617,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                 id="btn-start-career-explore"
               >
                 <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>开始职业探索</span>
+                <span>看看职业方向</span>
               </button>
 
               {/* Secondary: 继续补充经历 */}

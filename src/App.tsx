@@ -12,9 +12,10 @@ import { CareerWikiModal } from './components/CareerWikiModal';
 import { ExampleShowcaseModal } from './components/ExampleShowcaseModal';
 import { FigmaGuideModal } from './components/FigmaGuideModal';
 import { UserProfileScreen } from './components/UserProfileScreen';
+import { StageTransition } from './components/StageTransition';
 import { useProfileCards } from './hooks/useProfileCards';
 import type { ProfileCardPatchRequest, TrialTaskId } from './types/api';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, MotionConfig } from 'motion/react';
 
 function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
   const cardsById = new Map(existing.map(card => [card.id, card]));
@@ -89,20 +90,29 @@ export default function App() {
   };
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className={`min-h-screen ${getScreenBackground(currentScreen)} text-[#1C1A18] flex flex-col selection:bg-amber-100 selection:text-amber-900 transition-colors duration-500 relative overflow-x-hidden`}>
       
       {/* Subtle Craft Digital Paper Ambient Atmosphere (Soft, warm, restrained) */}
       {!(currentScreen === 'stage2' && isStageTwoFocusMode) && (
         <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
           {/* Subtle warm light glow top left */}
-          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-amber-100/25 blur-3xl" />
+          <motion.div
+            className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-amber-100/25 blur-3xl"
+            animate={{ x: [0, 18, 0], y: [0, 10, 0], scale: [1, 1.05, 1] }}
+            transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+          />
           {/* Subtle stage-adaptive soft glow top right */}
-          <div className={`absolute top-0 -right-20 w-[420px] h-[420px] rounded-full blur-3xl transition-colors duration-700 ${
+          <motion.div
+            animate={{ x: [0, -14, 0], y: [0, 16, 0], scale: [1.02, 0.98, 1.02] }}
+            transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+            className={`absolute top-0 -right-20 w-[420px] h-[420px] rounded-full blur-3xl transition-colors duration-700 ${
             currentScreen === 'input-experience' || currentScreen === 'verify-cards' ? 'bg-emerald-100/20' :
             currentScreen === 'career-explore' ? 'bg-amber-100/25' :
             currentScreen === 'stage2' ? 'bg-sky-100/20' :
             'bg-orange-100/20'
-          }`} />
+          }`}
+          />
           {/* Subtle bottom center diffuse warmth */}
           <div className="absolute -bottom-40 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full bg-stone-200/20 blur-3xl" />
         </div>
@@ -131,13 +141,7 @@ export default function App() {
       <main className="flex-1 relative z-10">
         <AnimatePresence mode="wait">
           {currentScreen === 'landing' && (
-            <motion.div
-              key="landing"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            >
+            <StageTransition key="landing">
               <LandingHero
                 onStartExplore={() => setCurrentScreen('input-experience')}
                 onOpenWiki={() => setIsWikiOpen(true)}
@@ -145,17 +149,11 @@ export default function App() {
                 onOpenAbout={() => setIsExampleOpen(true)}
                 onSelectCard={(card) => setSelectedCard(card)}
               />
-            </motion.div>
+            </StageTransition>
           )}
 
           {currentScreen === 'input-experience' && (
-            <motion.div
-              key="input-experience"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-            >
+            <StageTransition key="input-experience">
               <ExperienceInputScreen
                 onGenerateCards={(cards) => {
                   setDraftCards(cards);
@@ -163,17 +161,11 @@ export default function App() {
                 }}
                 onBackToLanding={() => setCurrentScreen('landing')}
               />
-            </motion.div>
+            </StageTransition>
           )}
 
           {currentScreen === 'verify-cards' && (
-            <motion.div
-              key="verify-cards"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-            >
+            <StageTransition key="verify-cards">
               <AbilityCardVerificationScreen
                 initialCards={draftCards}
                 allAccumulatedCards={unlockedCards}
@@ -190,17 +182,11 @@ export default function App() {
                 onModifyExperience={() => setCurrentScreen('input-experience')}
                 onRegenerate={() => setCurrentScreen('input-experience')}
               />
-            </motion.div>
+            </StageTransition>
           )}
 
           {currentScreen === 'career-explore' && (
-            <motion.div
-              key="career-explore"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-            >
+            <StageTransition key="career-explore">
               <CareerExploreScreen
                 confirmedCards={persistedCards}
                 onStartStageTwo={(taskId) => {
@@ -210,35 +196,23 @@ export default function App() {
                 onOpenWikiModal={() => setIsWikiOpen(true)}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
               />
-            </motion.div>
+            </StageTransition>
           )}
 
           {currentScreen === 'stage2' && (
-            <motion.div
-              key="stage2"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-            >
+            <StageTransition key="stage2">
               <DynamicTrialTaskScreen
                 taskId={selectedTrialTaskId}
                 onBackToExplore={() => setCurrentScreen('career-explore')}
                 onEnterProfile={() => setCurrentScreen('profile')}
                 onTrialComplete={refreshProfile}
               />
-            </motion.div>
+            </StageTransition>
           )}
 
 
           {currentScreen === 'report' && (
-            <motion.div
-              key="report"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-            >
+            <StageTransition key="report">
               <UserProfileScreen
                 persistedCards={persistedCards}
                 profileEvidence={profileEvidence}
@@ -251,17 +225,11 @@ export default function App() {
                 onDeleteCard={handleDeleteProfileCard}
                 initialArchTab="reports"
               />
-            </motion.div>
+            </StageTransition>
           )}
 
           {currentScreen === 'profile' && (
-            <motion.div
-              key="profile"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-            >
+            <StageTransition key="profile">
               <UserProfileScreen
                 persistedCards={persistedCards}
                 profileEvidence={profileEvidence}
@@ -274,7 +242,7 @@ export default function App() {
                 onDeleteCard={handleDeleteProfileCard}
                 initialArchTab="insight"
               />
-            </motion.div>
+            </StageTransition>
           )}
         </AnimatePresence>
       </main>
@@ -324,5 +292,6 @@ export default function App() {
       />
 
     </div>
+    </MotionConfig>
   );
 }

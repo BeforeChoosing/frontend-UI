@@ -1,12 +1,19 @@
-import { apiRequest } from './client';
+import { apiFormRequest, apiRequest } from './client';
 import type {
   ApiCardProposal,
+  MaterialExtractResponse,
   ProfileCardPatchRequest,
   ProfileCardsResponse,
   ProfileOverviewResponse,
   ProfileProposalRequest,
   ProfileProposalResponse,
 } from '../types/api';
+
+export function extractProfileMaterial(file: File): Promise<MaterialExtractResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiFormRequest<MaterialExtractResponse>('/profile/materials/extract', form);
+}
 
 export function createProfileProposal(
   request: ProfileProposalRequest,

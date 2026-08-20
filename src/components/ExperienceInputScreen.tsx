@@ -27,6 +27,7 @@ import {
 import { SkillCard } from '../types';
 import { mapProfileProposalToSkillCards } from '../features/profile/profileAdapter';
 import { useExperienceAnalysis } from '../hooks/useExperienceAnalysis';
+import { extractProfileMaterial } from '../api/profile';
 
 interface ExperienceInputScreenProps {
   onGenerateCards: (cards: SkillCard[]) => void;
@@ -433,9 +434,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     {
       id: 'msg-init',
       role: 'ai',
-      content: '请输入一段具体经历，或上传简历、作品集等材料。系统将提取可核验的行动、结果与能力线索。',
+      content: '写下一段具体经历，或者上传简历和作品。重点说清你做了什么、结果怎样；不确定的地方我们会直接标出来。',
       timestamp: '刚刚',
-      detectedSignals: ['支持文字输入', '支持材料上传', '提取行动与结果']
+      detectedSignals: ['可以直接写', '可以上传材料', '只整理你说过的内容']
     }
   ]);
   const [isAiThinking, setIsAiThinking] = useState(false);
@@ -447,6 +448,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const [linkInput, setLinkInput] = useState('');
   const [isParsingFile, setIsParsingFile] = useState(false);
   const [parsingStep, setParsingStep] = useState('');
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -558,7 +560,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     }
   };
 
-  // Simulated Voice Input
+  // Use browser speech recognition when available; never insert fabricated speech.
   const handleToggleVoice = () => {
     if (isRecording) {
       setIsRecording(false);
@@ -569,11 +571,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setIsRecording(true);
     setVoiceNotice('正在接收语音输入…');
 
-    // Web Speech API fallback/simulation
+    // Web Speech API is optional and browser-dependent.
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       try {
         const recognition = new SpeechRecognition();
+        let recognitionFailed = false;
         recognition.lang = 'zh-CN';
         recognition.continuous = false;
         recognition.interimResults = true;
@@ -586,38 +589,26 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         };
 
         recognition.onerror = () => {
-          fallbackVoiceSimulation();
+          recognitionFailed = true;
+          setIsRecording(false);
+          setVoiceNotice('语音识别失败，请改用文字输入。');
         };
 
         recognition.onend = () => {
           setIsRecording(false);
-          setVoiceNotice(null);
+          if (!recognitionFailed) setVoiceNotice(null);
         };
 
         recognition.start();
         return;
-      } catch (e) {
-        fallbackVoiceSimulation();
+      } catch {
+        setIsRecording(false);
+        setVoiceNotice('当前浏览器无法启动语音识别，请改用文字输入。');
       }
     } else {
-      fallbackVoiceSimulation();
-    }
-  };
-
-  const fallbackVoiceSimulation = () => {
-    const sampleVoiceTexts = [
-      '“我当时在负责跨部门协调，面对需求冲突，我先统一了核心评估指标...”',
-      '“我自学了AI工作流，为团队搭建了一个自动化的资讯抓取工具...”',
-      '“我主导了一次深度用户访谈，抓到了原先产品没有注意到的摩擦点...”'
-    ];
-    const picked = sampleVoiceTexts[Math.floor(Math.random() * sampleVoiceTexts.length)];
-    
-    setTimeout(() => {
-      setInputText(prev => (prev ? prev + ' ' : '') + picked.replace(/“|”/g, ''));
       setIsRecording(false);
-      setVoiceNotice('语音识别完成已填入输入框');
-      setTimeout(() => setVoiceNotice(null), 2500);
-    }, 1600);
+      setVoiceNotice('当前浏览器不支持语音识别，请改用文字输入。');
+    }
   };
 
   // File Upload Handlers
@@ -625,12 +616,44 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setShowUploadModal(true);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    simulateParseFile(file.name, `${(file.size / 1024 / 1024).toFixed(1)} MB`, uploadTab);
+    setUploadError(null);
+    setIsParsingFile(true);
+    setParsingStep('正在读取文档中的可复制文本...');
+    try {
+      const extracted = await extractProfileMaterial(file);
+      const fileSize = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
+      const newFile = { name: extracted.file_name, size: fileSize, type: uploadTab };
+      setUploadedFiles(prev => [...prev, newFile]);
+      setInputText(prev => [
+        prev.trim(),
+        `【材料：${extracted.file_name}】\n${extracted.text}`,
+      ].filter(Boolean).join('\n\n').slice(0, 12000));
+      setMessages(prev => [...prev, {
+        id: `user-upload-${Date.now()}`,
+        role: 'user',
+        content: `【上传了${uploadTab === 'resume' ? '简历' : '作品集'}】${extracted.file_name}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        attachedFile: newFile,
+      }, {
+        id: `ai-upload-${Date.now()}`,
+        role: 'ai',
+        content: `已提取 ${extracted.char_count} 字可复制文本${extracted.truncated ? '（内容较长，已截取前 12000 字）' : ''}。请在输入框核对后再生成候选能力卡。`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        detectedSignals: ['文字已读出', '等你确认', '还没有保存到档案'],
+      }]);
+      setShowUploadModal(false);
+    } catch (cause) {
+      setUploadError(cause instanceof Error ? cause.message : '材料解析失败，请稍后重试。');
+    } finally {
+      setIsParsingFile(false);
+      setParsingStep('');
+      e.target.value = '';
+    }
   };
 
   const handleSelectSampleDoc = (doc: typeof SAMPLE_DOCS[0]) => {
@@ -639,7 +662,31 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
   const handleAddLink = () => {
     if (!linkInput.trim()) return;
-    simulateParseFile(linkInput.trim(), '在线文档', 'link', `链接作品库: ${linkInput.trim()}`);
+    const value = linkInput.trim();
+    try {
+      new URL(value);
+    } catch {
+      setUploadError('请输入完整的 http:// 或 https:// 链接。');
+      return;
+    }
+    const newFile = { name: value, size: '在线链接', type: 'link' as const };
+    setUploadedFiles(prev => [...prev, newFile]);
+    setInputText(prev => [prev.trim(), `作品链接：${value}`].filter(Boolean).join('\n\n'));
+    setMessages(prev => [...prev, {
+      id: `user-link-${Date.now()}`,
+      role: 'user',
+      content: `【记录了作品链接】${value}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      attachedFile: newFile,
+    }, {
+      id: `ai-link-${Date.now()}`,
+      role: 'ai',
+      content: '链接已记录。当前版本不会自动抓取外部页面，请继续补充你在该作品中的具体行动与结果。',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      detectedSignals: ['链接已记录', '等待用户补充'],
+    }]);
+    setUploadError(null);
+    setShowUploadModal(false);
     setLinkInput('');
   };
 
@@ -719,7 +766,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
     setIsAnalyzing(true);
     setIsAiThinking(true);
-    setAnalysisStep('正在连接百炼 Qwen，解析经历中的事实证据...');
+    setAnalysisStep('正在整理你做过的事…');
 
     try {
       const proposal = await analyzeExperience({
@@ -730,7 +777,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       const aiMsg: ChatMessage = {
         id: `ai-analysis-${Date.now()}`,
         role: 'ai',
-        content: `${proposal.experience.title} 已完成候选证据提取。${proposal.next_question}`,
+        content: `${proposal.experience.title} 已经整理好了。${proposal.next_question}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         detectedSignals: cards.map(card => card.title),
       };
@@ -782,7 +829,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             <div className="space-y-1.5 flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight flex items-center gap-2">
-                  <span>经历提取提示</span>
+                  <span>先说说你的经历</span>
                   <span className="craft-chip-green text-[10px] font-medium px-2 py-0.5 rounded-full font-mono">
                     01 · 认识自己
                   </span>
@@ -812,7 +859,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                       <span className="text-[10px] text-stone-500 flex items-center gap-1">
                         <Lightbulb className="w-3 h-3 text-emerald-600" />
-                        <span>捕捉到的线索：</span>
+                        <span>我注意到：</span>
                       </span>
                       {latestAiMessage.detectedSignals.map((signal, idx) => (
                         <span 
@@ -904,13 +951,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-stone-100 text-[11px] text-stone-600">
             <div className="flex items-center gap-1.5">
               <span className="text-stone-400">💡 提示：</span>
-              <span>可以直接在下方打字交流，或点击左侧 📎 上传简历/作品集</span>
+              <span>可以直接写，也可以点左侧 📎 上传简历或作品</span>
             </div>
             <button
               onClick={handleTriggerUpload}
               className="text-stone-800 hover:text-stone-950 font-medium underline underline-offset-2 flex items-center gap-1 cursor-pointer"
             >
-              <span>引导上传简历 / 作品</span>
+              <span>上传材料</span>
               <ExternalLink className="w-3 h-3" />
             </button>
           </div>
@@ -990,14 +1037,14 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   }
                 }}
                 rows={4}
-                placeholder="“分享一次印象深刻的经历&#10;例如项目、实习、比赛或长期兴趣&#10;输入完成后按 Enter 发送”"
+                placeholder="写下一次项目、实习、比赛或长期兴趣。&#10;重点说说：你做了什么，后来发生了什么。"
                 className="w-full h-full bg-transparent text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 leading-relaxed resize-none outline-none font-normal p-1"
               />
 
               {/* Word Count / Helper status & Send Button */}
               <div className="flex items-center justify-between text-[11px] text-stone-400 pt-2 border-t border-stone-100">
                 <div className="flex items-center gap-2">
-                  <span>{inputText ? `已输入 ${inputText.length} 字` : '支持随时点击下方选项快速体验'}</span>
+                  <span>{inputText ? `已输入 ${inputText.length} 字` : '不知道怎么写？可以从下面选一个开头'}</span>
                   {inputText && (
                     <button
                       onClick={() => {
@@ -1014,7 +1061,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
                 {/* Send button for real-time conversational exchange */}
                 <div className="flex items-center gap-2">
-                  <span className="hidden sm:inline text-[10px] text-stone-400">按 Enter 发送对话</span>
+                  <span className="hidden sm:inline text-[10px] text-stone-400">Enter 发送</span>
                   <button
                     onClick={handleSendMessage}
                     disabled={!inputText.trim() || isAiThinking}
@@ -1036,14 +1083,14 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               <div className="w-9 h-9 rounded-full bg-stone-100 text-stone-600 flex flex-col items-center justify-center border border-stone-200/50">
                 <User className="w-4 h-4 text-stone-600" />
               </div>
-              <span className="text-[10px] text-stone-400 font-medium mt-1">用户</span>
+              <span className="text-[10px] text-stone-400 font-medium mt-1">你</span>
             </div>
 
           </div>
 
           {/* Subtitle / Footnote */}
           <p className="text-center text-[11px] sm:text-xs text-stone-500 font-normal">
-            提交后，系统将根据经历描述和材料提炼 2–3 张候选能力卡，可在确认页保留、修改或删除。
+            整理后会得到几张候选能力卡，你可以保留、修改或删除。
           </p>
         </motion.div>
 
@@ -1064,7 +1111,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               快速开始
             </h3>
             <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5">
-              可选择预设经历模板快速体验
+              选一个开头，我们帮你把话题展开
             </p>
           </div>
 
@@ -1117,12 +1164,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             <>
               <RefreshCw className="w-4 h-4 animate-spin text-white" />
               <span className="text-white text-sm font-normal">
-                {analysisStep || '正在分析经历中...'}
+                {analysisStep || '正在整理经历…'}
               </span>
             </>
           ) : (
             <span className="tracking-wide text-white font-medium">
-              分析经历
+              帮我整理这段经历
             </span>
           )}
         </button>
@@ -1141,7 +1188,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           onClick={onBackToLanding}
           className="text-xs text-stone-400 hover:text-stone-700 transition cursor-pointer font-normal"
         >
-          ← 返回首页概览
+          ← 返回首页
         </button>
       </motion.div>
 
@@ -1225,7 +1272,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     <input 
                       ref={fileInputRef}
                       type="file" 
-                      accept=".pdf,.doc,.docx,.txt,.md" 
+                      accept=".pdf,.docx,.txt,.md"
                       className="hidden" 
                       onChange={handleFileUpload}
                     />
@@ -1237,7 +1284,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                         点击选择文件，或将文件拖放到此处
                       </p>
                       <p className="text-[11px] text-stone-500 mt-0.5">
-                        支持 PDF、Word (.docx)、Markdown、TXT 文档 (最大 20MB)
+                        支持 PDF、Word (.docx)、Markdown、TXT 文档 (最大 20MB；扫描件暂不支持 OCR)
                       </p>
                     </div>
                   </div>
@@ -1298,16 +1345,22 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                         disabled={!linkInput.trim()}
                         className="py-2.5 px-4 rounded-xl bg-stone-900 text-amber-200 text-xs font-bold hover:bg-stone-800 disabled:opacity-50 cursor-pointer shadow-xs"
                       >
-                        解析链接
+                        记录链接
                       </button>
                     </div>
                   </div>
 
                   <div className="p-3 rounded-xl bg-[#EDE7DF] text-xs text-stone-600 space-y-1">
                     <p className="font-bold text-stone-800">💡 提示：</p>
-                    <p>系统将读取链接中的项目概述、功能架构与实践说明。</p>
+                    <p>当前版本仅记录链接，不会自动抓取外部页面；请同时补充你在作品中的具体行动与结果。</p>
                   </div>
                 </div>
+              )}
+
+              {uploadError && (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  {uploadError}
+                </p>
               )}
 
               {/* Parsing Loading Overlay */}

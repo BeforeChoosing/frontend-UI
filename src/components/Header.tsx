@@ -15,10 +15,10 @@ const STAGE_HEADER_PILLS: Record<ScreenMode, { label: string; bg: string; text: 
   landing: { label: '产品概览', bg: 'bg-stone-100/90', text: 'text-stone-700', dot: 'bg-stone-400', stageNumber: '00' },
   auth: { label: '用户登录', bg: 'bg-stone-100/90', text: 'text-stone-700', dot: 'bg-stone-400', stageNumber: '00' },
   'input-experience': { label: '认识自己', bg: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60', text: 'text-emerald-900', dot: 'bg-emerald-500', stageNumber: '01' },
-  'verify-cards': { label: '能力沉淀', bg: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60', text: 'text-emerald-900', dot: 'bg-emerald-500', stageNumber: '01' },
+  'verify-cards': { label: '确认能力卡', bg: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60', text: 'text-emerald-900', dot: 'bg-emerald-500', stageNumber: '01' },
   'career-explore': { label: '探索方向', bg: 'bg-amber-50 text-amber-900 border border-amber-200/60', text: 'text-amber-950', dot: 'bg-amber-500', stageNumber: '02' },
-  stage2: { label: '试路验证', bg: 'bg-sky-50 text-sky-900 border border-sky-200/60', text: 'text-sky-950', dot: 'bg-sky-500', stageNumber: '03' },
-  report: { label: '复盘成长', bg: 'bg-orange-50 text-orange-950 border border-orange-200/60', text: 'text-orange-950', dot: 'bg-orange-500', stageNumber: '04' },
+  stage2: { label: '动手试试', bg: 'bg-sky-50 text-sky-900 border border-sky-200/60', text: 'text-sky-950', dot: 'bg-sky-500', stageNumber: '03' },
+  report: { label: '回看成长', bg: 'bg-orange-50 text-orange-950 border border-orange-200/60', text: 'text-orange-950', dot: 'bg-orange-500', stageNumber: '04' },
   profile: { label: '个人档案', bg: 'bg-stone-100/90 text-stone-800 border border-stone-200/60', text: 'text-stone-800', dot: 'bg-stone-500', stageNumber: 'ME' },
 };
 
@@ -101,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="nav-stage2-tab"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-sky-500/80" />
-              <span>试路验证</span>
+              <span>动手试试</span>
             </button>
 
             {/* Stage 4: Soft Coral Orange 复盘成长 */}
@@ -115,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="nav-report-tab"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-orange-500/80" />
-              <span>复盘成长</span>
+              <span>回看成长</span>
             </button>
           </nav>
         </div>
