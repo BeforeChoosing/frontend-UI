@@ -16,6 +16,7 @@ import { SkillCard } from '../types';
 import { createCareerRecommendation } from '../api/career';
 import type { ApiCareerRecommendation } from '../types/api';
 import type { TrialTaskId } from '../types/api';
+import { PlayableAbilityCard } from './PlayableAbilityCard';
 
 interface CareerExploreScreenProps {
   confirmedCards?: SkillCard[];
@@ -42,7 +43,6 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
 
   // Sort & Filter state for Hand Cards
   const [sortMode, setSortMode] = useState<'confidence' | 'category' | 'time'>('confidence');
-  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const [dragOverSlotIndex, setDragOverSlotIndex] = useState<number | null>(null);
   const [showExploreResultModal, setShowExploreResultModal] = useState<boolean>(false);
   const [recommendation, setRecommendation] = useState<ApiCareerRecommendation | null>(null);
@@ -63,6 +63,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     }
     return list;
   }, [confirmedCards, sortMode]);
+  const handCards = processedHandCards.filter(card => !isCardInDeck(card.id));
 
   // Click card to play (slides smoothly into first empty slot)
   const handleCardClick = (card: SkillCard) => {
@@ -231,14 +232,39 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
         showExploreResultModal ? 'lg:pr-[460px]' : ''
       }`}>
         
-        <div className="text-center mb-3">
+        <div className="mb-3 flex flex-col items-center justify-center gap-1.5 text-center sm:flex-row sm:gap-3">
           <h2 className="text-base sm:text-lg font-bold text-stone-900 tracking-tight font-serif craft-serif">
             这次带上哪些能力卡
           </h2>
+          <motion.div
+            key={`deck-progress-${equippedCount}`}
+            initial={{ opacity: 0.55, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-stone-200/80 bg-white/80 px-2.5 py-1 shadow-2xs"
+          >
+            <span className="flex gap-1" aria-hidden="true">
+              {[0, 1, 2, 3].map((slotIndex) => (
+                <span
+                  key={slotIndex}
+                  className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                    slotIndex < equippedCount ? 'bg-amber-500' : 'bg-stone-200'
+                  }`}
+                />
+              ))}
+            </span>
+            <span className="text-[10px] font-semibold text-stone-600">
+              {equippedCount === 0 ? '等待出牌' : `已上场 ${equippedCount} 张`}
+            </span>
+          </motion.div>
         </div>
 
         {/* 4 SLOTS (SLOT 01 ~ SLOT 04) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 w-full max-w-4xl mx-auto items-center">
+        <div className="relative grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 w-full max-w-4xl mx-auto items-center rounded-[30px] border border-white/80 bg-white/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_18px_45px_-35px_rgba(28,25,23,0.35)] backdrop-blur-sm">
+          <motion.div
+            aria-hidden="true"
+            animate={{ opacity: equippedCount > 0 ? 0.8 : 0.25, scale: equippedCount > 0 ? 1 : 0.92 }}
+            className="pointer-events-none absolute inset-x-[12%] top-1/2 h-20 -translate-y-1/2 rounded-full bg-gradient-to-r from-amber-200/20 via-purple-200/25 to-emerald-200/20 blur-3xl"
+          />
           {deckSlots.map((slotCard, idx) => {
             const isDragOver = dragOverSlotIndex === idx;
             const categoryColors = slotCard ? getCategoryColor(slotCard.category) : null;
@@ -268,19 +294,27 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                     /* POPULATED SLOT */
                     <motion.div
                       key={`matrix-card-${slotCard.id}`}
-                      initial={{ scale: 0.85, opacity: 0, y: 15 }}
-                      animate={{ scale: 1, opacity: 1, y: 0 }}
-                      exit={{ scale: 0.85, opacity: 0, y: -15 }}
-                      whileHover={{ y: -3, scale: 1.012 }}
+                      layoutId={`ability-card-${slotCard.id}`}
+                      initial={{ scale: 0.76, opacity: 0, y: 72, rotateZ: -7 }}
+                      animate={{ scale: 1, opacity: 1, y: 0, rotateZ: 0 }}
+                      exit={{ scale: 0.78, opacity: 0, y: 55, rotateZ: 6 }}
+                      whileHover={{ y: -5, scale: 1.018 }}
                       transition={{ type: 'spring', stiffness: 360, damping: 28 }}
-                      className="craft-card w-full h-full rounded-2xl sm:rounded-3xl bg-white p-3.5 flex flex-col justify-between relative border border-stone-200/80 shadow-[0_4px_16px_rgba(0,0,0,0.04)] overflow-hidden cursor-pointer group"
+                      className="craft-card w-full h-full rounded-2xl sm:rounded-3xl bg-white p-3.5 flex flex-col justify-between relative border border-stone-200/80 shadow-[0_12px_28px_-18px_rgba(28,25,23,0.5)] overflow-hidden cursor-pointer group"
                       onClick={() => onOpenCardDetail(slotCard)}
                     >
+                      <motion.div
+                        aria-hidden="true"
+                        initial={{ opacity: 0.8, scale: 0.7 }}
+                        animate={{ opacity: 0, scale: 1.35 }}
+                        transition={{ duration: 0.65 }}
+                        className="pointer-events-none absolute inset-0 rounded-3xl border-2 border-amber-300"
+                      />
                       {/* Top status */}
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex min-w-0 items-center gap-1.5">
                           <span className={`w-2 h-2 rounded-full ${categoryColors?.dot || 'bg-stone-500'}`} />
-                          <span className="text-[10px] font-bold text-stone-700">
+                          <span className="max-w-[56px] truncate whitespace-nowrap text-[10px] font-bold text-stone-700">
                             {slotCard.category}
                           </span>
                         </div>
@@ -357,10 +391,10 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                           <Plus className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-xs font-medium text-stone-600">
-                          点一张卡放进来
+                          等待出牌
                         </span>
                         <span className="text-[10px] text-stone-400 mt-0.5">
-                          拖入或点击卡牌
+                          点击下方卡牌
                         </span>
                       </div>
                     </motion.div>
@@ -384,7 +418,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
             id="btn-deduce-career"
           >
             <Compass className="w-4 h-4 text-stone-200" />
-            <span>{recommendationStatus === 'loading' ? '正在整理建议…' : '看看下一步'}</span>
+            <span>{recommendationStatus === 'loading' ? '正在整理建议…' : '用这组牌看看方向'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
 
@@ -424,10 +458,10 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
         <div className="flex items-center justify-between px-2 pb-1.5">
           <div className="flex items-center gap-2">
             <span className="text-xs sm:text-sm font-bold text-stone-900 tracking-tight font-serif craft-serif">
-              我的能力卡
+              我的手牌
             </span>
             <span className="text-[10px] text-stone-500 hidden sm:inline">
-              拖拽或点击卡牌自动出牌滑入上方槽位
+              点击出牌，点卡槽右上角可收回
             </span>
           </div>
 
@@ -469,68 +503,25 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
                 <p className="text-sm font-semibold text-stone-700">还没有已确认的能力卡</p>
                 <p className="mt-1 text-xs text-stone-500">先写下一段经历并确认能力卡，再来看看方向。</p>
               </div>
-            ) : processedHandCards.map((card) => {
-              const inDeck = isCardInDeck(card.id);
-              const colors = getCategoryColor(card.category);
-
+            ) : handCards.length === 0 ? (
+              <div className="w-full min-w-[280px] rounded-2xl border border-amber-200/80 bg-amber-50/70 px-5 py-4 text-center">
+                <p className="text-sm font-semibold text-amber-950">手牌已经全部上场</p>
+                <p className="mt-1 text-xs text-amber-800/70">可以开始看方向，也可以从卡槽收回一张。</p>
+              </div>
+            ) : handCards.map((card, index) => {
               return (
-                <motion.div
+                <PlayableAbilityCard
                   key={card.id}
-                  layout
-                  onMouseEnter={() => setHoveredCardId(card.id)}
-                  onMouseLeave={() => setHoveredCardId(null)}
-                  whileHover={!inDeck ? { y: -8, scale: 1.02, zIndex: 30 } : undefined}
-                  whileTap={!inDeck ? { scale: 0.97 } : undefined}
-                  onClick={() => handleCardClick(card)}
-                  draggable={!inDeck}
+                  card={card}
+                  index={index}
+                  total={handCards.length}
+                  selected={false}
+                  onPlay={() => handleCardClick(card)}
+                  onOpenDetail={() => onOpenCardDetail(card)}
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/card-id', card.id);
                   }}
-                  className={`craft-card w-[122px] sm:w-[136px] h-[134px] rounded-2xl p-2.5 select-none flex flex-col justify-between relative transition-all duration-200 cursor-pointer ${
-                    inDeck
-                      ? 'bg-stone-100/60 opacity-40 grayscale cursor-default shadow-none border border-stone-200/50'
-                      : 'bg-white hover:bg-white border border-stone-200/80 shadow-2xs hover:shadow-md cursor-grab active:cursor-grabbing'
-                  }`}
-                >
-                  {/* Top category & score */}
-                  <div className="flex items-center justify-between text-[9px]">
-                    <div className="flex items-center gap-1">
-                      <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
-                      <span className="text-stone-600 font-bold truncate max-w-[55px]">{card.category}</span>
-                    </div>
-
-                    <span className="text-stone-400 font-mono text-[9px]">
-                      已确认
-                    </span>
-                  </div>
-
-                  {/* Title & Description */}
-                  <div className="my-auto py-0.5">
-                    <h5 className="font-bold text-stone-900 text-xs leading-snug line-clamp-2">
-                      {card.title}
-                    </h5>
-                    <p className="text-[9px] text-stone-500 line-clamp-2 mt-0.5 leading-relaxed">
-                      {card.description}
-                    </p>
-                  </div>
-
-                  {/* Bottom detail action */}
-                  <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenCardDetail(card);
-                    }}
-                    className="flex items-center justify-between text-[9px] text-stone-400 hover:text-stone-800 pt-1 border-t border-stone-100"
-                  >
-                    <div className="flex items-center gap-0.5">
-                      <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
-                      <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
-                      <span className={`w-1 h-1 rounded-full ${colors.dot}`} />
-                      <span className="ml-0.5 font-mono">已确认</span>
-                    </div>
-                    <span>详情</span>
-                  </div>
-                </motion.div>
+                />
               );
             })}
           </div>
