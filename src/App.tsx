@@ -221,7 +221,6 @@ export default function App() {
               <DynamicTrialTaskScreen
                 taskId={selectedTrialTaskId}
                 confirmedCards={persistedCards}
-                initialSelectedCardIds={careerSelectedCardIds}
                 onBackToExplore={() => setCurrentScreen('career-explore')}
                 onEnterProfile={() => setCurrentScreen('profile')}
                 onOpenCardDetail={(card) => setSelectedCard(card)}

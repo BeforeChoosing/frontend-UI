@@ -21,7 +21,6 @@ import { trialPhaseKey, trialStepKey } from '../services/demoProgress';
 interface DynamicTrialTaskScreenProps {
   taskId: TrialTaskId;
   confirmedCards: SkillCard[];
-  initialSelectedCardIds?: string[];
   onBackToExplore: () => void;
   onEnterProfile: () => void;
   onOpenCardDetail: (card: SkillCard) => void;
@@ -31,7 +30,6 @@ interface DynamicTrialTaskScreenProps {
 export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   taskId,
   confirmedCards,
-  initialSelectedCardIds = [],
   onBackToExplore,
   onEnterProfile,
   onOpenCardDetail,
@@ -53,20 +51,14 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
 
   useEffect(() => {
     if (session) {
-      setAnswer(
-        session.answer.selected_card_ids.length > 0
-          ? session.answer
-          : { ...session.answer, selected_card_ids: initialSelectedCardIds.slice(0, 4) },
-      );
+      setAnswer(session.answer);
       const savedPhase = window.localStorage.getItem(trialPhaseKey(taskId));
       setPhase(
         session.status === 'submitted'
           ? 'workbench'
-          : session.answer.card_play_completed && savedPhase === 'card-play'
-            ? 'card-play'
-            : session.answer.card_play_completed
-              ? 'workbench'
-              : 'card-play',
+          : session.answer.card_play_completed && savedPhase === 'workbench'
+            ? 'workbench'
+            : 'card-play',
       );
       const savedStep = Number(window.localStorage.getItem(trialStepKey(taskId)));
       if (Number.isInteger(savedStep) && savedStep >= 0 && savedStep < 5) {
@@ -76,7 +68,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
         setStepIndex(firstIncomplete === -1 ? task.steps.length - 1 : firstIncomplete);
       }
     }
-  }, [initialSelectedCardIds, session, task, taskId]);
+  }, [session, task, taskId]);
 
   useEffect(() => {
     window.localStorage.setItem(trialPhaseKey(taskId), phase);
@@ -160,11 +152,32 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     );
   }
 
-  const handleCardPlayComplete = async () => {
-    if (!answer.selected_card_ids.length || !answer.card_play_rationale.trim() || !answer.validation_hypothesis.trim()) return;
-    const completedAnswer = { ...answer, card_play_completed: true };
+  const handleCardPlayEvaluate = async () => {
+    const challenge = task.ability_challenges[answer.card_play_current_index];
+    const round = answer.card_play_rounds.find(item => item.challenge_id === challenge?.id);
+    if (!challenge || !round?.selected_card_ids.length) return;
+    const completedChallengeIds = new Set(answer.card_play_rounds.map(item => item.challenge_id));
+    const isLastChallenge = answer.card_play_current_index === task.ability_challenges.length - 1;
+    const completedAnswer = {
+      ...answer,
+      card_play_completed: isLastChallenge
+        && task.ability_challenges.every(item => completedChallengeIds.has(item.id)),
+    };
     setAnswer(completedAnswer);
-    await save(completedAnswer);
+    const saved = await save(completedAnswer);
+    setAnswer(saved.answer);
+  };
+
+  const handleSelectCardPlayChallenge = async (index: number) => {
+    if (index < 0 || index >= task.ability_challenges.length || index === answer.card_play_current_index) return;
+    const nextAnswer = { ...answer, card_play_current_index: index };
+    setAnswer(nextAnswer);
+    const saved = await save(nextAnswer);
+    setAnswer(saved.answer);
+  };
+
+  const handleEnterWorkbench = () => {
+    if (!answer.card_play_completed) return;
     window.localStorage.setItem(trialPhaseKey(taskId), 'workbench');
     setPhase('workbench');
   };
@@ -178,7 +191,9 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
         error={error}
         saving={status === 'saving'}
         onChange={setAnswer}
-        onContinue={() => void handleCardPlayComplete()}
+        onEvaluate={() => void handleCardPlayEvaluate()}
+        onSelectChallenge={(index) => void handleSelectCardPlayChallenge(index)}
+        onEnterWorkbench={handleEnterWorkbench}
         onBack={onBackToExplore}
         onOpenCardDetail={onOpenCardDetail}
       />
