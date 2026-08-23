@@ -12,20 +12,26 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useDynamicTrialTask } from '../hooks/useDynamicTrialTask';
+import type { SkillCard } from '../types';
 import type { ApiDynamicTrialAnswer, TrialTaskId } from '../types/api';
 import { TaskStepInput } from './TaskStepInput';
+import { TrialCardPlayScreen } from './TrialCardPlayScreen';
 
 interface DynamicTrialTaskScreenProps {
   taskId: TrialTaskId;
+  confirmedCards: SkillCard[];
   onBackToExplore: () => void;
   onEnterProfile: () => void;
+  onOpenCardDetail: (card: SkillCard) => void;
   onTrialComplete?: () => Promise<unknown> | void;
 }
 
 export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   taskId,
+  confirmedCards,
   onBackToExplore,
   onEnterProfile,
+  onOpenCardDetail,
   onTrialComplete,
 }) => {
   const { task, session, status, error, save, revealEvent, requestCoach, submit } = useDynamicTrialTask(taskId);
@@ -33,9 +39,15 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const [answer, setAnswer] = useState<ApiDynamicTrialAnswer | null>(null);
   const [activeMaterialId, setActiveMaterialId] = useState<string | null>(null);
   const [coachText, setCoachText] = useState<string | null>(null);
+  const [phase, setPhase] = useState<'card-play' | 'workbench'>('card-play');
 
   useEffect(() => {
-    if (session) setAnswer(session.answer);
+    if (session) {
+      setAnswer(session.answer);
+      if (session.status === 'submitted' || session.answer.card_play_completed) {
+        setPhase('workbench');
+      }
+    }
   }, [session]);
 
   const currentStep = task?.steps[stepIndex];
@@ -112,6 +124,30 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     );
   }
 
+  const handleCardPlayComplete = async () => {
+    if (!answer.selected_card_ids.length || !answer.card_play_rationale.trim() || !answer.validation_hypothesis.trim()) return;
+    const completedAnswer = { ...answer, card_play_completed: true };
+    setAnswer(completedAnswer);
+    await save(completedAnswer);
+    setPhase('workbench');
+  };
+
+  if (phase === 'card-play') {
+    return (
+      <TrialCardPlayScreen
+        task={task}
+        cards={confirmedCards}
+        answer={answer}
+        error={error}
+        saving={status === 'saving'}
+        onChange={setAnswer}
+        onContinue={() => void handleCardPlayComplete()}
+        onBack={onBackToExplore}
+        onOpenCardDetail={onOpenCardDetail}
+      />
+    );
+  }
+
   const updateStepAnswer = (value: string) => {
     if (!currentStep) return;
     setAnswer(current => current ? ({
@@ -171,8 +207,12 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
       <div className="space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
           <div>
-            <button onClick={onBackToExplore} className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-900"><ArrowLeft className="w-3.5 h-3.5" />返回职业探索</button>
+            <div className="flex flex-wrap items-center gap-4">
+              <button onClick={onBackToExplore} className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-900"><ArrowLeft className="w-3.5 h-3.5" />返回职业探索</button>
+              <button onClick={() => setPhase('card-play')} className="text-xs text-purple-700 hover:text-purple-950">返回能力出牌</button>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-mono font-bold text-sky-800">03 · 阶段 2 / 2</span>
               <span className="rounded-full bg-purple-100 px-2 py-1 text-[10px] font-mono font-bold text-purple-800">{task.id}</span>
               <span className="rounded-full bg-stone-100 px-2 py-1 text-[10px] font-mono text-stone-600">{task.role_type}</span>
               <span className="flex items-center gap-1 rounded-full bg-stone-100 px-2 py-1 text-[10px] font-mono text-stone-600"><Clock3 className="w-3 h-3" />{task.estimated_minutes}</span>

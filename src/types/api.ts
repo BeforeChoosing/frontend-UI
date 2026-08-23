@@ -305,6 +305,10 @@ export interface ApiDynamicTrialCoachUsage {
 }
 
 export interface ApiDynamicTrialAnswer {
+  selected_card_ids: string[];
+  card_play_rationale: string;
+  validation_hypothesis: string;
+  card_play_completed: boolean;
   step_answers: Record<string, string>;
   viewed_material_ids: string[];
   evidence_refs: string[];

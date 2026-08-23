@@ -203,8 +203,10 @@ export default function App() {
             <StageTransition key="stage2">
               <DynamicTrialTaskScreen
                 taskId={selectedTrialTaskId}
+                confirmedCards={persistedCards}
                 onBackToExplore={() => setCurrentScreen('career-explore')}
                 onEnterProfile={() => setCurrentScreen('profile')}
+                onOpenCardDetail={(card) => setSelectedCard(card)}
                 onTrialComplete={refreshProfile}
               />
             </StageTransition>
