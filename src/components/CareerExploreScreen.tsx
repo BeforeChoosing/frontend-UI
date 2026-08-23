@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sparkles, 
@@ -20,18 +20,26 @@ import { PlayableAbilityCard } from './PlayableAbilityCard';
 
 interface CareerExploreScreenProps {
   confirmedCards?: SkillCard[];
+  initialSelectedCardIds?: string[];
+  initialRecommendation?: ApiCareerRecommendation | null;
   onStartStageTwo: (taskId: TrialTaskId) => void;
   onOpenWikiModal: () => void;
   onOpenCardDetail: (card: SkillCard) => void;
   onSlotsChange?: (slots: (SkillCard | null)[]) => void;
+  onSelectionChange?: (cardIds: string[]) => void;
+  onRecommendationChange?: (recommendation: ApiCareerRecommendation | null) => void;
 }
 
 export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   confirmedCards = [],
+  initialSelectedCardIds = [],
+  initialRecommendation = null,
   onStartStageTwo,
   onOpenWikiModal,
   onOpenCardDetail,
   onSlotsChange,
+  onSelectionChange,
+  onRecommendationChange,
 }) => {
   // 4 Slot State - Starts empty as requested
   const [deckSlots, setDeckSlots] = useState<(SkillCard | null)[]>([
@@ -44,10 +52,29 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   // Sort & Filter state for Hand Cards
   const [sortMode, setSortMode] = useState<'confidence' | 'category' | 'time'>('confidence');
   const [dragOverSlotIndex, setDragOverSlotIndex] = useState<number | null>(null);
-  const [showExploreResultModal, setShowExploreResultModal] = useState<boolean>(false);
-  const [recommendation, setRecommendation] = useState<ApiCareerRecommendation | null>(null);
+  const [showExploreResultModal, setShowExploreResultModal] = useState<boolean>(Boolean(initialRecommendation));
+  const [recommendation, setRecommendation] = useState<ApiCareerRecommendation | null>(initialRecommendation);
   const [recommendationStatus, setRecommendationStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
+  const recommendationRequestRef = useRef<Promise<ApiCareerRecommendation> | null>(null);
+
+  useEffect(() => {
+    if (deckSlots.some(Boolean) || initialSelectedCardIds.length === 0 || confirmedCards.length === 0) return;
+    const restored: (SkillCard | null)[] = initialSelectedCardIds
+      .map(cardId => confirmedCards.find(card => card.id === cardId) || null)
+      .filter((card): card is SkillCard => Boolean(card))
+      .slice(0, 4);
+    while (restored.length < 4) restored.push(null);
+    setDeckSlots(restored);
+  }, [confirmedCards, deckSlots, initialSelectedCardIds]);
+
+  const publishSelection = (slots: (SkillCard | null)[]) => {
+    onSlotsChange?.(slots);
+    onSelectionChange?.(slots.filter((card): card is SkillCard => Boolean(card)).map(card => card.id));
+    setRecommendation(null);
+    onRecommendationChange?.(null);
+    setShowExploreResultModal(false);
+  };
 
   const isCardInDeck = (cardId: string) => deckSlots.some(s => s?.id === cardId);
   const equippedCount = deckSlots.filter(Boolean).length;
@@ -71,7 +98,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
       // Remove from slot
       const next = deckSlots.map(s => s?.id === card.id ? null : s);
       setDeckSlots(next);
-      if (onSlotsChange) onSlotsChange(next);
+      publishSelection(next);
     } else {
       // Equip into first empty slot
       const emptyIdx = deckSlots.findIndex(s => s === null);
@@ -82,7 +109,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
         next[3] = card;
       }
       setDeckSlots(next);
-      if (onSlotsChange) onSlotsChange(next);
+      publishSelection(next);
     }
   };
 
@@ -91,26 +118,20 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     const cardToSlot = confirmedCards.find(c => c.id === cardId);
     if (!cardToSlot) return;
 
-    setDeckSlots(prev => {
-      const next = [...prev];
-      const existingIdx = next.findIndex(s => s?.id === cardId);
-      if (existingIdx !== -1) {
-        next[existingIdx] = null;
-      }
-      next[targetSlotIndex] = cardToSlot;
-      if (onSlotsChange) onSlotsChange(next);
-      return next;
-    });
+    const next = [...deckSlots];
+    const existingIdx = next.findIndex(s => s?.id === cardId);
+    if (existingIdx !== -1) next[existingIdx] = null;
+    next[targetSlotIndex] = cardToSlot;
+    setDeckSlots(next);
+    publishSelection(next);
   };
 
   const handleRemoveSlot = (slotIndex: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    setDeckSlots(prev => {
-      const next = [...prev];
-      next[slotIndex] = null;
-      if (onSlotsChange) onSlotsChange(next);
-      return next;
-    });
+    const next = [...deckSlots];
+    next[slotIndex] = null;
+    setDeckSlots(next);
+    publishSelection(next);
   };
 
   // Action: 一键装配
@@ -118,7 +139,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     const next: (SkillCard | null)[] = confirmedCards.slice(0, 4);
     while (next.length < 4) next.push(null);
     setDeckSlots(next);
-    if (onSlotsChange) onSlotsChange(next);
+    publishSelection(next);
     try {
       confetti({
         particleCount: 40,
@@ -134,9 +155,11 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   const handleClearSlots = () => {
     const next = [null, null, null, null];
     setDeckSlots(next);
-    if (onSlotsChange) onSlotsChange(next);
+    onSlotsChange?.(next);
+    onSelectionChange?.([]);
     setShowExploreResultModal(false);
     setRecommendation(null);
+    onRecommendationChange?.(null);
     setRecommendationStatus('idle');
     setRecommendationError(null);
   };
@@ -145,13 +168,17 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   const handleStartExplore = async () => {
     const selectedCardIds = deckSlots.filter((card): card is SkillCard => Boolean(card)).map(card => card.id);
     if (selectedCardIds.length === 0) return;
+    if (recommendationRequestRef.current) return;
     setRecommendationStatus('loading');
     setRecommendationError(null);
     setRecommendation(null);
     setShowExploreResultModal(true);
     try {
-      const nextRecommendation = await createCareerRecommendation(selectedCardIds);
+      const request = createCareerRecommendation(selectedCardIds);
+      recommendationRequestRef.current = request;
+      const nextRecommendation = await request;
       setRecommendation(nextRecommendation);
+      onRecommendationChange?.(nextRecommendation);
       confetti({
         particleCount: 55,
         spread: 75,
@@ -161,6 +188,8 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     } catch (cause) {
       setRecommendationStatus('error');
       setRecommendationError(cause instanceof Error ? cause.message : '暂时没能生成建议，请稍后再试。');
+    } finally {
+      recommendationRequestRef.current = null;
     }
   };
 

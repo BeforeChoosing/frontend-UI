@@ -16,10 +16,12 @@ import type { SkillCard } from '../types';
 import type { ApiDynamicTrialAnswer, TrialTaskId } from '../types/api';
 import { TaskStepInput } from './TaskStepInput';
 import { TrialCardPlayScreen } from './TrialCardPlayScreen';
+import { trialPhaseKey, trialStepKey } from '../services/demoProgress';
 
 interface DynamicTrialTaskScreenProps {
   taskId: TrialTaskId;
   confirmedCards: SkillCard[];
+  initialSelectedCardIds?: string[];
   onBackToExplore: () => void;
   onEnterProfile: () => void;
   onOpenCardDetail: (card: SkillCard) => void;
@@ -29,26 +31,60 @@ interface DynamicTrialTaskScreenProps {
 export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   taskId,
   confirmedCards,
+  initialSelectedCardIds = [],
   onBackToExplore,
   onEnterProfile,
   onOpenCardDetail,
   onTrialComplete,
 }) => {
   const { task, session, status, error, save, revealEvent, requestCoach, submit } = useDynamicTrialTask(taskId);
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(() => {
+    const saved = Number(window.localStorage.getItem(trialStepKey(taskId)));
+    return Number.isInteger(saved) && saved >= 0 && saved < 5 ? saved : 0;
+  });
   const [answer, setAnswer] = useState<ApiDynamicTrialAnswer | null>(null);
   const [activeMaterialId, setActiveMaterialId] = useState<string | null>(null);
   const [coachText, setCoachText] = useState<string | null>(null);
-  const [phase, setPhase] = useState<'card-play' | 'workbench'>('card-play');
+  const [phase, setPhase] = useState<'card-play' | 'workbench'>(() => (
+    window.localStorage.getItem(trialPhaseKey(taskId)) === 'workbench'
+      ? 'workbench'
+      : 'card-play'
+  ));
 
   useEffect(() => {
     if (session) {
-      setAnswer(session.answer);
-      if (session.status === 'submitted' || session.answer.card_play_completed) {
-        setPhase('workbench');
+      setAnswer(
+        session.answer.selected_card_ids.length > 0
+          ? session.answer
+          : { ...session.answer, selected_card_ids: initialSelectedCardIds.slice(0, 4) },
+      );
+      const savedPhase = window.localStorage.getItem(trialPhaseKey(taskId));
+      setPhase(
+        session.status === 'submitted'
+          ? 'workbench'
+          : session.answer.card_play_completed && savedPhase === 'card-play'
+            ? 'card-play'
+            : session.answer.card_play_completed
+              ? 'workbench'
+              : 'card-play',
+      );
+      const savedStep = Number(window.localStorage.getItem(trialStepKey(taskId)));
+      if (Number.isInteger(savedStep) && savedStep >= 0 && savedStep < 5) {
+        setStepIndex(savedStep);
+      } else if (task) {
+        const firstIncomplete = task.steps.findIndex(step => !session.answer.step_answers[step.id]?.trim());
+        setStepIndex(firstIncomplete === -1 ? task.steps.length - 1 : firstIncomplete);
       }
     }
-  }, [session]);
+  }, [initialSelectedCardIds, session, task, taskId]);
+
+  useEffect(() => {
+    window.localStorage.setItem(trialPhaseKey(taskId), phase);
+  }, [phase, taskId]);
+
+  useEffect(() => {
+    window.localStorage.setItem(trialStepKey(taskId), String(stepIndex));
+  }, [stepIndex, taskId]);
 
   const currentStep = task?.steps[stepIndex];
   const isBusy = status === 'saving' || status === 'submitting';
@@ -129,6 +165,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     const completedAnswer = { ...answer, card_play_completed: true };
     setAnswer(completedAnswer);
     await save(completedAnswer);
+    window.localStorage.setItem(trialPhaseKey(taskId), 'workbench');
     setPhase('workbench');
   };
 
@@ -187,7 +224,9 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     if (!currentStep || !answer.step_answers[currentStep.id]?.trim()) return;
     await save(answer);
     if (stepIndex === 3 && !session.event_revealed) await revealEvent();
-    setStepIndex(Math.min(task.steps.length - 1, stepIndex + 1));
+    const nextStepIndex = Math.min(task.steps.length - 1, stepIndex + 1);
+    window.localStorage.setItem(trialStepKey(taskId), String(nextStepIndex));
+    setStepIndex(nextStepIndex);
   };
 
   const handleSubmit = async () => {
@@ -209,7 +248,10 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
           <div>
             <div className="flex flex-wrap items-center gap-4">
               <button onClick={onBackToExplore} className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-900"><ArrowLeft className="w-3.5 h-3.5" />返回职业探索</button>
-              <button onClick={() => setPhase('card-play')} className="text-xs text-purple-700 hover:text-purple-950">返回能力出牌</button>
+              <button onClick={() => {
+                window.localStorage.setItem(trialPhaseKey(taskId), 'card-play');
+                setPhase('card-play');
+              }} className="text-xs text-purple-700 hover:text-purple-950">返回能力出牌</button>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-mono font-bold text-sky-800">03 · 阶段 2 / 2</span>
