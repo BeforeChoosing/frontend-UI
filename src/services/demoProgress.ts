@@ -24,6 +24,7 @@ export interface DemoProgress {
   selectedTrialTaskId: TrialTaskId;
   careerSelectedCardIds: string[];
   careerRecommendation: ApiCareerRecommendation | null;
+  careerRecommendationCardSignature: string | null;
 }
 
 const DEFAULT_PROGRESS: DemoProgress = {
@@ -31,6 +32,7 @@ const DEFAULT_PROGRESS: DemoProgress = {
   selectedTrialTaskId: 'A-02',
   careerSelectedCardIds: [],
   careerRecommendation: null,
+  careerRecommendationCardSignature: null,
 };
 
 export function loadDemoProgress(): DemoProgress {
@@ -49,6 +51,9 @@ export function loadDemoProgress(): DemoProgress {
         ? parsed.careerSelectedCardIds.filter((id): id is string => typeof id === 'string').slice(0, 4)
         : [],
       careerRecommendation: parsed.careerRecommendation || null,
+      careerRecommendationCardSignature: typeof parsed.careerRecommendationCardSignature === 'string'
+        ? parsed.careerRecommendationCardSignature
+        : null,
     };
   } catch {
     return DEFAULT_PROGRESS;

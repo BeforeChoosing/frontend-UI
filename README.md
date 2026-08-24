@@ -80,6 +80,12 @@ npm run dev
 
 ## 检查和构建
 
+状态一致性回归测试：
+
+```bash
+npm run test:state
+```
+
 类型检查：
 
 ```bash

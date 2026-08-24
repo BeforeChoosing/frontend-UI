@@ -132,13 +132,18 @@ export function useDynamicTrialTask(taskId: TrialTaskId) {
     return run('saving', () => revealDynamicTrialEvent(session.id));
   }, [run, session]);
 
-  const requestCoach = useCallback(async (level: 1 | 2 | 3) => {
+  const requestCoach = useCallback(async (
+    level: 1 | 2 | 3,
+    draftAnswer: ApiDynamicTrialAnswer,
+  ) => {
     if (!session) throw new Error('试路会话尚未准备完成。');
     if (coachActionRef.current) return coachActionRef.current;
     const request = (async () => {
       setStatus('saving');
       setError(null);
       try {
+        const saved = await saveDynamicTrialAnswer(session.id, draftAnswer);
+        setSession(saved);
         const response = await useDynamicTrialCoach(session.id, level);
         const next = await getDynamicTrialSession(session.id);
         setSession(next);

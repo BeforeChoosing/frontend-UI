@@ -252,7 +252,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   };
 
   const handleCoach = async (level: 1 | 2 | 3) => {
-    const prompt = await requestCoach(level);
+    const prompt = await requestCoach(level, answer);
     setCoachText(prompt);
   };
 
