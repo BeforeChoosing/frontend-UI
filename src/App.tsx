@@ -25,7 +25,7 @@ import {
   DEMO_PROFILE_EVIDENCE,
   DEMO_SKILL_CARDS,
 } from './data/demoMode';
-import { motion, AnimatePresence, MotionConfig } from 'motion/react';
+import { AnimatePresence, MotionConfig } from 'motion/react';
 
 function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
   const cardsById = new Map(existing.map(card => [card.id, card]));
@@ -147,22 +147,16 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className={`min-h-screen ${getScreenBackground(currentScreen)} text-[#1C1A18] flex flex-col selection:bg-amber-100 selection:text-amber-900 transition-colors duration-500 relative overflow-x-hidden`}>
+    <div className={`min-h-screen ${getScreenBackground(currentScreen)} text-[#1C1A18] flex flex-col selection:bg-amber-100 selection:text-amber-900 transition-colors duration-150 relative overflow-x-hidden`}>
       
       {/* Subtle Craft Digital Paper Ambient Atmosphere (Soft, warm, restrained) */}
       {!(currentScreen === 'stage2' && isStageTwoFocusMode) && (
         <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
           {/* Subtle warm light glow top left */}
-          <motion.div
-            className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-amber-100/25 blur-3xl"
-            animate={{ x: [0, 18, 0], y: [0, 10, 0], scale: [1, 1.05, 1] }}
-            transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
-          />
+          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-amber-100/25 blur-3xl" />
           {/* Subtle stage-adaptive soft glow top right */}
-          <motion.div
-            animate={{ x: [0, -14, 0], y: [0, 16, 0], scale: [1.02, 0.98, 1.02] }}
-            transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
-            className={`absolute top-0 -right-20 w-[420px] h-[420px] rounded-full blur-3xl transition-colors duration-700 ${
+          <div
+            className={`absolute top-0 -right-20 w-[420px] h-[420px] rounded-full blur-3xl transition-colors duration-150 ${
             currentScreen === 'input-experience' || currentScreen === 'verify-cards' ? 'bg-emerald-100/20' :
             currentScreen === 'career-explore' ? 'bg-amber-100/25' :
             currentScreen === 'stage2' ? 'bg-sky-100/20' :
@@ -193,11 +187,11 @@ export default function App() {
         />
       )}
 
-      <AppModeSwitcher appMode={appMode} onChange={handleAppModeChange} />
+      {!isStageTwoFocusMode && <AppModeSwitcher appMode={appMode} onChange={handleAppModeChange} />}
 
       {/* Main Screen Router with smooth Craft editorial transitions */}
       <main className="flex-1 relative z-10">
-        <AnimatePresence mode="wait">
+          <AnimatePresence initial={false}>
           {currentScreen === 'landing' && (
             <StageTransition key="landing">
               <LandingHero
@@ -284,6 +278,7 @@ export default function App() {
                 onEnterProfile={() => setCurrentScreen('profile')}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onTrialComplete={refreshProfile}
+                onFocusModeChange={setIsStageTwoFocusMode}
               />
             </StageTransition>
           )}
