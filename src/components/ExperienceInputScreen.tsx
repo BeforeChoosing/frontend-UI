@@ -56,9 +56,9 @@ export interface ChatMessage {
 const INITIAL_CHAT_MESSAGE: ChatMessage = {
   id: 'msg-init',
   role: 'ai',
-  content: '档案助手只依据你上传的材料建立候选证据，并仅补问材料中尚不清楚的职责、行动和结果。',
+  content: '告诉我一件对你有意义的经历，或者在对话中附上简历和项目材料。我会沿着你提供的事实补问，并整理其中的能力线索。',
   timestamp: '刚刚',
-  detectedSignals: ['材料是证据来源', '未确认内容不进入推荐', '内容由你决定是否保留'],
+  detectedSignals: ['等待你的真实故事', '支持连续对话', '可以附加材料'],
 };
 
 const EXPLORATION_FOCUS_LABELS = {
@@ -77,11 +77,6 @@ type UploadedMaterial = {
   type: 'resume' | 'portfolio' | 'link';
 };
 
-const DEMO_UPLOADED_MATERIALS: UploadedMaterial[] = [
-  { name: '示例个人简历.pdf', size: '1.2 MB', type: 'resume' },
-  { name: '校园二手书项目补充材料.pdf', size: '860 KB', type: 'portfolio' },
-];
-
 const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
   title: '校园二手书流转产品实践',
   actions: ['访谈学生并归纳信任成本与碰面效率问题', '推动集中交接点与评分机制上线'],
@@ -93,24 +88,22 @@ function explorationStorageKey(
   demoMode: boolean,
   field: 'evidence' | 'messages' | 'materials' | 'consent',
 ): string {
-  const versionedField = field === 'messages' ? 'messages-v2' : field;
+  const versionedField = field === 'messages'
+    ? 'messages-v3'
+    : field === 'evidence'
+      ? 'evidence-v3'
+      : field === 'materials'
+        ? 'attachments-v3'
+        : field;
   return `before-choosing:profile-exploration:${demoMode ? 'demo' : 'use'}:${versionedField}`;
 }
 
 function loadExplorationMessages(demoMode: boolean): ChatMessage[] {
   try {
-    if (!demoMode) {
-      const rawMaterials = window.localStorage.getItem(explorationStorageKey(false, 'materials'));
-      const materials = rawMaterials ? JSON.parse(rawMaterials) as UploadedMaterial[] : [];
-      const hasBothMaterials = Array.isArray(materials)
-        && materials.some(item => item.type === 'resume')
-        && materials.some(item => item.type === 'portfolio');
-      if (!hasBothMaterials) return [INITIAL_CHAT_MESSAGE];
-    }
     const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'messages'));
     if (!raw) return [INITIAL_CHAT_MESSAGE];
     const parsed = JSON.parse(raw) as ChatMessage[];
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed.slice(-12) : [INITIAL_CHAT_MESSAGE];
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed.slice(-30) : [INITIAL_CHAT_MESSAGE];
   } catch {
     return [INITIAL_CHAT_MESSAGE];
   }
@@ -119,11 +112,11 @@ function loadExplorationMessages(demoMode: boolean): ChatMessage[] {
 function loadUploadedMaterials(demoMode: boolean): UploadedMaterial[] {
   try {
     const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'materials'));
-    if (!raw) return demoMode ? DEMO_UPLOADED_MATERIALS : [];
+    if (!raw) return [];
     const parsed = JSON.parse(raw) as UploadedMaterial[];
     return Array.isArray(parsed) ? parsed.filter(item => item?.name && item?.type) : [];
   } catch {
-    return demoMode ? DEMO_UPLOADED_MATERIALS : [];
+    return [];
   }
 }
 
@@ -529,10 +522,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   demoExperienceText = '',
 }) => {
   const [inputText, setInputText] = useState(() => (
-    window.localStorage.getItem(explorationStorageKey(demoMode, 'evidence'))
-    || (demoMode ? demoExperienceText : '')
+    window.localStorage.getItem(explorationStorageKey(demoMode, 'evidence')) || ''
   ));
-  const [coachInput, setCoachInput] = useState('');
+  const [coachInput, setCoachInput] = useState(() => (
+    demoMode && !window.localStorage.getItem(explorationStorageKey(true, 'evidence'))
+      ? demoExperienceText
+      : ''
+  ));
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState('');
@@ -545,9 +541,6 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadTab, setUploadTab] = useState<'resume' | 'portfolio' | 'link'>('resume');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedMaterial[]>(() => loadUploadedMaterials(demoMode));
-  const [hasConsented, setHasConsented] = useState(() => (
-    window.localStorage.getItem(explorationStorageKey(demoMode, 'consent')) === 'accepted'
-  ));
   const [linkInput, setLinkInput] = useState('');
   const [isParsingFile, setIsParsingFile] = useState(false);
   const [parsingStep, setParsingStep] = useState('');
@@ -558,7 +551,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
 
   // Expand dialogue history
-  const [isChatExpanded, setIsChatExpanded] = useState(false);
+  const [isChatExpanded, setIsChatExpanded] = useState(true);
   const { analyze: analyzeExperience, error: analysisError } = useExperienceAnalysis();
   const { explore: exploreProfile, status: explorationStatus, error: explorationError } = useProfileExploration();
 
@@ -580,7 +573,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   useEffect(() => {
     window.localStorage.setItem(
       explorationStorageKey(demoMode, 'messages'),
-      JSON.stringify(messages.slice(-12)),
+      JSON.stringify(messages.slice(-30)),
     );
   }, [demoMode, messages]);
 
@@ -591,20 +584,22 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     );
   }, [demoMode, uploadedFiles]);
 
-  useEffect(() => {
-    window.localStorage.setItem(
-      explorationStorageKey(demoMode, 'consent'),
-      hasConsented ? 'accepted' : 'declined',
-    );
-  }, [demoMode, hasConsented]);
-
-  const hasResume = uploadedFiles.some(file => file.type === 'resume');
-  const hasProjectMaterial = uploadedFiles.some(file => file.type === 'portfolio');
-  const hasRequiredMaterials = hasResume && hasProjectMaterial;
-
   const handleSendCoachMessage = async () => {
     const text = coachInput.trim();
-    if (!text || !hasConsented || !hasRequiredMaterials || inputText.trim().length < 20 || explorationStatus === 'loading') return;
+    if (!text || explorationStatus === 'loading') return;
+    const nextEvidenceText = [inputText.trim(), text].filter(Boolean).join('\n\n').slice(0, 12000);
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: text,
+      timestamp,
+    };
+    setMessages(prev => [...prev, userMessage].slice(-30));
+    setInputText(nextEvidenceText);
+    setCoachInput('');
+    setSelectedPresetId(null);
+    setIsChatExpanded(true);
     setIsAiThinking(true);
     try {
       const conversation = messages.slice(-11).map(message => ({
@@ -613,18 +608,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       }));
       conversation.push({ role: 'user', content: text });
       const response = await exploreProfile({
-        experience_text: inputText.trim().slice(0, 12000),
+        experience_text: nextEvidenceText,
         messages: conversation,
         target_role: 'AI Native 产品经理',
         request_id: `profile-${Date.now()}`,
       });
-      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setMessages(prev => [...prev, {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content: text,
-        timestamp,
-      }, {
         id: `ai-${response.trace_id}`,
         role: 'ai',
         content: response.reply,
@@ -633,9 +622,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           EXPLORATION_FOCUS_LABELS[response.focus_dimension],
           ...response.evidence_found.slice(0, 2),
         ],
-      }].slice(-12));
-      setCoachInput('');
-      setIsChatExpanded(true);
+      }].slice(-30));
     } catch {
       // The hook exposes the backend/Qwen error beside the exploration composer.
     } finally {
@@ -646,7 +633,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   // Quick Preset Click Handler
   const handleSelectPreset = (preset: QuickPreset) => {
     setSelectedPresetId(preset.id);
-    setInputText(preset.sampleText);
+    setCoachInput(preset.sampleText);
 
     if (textareaRef.current) {
       textareaRef.current.focus();
@@ -678,7 +665,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           const transcript = Array.from(event.results)
             .map((res: any) => res[0].transcript)
             .join('');
-          setInputText(prev => prev + transcript);
+          setCoachInput(prev => prev + transcript);
         };
 
         recognition.onerror = () => {
@@ -729,7 +716,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       const newFile: UploadedMaterial = { name: extracted.file_name, size: fileSize, type: materialType };
       setUploadedFiles(prev => [...prev.filter(item => item.type !== materialType), newFile]);
       setInputText(prev => upsertMaterialEvidence(prev, materialType, extracted.file_name, extracted.text));
-      setMessages([INITIAL_CHAT_MESSAGE, {
+      setMessages(prev => [...prev, {
         id: `user-upload-${Date.now()}`,
         role: 'user',
         content: `【上传了${materialType === 'resume' ? '个人简历' : '项目补充材料'}】${extracted.file_name}`,
@@ -741,7 +728,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         content: `已提取 ${extracted.char_count} 字可复制文本${extracted.truncated ? '（内容较长，已截取前 12000 字）' : ''}。材料内容目前仅作为候选证据，确认前不会进入职业推荐。`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         detectedSignals: ['文字已读出', '等你确认', '还没有保存到档案'],
-      }]);
+      }].slice(-30));
+      setIsChatExpanded(true);
       setShowUploadModal(false);
     } catch (cause) {
       setUploadError(cause instanceof Error ? cause.message : '材料解析失败，请稍后重试。');
@@ -853,15 +841,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   // Trigger the real ProfileAgent flow. UI components only consume the domain result;
   // the API contract and backend DTO mapping live outside this screen.
   const handleStartAnalysis = async () => {
-    const userMessages = messages
-      .filter(message => message.role === 'user')
-      .map(message => message.content)
-      .join('\n');
-    const combinedContent = [inputText.trim(), userMessages]
-      .filter(Boolean)
-      .join('\n\n')
-      .slice(0, 12000);
-    if (!hasConsented || !hasRequiredMaterials || !combinedContent || isAnalyzing) return;
+    const combinedContent = inputText.trim().slice(0, 12000);
+    if (!combinedContent || isAnalyzing) return;
 
     setIsAnalyzing(true);
     setIsAiThinking(true);
@@ -939,7 +920,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             <div className="space-y-1.5 flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight flex items-center gap-2">
-                  <span>建立个人证据档案</span>
+                  <span>潜能挖掘助手</span>
                   <span className="craft-chip-green text-[10px] font-medium px-2 py-0.5 rounded-full font-mono">
                     01 · 认识自己
                   </span>
@@ -969,7 +950,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                       <span className="text-[10px] text-stone-500 flex items-center gap-1">
                         <Lightbulb className="w-3 h-3 text-emerald-600" />
-                        <span>我注意到：</span>
+                        <span>捕捉到的线索：</span>
                       </span>
                       {latestAiMessage.detectedSignals.map((signal, idx) => (
                         <span 
@@ -995,7 +976,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     >
                       {msg.role === 'ai' && (
                         <div className="w-6 h-6 rounded-full bg-stone-900 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5 text-[10px]">
-                            教练
+                            助手
                         </div>
                       )}
                       
@@ -1039,152 +1020,113 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 </div>
               )}
 
-              {/* Uploaded File summary pill if any */}
-              {uploadedFiles.length > 0 && (
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[10px] text-stone-500">已附加材料：</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {uploadedFiles.map((f, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-800 border border-stone-200/60">
-                        <FileText className="w-3 h-3 text-stone-600" />
-                        <span className="max-w-[140px] truncate">{f.name}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
             </div>
           </div>
 
           {/* Quick upload guide prompt bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-stone-100 text-[11px] text-stone-600">
             <div className="flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-              <span>助手只补问材料中的证据缺口，未经确认的内容不会进入职业推荐。</span>
+              <span className="text-stone-400">💡 提示：</span>
+              <span>可以在下方连续交流，也可以通过附件补充简历或项目材料。</span>
             </div>
             <button
               onClick={() => {
-                setUploadTab(hasResume ? 'portfolio' : 'resume');
+                setUploadTab('resume');
                 handleTriggerUpload();
               }}
-              disabled={!hasConsented}
               className="text-stone-800 hover:text-stone-950 font-medium underline underline-offset-2 flex items-center gap-1 cursor-pointer"
             >
-              <span>{hasRequiredMaterials ? '替换材料' : '上传材料'}</span>
+              <span>引导上传简历 / 项目材料</span>
               <ExternalLink className="w-3 h-3" />
             </button>
           </div>
 
-          <div className="grid gap-2 border-t border-stone-100 pt-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-            <label className="block text-[11px] font-medium text-stone-700">
-              回复档案助手
-              <textarea
-                value={coachInput}
-                onChange={event => setCoachInput(event.target.value)}
-                rows={2}
-                maxLength={1000}
-                placeholder="根据档案助手当前补问，补充材料中未说明的事实。Enter 仅用于换行。"
-                className="mt-1.5 w-full resize-none rounded-2xl border border-stone-200 bg-white/90 px-3 py-2 text-xs font-normal leading-5 text-stone-800 outline-none transition-colors focus:border-emerald-400"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => void handleSendCoachMessage()}
-              disabled={!coachInput.trim() || !hasConsented || !hasRequiredMaterials || inputText.trim().length < 20 || explorationStatus === 'loading'}
-              className="craft-btn-black flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {explorationStatus === 'loading' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-              发送回复
-            </button>
-          </div>
-          {(!hasConsented || !hasRequiredMaterials) && coachInput.trim() && (
-            <p className="text-[10px] text-amber-700">完成建档授权并上传两类材料后，可以回复档案助手的补问。</p>
-          )}
-          {explorationError && <p role="alert" className="text-[10px] text-rose-700">{explorationError}</p>}
-
         </motion.div>
 
-        {/* Consent and material evidence */}
+        {/* Single chat composer with inline attachments */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.05 }}
-          className="craft-card space-y-4 rounded-3xl border border-stone-200/60 bg-white/90 p-5 sm:p-6"
+          className="space-y-3"
         >
-          <div className="flex flex-col justify-between gap-3 border-b border-stone-100 pb-4 sm:flex-row sm:items-start">
-            <div>
-              <p className="font-serif text-base text-stone-950">建立个人证据档案</p>
-              <p className="mt-1 max-w-2xl text-xs leading-5 text-stone-600">
-                系统只保存你确认过的能力卡和项目经历卡。候选内容可以修改、合并或删除，确认后也可以撤回。
-              </p>
+          <div className="craft-card flex min-h-[220px] w-full items-stretch gap-3.5 rounded-3xl border border-stone-200/50 bg-white/90 p-4 backdrop-blur-xl sm:p-5">
+            <div className="flex shrink-0 flex-col items-center gap-2 border-r border-stone-100 pr-3.5 pt-0.5">
+              <button
+                type="button"
+                onClick={handleTriggerUpload}
+                title="在对话中附加简历或项目材料"
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200/50 bg-stone-50 text-stone-700 transition hover:bg-stone-100"
+              >
+                <Paperclip className="h-4 w-4" />
+                {uploadedFiles.length > 0 && <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] text-white">{uploadedFiles.length}</span>}
+              </button>
+              <button
+                type="button"
+                onClick={handleToggleVoice}
+                title="语音输入"
+                className={`flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200/50 transition ${isRecording ? 'bg-rose-500 text-white' : 'bg-stone-50 text-stone-700 hover:bg-stone-100'}`}
+              >
+                {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </button>
             </div>
-            {!hasConsented ? (
-              <button
-                type="button"
-                onClick={() => setHasConsented(true)}
-                className="craft-btn-black shrink-0 px-4 py-2.5 text-xs"
-              >
-                开始建立档案
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setHasConsented(false)}
-                className="craft-btn-secondary shrink-0 px-4 py-2.5 text-xs"
-              >
-                暂停建立档案
-              </button>
-            )}
-          </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {([
-              {
-                type: 'resume' as const,
-                title: '文本型 PDF 简历',
-                description: '用于识别教育、实践和项目经历的基础事实。',
-                complete: hasResume,
-              },
-              {
-                type: 'portfolio' as const,
-                title: '项目补充材料',
-                description: '用于补充本人职责、关键行动、判断依据和实际结果。',
-                complete: hasProjectMaterial,
-              },
-            ]).map(item => {
-              const material = uploadedFiles.find(file => file.type === item.type);
-              return (
-                <div key={item.type} className={`rounded-2xl border p-4 ${item.complete ? 'border-emerald-200 bg-emerald-50/55' : 'border-stone-200 bg-stone-50/70'}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.complete ? 'bg-emerald-100 text-emerald-800' : 'bg-white text-stone-500'}`}>
-                      {item.complete ? <CheckCircle2 className="h-4 w-4" /> : <FilePlus className="h-4 w-4" />}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUploadTab(item.type);
-                        handleTriggerUpload();
-                      }}
-                      disabled={!hasConsented}
-                      className="text-[11px] font-medium text-stone-700 underline underline-offset-2 disabled:cursor-not-allowed disabled:text-stone-300"
-                    >
-                      {item.complete ? '替换' : '上传'}
-                    </button>
-                  </div>
-                  <p className="mt-3 text-sm font-medium text-stone-900">{item.title}</p>
-                  <p className="mt-1 text-[11px] leading-5 text-stone-500">{item.description}</p>
-                  <p className="mt-3 truncate border-t border-current/10 pt-2 text-[10px] text-stone-500">
-                    {material ? `${material.name} · ${material.size}` : '尚未上传'}
-                  </p>
+            <div className="flex min-w-0 flex-1 flex-col">
+              {voiceNotice && <p className="mb-2 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs text-emerald-900">{voiceNotice}</p>}
+              <textarea
+                ref={textareaRef}
+                value={coachInput}
+                onChange={event => {
+                  setCoachInput(event.target.value);
+                  if (selectedPresetId) setSelectedPresetId(null);
+                }}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    void handleSendCoachMessage();
+                  }
+                }}
+                rows={6}
+                maxLength={3000}
+                placeholder={'分享一次印象深刻的经历。\n可以写项目、实习、比赛或长期兴趣。\nEnter 发送，Shift+Enter 换行。'}
+                className="min-h-[150px] w-full flex-1 resize-none bg-transparent px-1 text-sm leading-6 text-stone-900 outline-none placeholder:text-stone-400"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3 text-[10px] text-stone-400">
+                <span>{uploadedFiles.length > 0 ? `本轮对话已附加 ${uploadedFiles.length} 份材料` : '附件和文字都会进入当前对话记录'}</span>
+                <div className="flex items-center gap-2">
+                  <span>Enter 发送</span>
+                  <button
+                    type="button"
+                    onClick={() => void handleSendCoachMessage()}
+                    disabled={!coachInput.trim() || explorationStatus === 'loading'}
+                    className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {explorationStatus === 'loading' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    发送交流
+                  </button>
                 </div>
-              );
-            })}
+              </div>
+              {explorationError && <p role="alert" className="mt-2 text-[10px] text-rose-700">{explorationError}</p>}
+            </div>
           </div>
 
-          <p className="text-[11px] leading-5 text-stone-500">
-            两类材料齐备后，档案助手可以进行少量补问；生成的能力卡和项目经历卡仍需逐项确认。
-          </p>
+          <p className="text-center text-[11px] text-stone-500">整段用户对话和附件正文共同构成候选卡的证据来源。</p>
+
+          <div className="space-y-2 pt-1 text-center">
+            <p className="font-serif text-sm text-stone-900">快速开始</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {PRESET_EXPERIENCES.map(preset => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleSelectPreset(preset)}
+                  className={`truncate rounded-full border px-3 py-2 text-xs transition ${selectedPresetId === preset.id ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 bg-white/80 text-stone-700 hover:border-stone-400'}`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </motion.div>
 
       </div>
@@ -1202,9 +1144,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       >
         <button
           onClick={handleStartAnalysis}
-          disabled={!hasConsented || !hasRequiredMaterials || !inputText.trim() || isAnalyzing}
+          disabled={!inputText.trim() || isAnalyzing}
           className={`w-full sm:w-64 py-3.5 px-8 rounded-full font-medium text-sm sm:text-base transition-all duration-200 cursor-pointer shadow-sm flex items-center justify-center gap-2 ${
-            hasConsented && hasRequiredMaterials && inputText.trim() && !isAnalyzing
+            inputText.trim() && !isAnalyzing
               ? 'bg-stone-900 hover:bg-black text-white active:scale-98'
               : 'bg-stone-200/80 text-stone-400 cursor-not-allowed'
           }`}
@@ -1219,7 +1161,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             </>
           ) : (
             <span className="tracking-wide text-white font-medium">
-              生成候选证据卡
+              分析经历
             </span>
           )}
         </button>
@@ -1268,13 +1210,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               <div className="space-y-1">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E8DDD0] text-stone-800 text-xs font-bold">
                   <UploadCloud className="w-3.5 h-3.5 text-amber-700" />
-                  <span>个人证据材料</span>
+                  <span>对话附件</span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold text-stone-900 font-serif craft-serif">
-                  上传建档材料
+                  在对话中添加附件
                 </h3>
                 <p className="text-xs text-stone-600">
-                    上传一份文本型 PDF 简历和一份项目补充材料。材料只用于生成待确认的候选证据。
+                    可以上传简历或项目补充材料。解析后的正文会进入当前对话的证据上下文。
                 </p>
               </div>
 
