@@ -28,6 +28,12 @@ interface LoadedDynamicTrial {
 // local workbench session.
 const pendingTrialLoads = new Map<string, Promise<LoadedDynamicTrial>>();
 
+export function resetPendingDemoTrialLoads(): void {
+  for (const key of pendingTrialLoads.keys()) {
+    if (key.startsWith('demo:')) pendingTrialLoads.delete(key);
+  }
+}
+
 function storageKey(taskId: TrialTaskId, namespace: 'demo' | 'use') {
   return namespace === 'use'
     ? `before-choosing:dynamic-trial:${taskId}`

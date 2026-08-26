@@ -555,7 +555,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   // Expand dialogue history
   const [isChatExpanded, setIsChatExpanded] = useState(true);
   const { analyze: analyzeExperience, error: analysisError } = useExperienceAnalysis();
-  const { explore: exploreProfile, status: explorationStatus, error: explorationError } = useProfileExploration();
+  const {
+    explore: exploreProfile,
+    status: explorationStatus,
+    error: explorationError,
+    reset: resetExploration,
+  } = useProfileExploration();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -585,6 +590,22 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       JSON.stringify(uploadedFiles),
     );
   }, [demoMode, uploadedFiles]);
+
+  const handleRestartDemoConversation = () => {
+    if (!demoMode || explorationStatus === 'loading') return;
+    setInputText('');
+    setCoachInput(demoExperienceText);
+    setSelectedPresetId(null);
+    setMessages([INITIAL_CHAT_MESSAGE]);
+    setUploadedFiles([]);
+    setShowUploadModal(false);
+    setLinkInput('');
+    setUploadError(null);
+    setVoiceNotice(null);
+    setIsChatExpanded(true);
+    resetExploration();
+    textareaRef.current?.focus();
+  };
 
   const handleSendCoachMessage = async () => {
     const text = coachInput.trim();
@@ -922,16 +943,29 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   </span>
                 </h2>
                 
-                {/* Expand / Collapse Dialogue History Toggle if multiple messages */}
-                {messages.length > 2 && (
-                  <button
-                    onClick={() => setIsChatExpanded(!isChatExpanded)}
-                    className="text-[11px] text-stone-500 hover:text-stone-800 transition flex items-center gap-1 cursor-pointer font-medium"
-                  >
-                    <span>{isChatExpanded ? '收起历史' : `查看全部对话 (${messages.length})`}</span>
-                    {isChatExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {demoMode && (
+                    <button
+                      type="button"
+                      onClick={handleRestartDemoConversation}
+                      disabled={explorationStatus === 'loading'}
+                      className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-stone-500 transition hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>重新开始对话</span>
+                    </button>
+                  )}
+                  {messages.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsChatExpanded(!isChatExpanded)}
+                      className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-stone-500 transition hover:text-stone-800"
+                    >
+                      <span>{isChatExpanded ? '收起历史' : `查看全部对话 (${messages.length})`}</span>
+                      {isChatExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {!isChatExpanded ? (

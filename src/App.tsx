@@ -19,6 +19,8 @@ import type { ApiCareerRecommendation, ApiExperienceSummary, ProfileCardPatchReq
 import { loadDemoProgress, saveDemoProgress, trialStepKey } from './services/demoProgress';
 import { createCareerSelectionSignature } from './services/careerRecommendationState';
 import { loadAppMode, saveAppMode, type AppMode } from './services/appMode';
+import { resetDemoReplayStorage } from './services/demoReplay';
+import { resetPendingDemoTrialLoads } from './hooks/useDynamicTrialTask';
 import {
   DEMO_CAREER_RECOMMENDATION,
   DEMO_EXPERIENCE_TEXT,
@@ -46,6 +48,7 @@ export default function App() {
   const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>([]);
   const [draftCards, setDraftCards] = useState<SkillCard[]>(initialAppMode === 'demo' ? DEMO_SKILL_CARDS.slice(0, 3) : []);
   const [draftExperience, setDraftExperience] = useState<ApiExperienceSummary | null>(null);
+  const [demoReplayId, setDemoReplayId] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
@@ -105,6 +108,26 @@ export default function App() {
     setCareerRecommendationCardSignature(progress.careerRecommendationCardSignature);
     setDraftCards([]);
     setDraftExperience(null);
+  };
+
+  const handleReplayDemo = () => {
+    resetDemoReplayStorage();
+    resetPendingDemoTrialLoads();
+    setIsStageTwoFocusMode(false);
+    setCurrentScreen('landing');
+    setSelectedTrialTaskId('A-02');
+    setCareerSelectedCardIds(demoSelectedCards.map(card => card.id));
+    setCareerRecommendation(null);
+    setCareerRecommendationCardSignature(null);
+    setUnlockedCards(persistedCards);
+    setDraftCards(DEMO_SKILL_CARDS.slice(0, 3));
+    setDraftExperience(null);
+    setIsAuthOpen(false);
+    setIsWikiOpen(false);
+    setIsExampleOpen(false);
+    setIsFigmaGuideOpen(false);
+    setSelectedCard(null);
+    setDemoReplayId(current => current + 1);
   };
 
   const handleUpdateProfileCard = async (
@@ -189,7 +212,7 @@ export default function App() {
         />
       )}
 
-      {!isStageTwoFocusMode && <AppModeSwitcher appMode={appMode} onChange={handleAppModeChange} />}
+      {!isStageTwoFocusMode && <AppModeSwitcher appMode={appMode} onChange={handleAppModeChange} onReplayDemo={handleReplayDemo} />}
 
       {/* Main Screen Router with smooth Craft editorial transitions */}
       <main className="flex-1 relative z-10">
@@ -207,7 +230,7 @@ export default function App() {
           )}
 
           {currentScreen === 'input-experience' && (
-            <StageTransition key={`input-experience-${appMode}`}>
+            <StageTransition key={`input-experience-${appMode}-${demoReplayId}`}>
               <ExperienceInputScreen
                 onGenerateCards={(cards, experience) => {
                   setDraftCards(cards);
@@ -251,6 +274,7 @@ export default function App() {
                 }}
                 onModifyExperience={() => setCurrentScreen('input-experience')}
                 onRegenerate={() => setCurrentScreen('input-experience')}
+                storageNamespace={appMode}
               />
             </StageTransition>
           )}
@@ -280,7 +304,7 @@ export default function App() {
           )}
 
           {currentScreen === 'stage2' && (
-            <StageTransition key={`stage2-${appMode}`}>
+            <StageTransition key={`stage2-${appMode}-${demoReplayId}`}>
               <DynamicTrialTaskScreen
                 taskId={selectedTrialTaskId}
                 confirmedCards={activeCards}

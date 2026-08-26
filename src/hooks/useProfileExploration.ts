@@ -31,5 +31,11 @@ export function useProfileExploration() {
     return pending;
   }, []);
 
-  return { explore, status, error };
+  const reset = useCallback(() => {
+    if (pendingRef.current) return;
+    setStatus('idle');
+    setError(null);
+  }, []);
+
+  return { explore, status, error, reset };
 }

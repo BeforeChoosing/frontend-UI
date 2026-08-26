@@ -34,6 +34,7 @@ interface AbilityCardVerificationScreenProps {
   onStartCareerExplore: () => void;
   onModifyExperience: () => void;
   onRegenerate: () => void;
+  storageNamespace?: 'demo' | 'use';
 }
 
 // 3 verification states per card
@@ -49,6 +50,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
   onStartCareerExplore,
   onModifyExperience,
   onRegenerate,
+  storageNamespace = 'use',
 }) => {
   // Mode: 'verify' (Image 1: 验证卡牌) or 'added_pool' (Image 2/3: 已加入能力库展示)
   const [viewMode, setViewMode] = useState<'verify' | 'added_pool'>('verify');
@@ -167,11 +169,12 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
 
     try {
       await onConfirmAndSaveToPool(confirmed);
+      const experienceStorageKey = `before-choosing:confirmed-experience:${storageNamespace}`;
       if (experienceCard && experienceStatus === 'confirmed') {
-        window.localStorage.setItem('before-choosing:confirmed-experience', JSON.stringify(experienceCard));
+        window.localStorage.setItem(experienceStorageKey, JSON.stringify(experienceCard));
         setExperienceSaved(true);
       } else {
-        window.localStorage.removeItem('before-choosing:confirmed-experience');
+        window.localStorage.removeItem(experienceStorageKey);
         setExperienceSaved(false);
       }
       try {
@@ -634,7 +637,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
               <button
                 type="button"
                 onClick={() => {
-                  window.localStorage.removeItem('before-choosing:confirmed-experience');
+                  window.localStorage.removeItem(`before-choosing:confirmed-experience:${storageNamespace}`);
                   setExperienceSaved(false);
                 }}
                 className="craft-btn-secondary px-3 py-2 text-[11px]"
