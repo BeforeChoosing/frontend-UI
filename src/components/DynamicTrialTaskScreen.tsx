@@ -17,6 +17,11 @@ import type { ApiDynamicTrialAnswer, TrialTaskId } from '../types/api';
 import { TaskStepInput } from './TaskStepInput';
 import { TrialCardPlayScreen } from './TrialCardPlayScreen';
 import { trialPhaseKey, trialStepKey } from '../services/demoProgress';
+import {
+  createDemoObservedEvidence,
+  createDemoTrialAnswer,
+  createDemoTrialEvaluation,
+} from '../data/demoMode';
 
 interface DynamicTrialTaskScreenProps {
   taskId: TrialTaskId;
@@ -25,6 +30,7 @@ interface DynamicTrialTaskScreenProps {
   onEnterProfile: () => void;
   onOpenCardDetail: (card: SkillCard) => void;
   onTrialComplete?: () => Promise<unknown> | void;
+  demoMode?: boolean;
 }
 
 export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
@@ -34,49 +40,58 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   onEnterProfile,
   onOpenCardDetail,
   onTrialComplete,
+  demoMode = false,
 }) => {
-  const { task, session, status, error, save, revealEvent, requestCoach, submit } = useDynamicTrialTask(taskId);
+  const progressMode = demoMode ? 'demo' : 'use';
+  const { task, session, status, error, save, revealEvent, requestCoach, submit } = useDynamicTrialTask(taskId, progressMode);
   const [stepIndex, setStepIndex] = useState(() => {
-    const saved = Number(window.localStorage.getItem(trialStepKey(taskId)));
+    const saved = Number(window.localStorage.getItem(trialStepKey(taskId, progressMode)));
     return Number.isInteger(saved) && saved >= 0 && saved < 5 ? saved : 0;
   });
   const [answer, setAnswer] = useState<ApiDynamicTrialAnswer | null>(null);
   const [activeMaterialId, setActiveMaterialId] = useState<string | null>(null);
   const [coachText, setCoachText] = useState<string | null>(null);
+  const [demoSubmitted, setDemoSubmitted] = useState(false);
   const [phase, setPhase] = useState<'card-play' | 'workbench'>(() => (
-    window.localStorage.getItem(trialPhaseKey(taskId)) === 'workbench'
+    window.localStorage.getItem(trialPhaseKey(taskId, progressMode)) === 'workbench'
       ? 'workbench'
       : 'card-play'
   ));
 
+  const demoAnswer = useMemo(
+    () => demoMode && task ? createDemoTrialAnswer(task, confirmedCards) : null,
+    [confirmedCards, demoMode, task],
+  );
+
   useEffect(() => {
     if (session) {
-      setAnswer(session.answer);
-      const savedPhase = window.localStorage.getItem(trialPhaseKey(taskId));
+      const nextAnswer = demoAnswer || session.answer;
+      setAnswer(nextAnswer);
+      const savedPhase = window.localStorage.getItem(trialPhaseKey(taskId, progressMode));
       setPhase(
-        session.status === 'submitted'
+        !demoMode && session.status === 'submitted'
           ? 'workbench'
-          : session.answer.card_play_completed && savedPhase === 'workbench'
+          : nextAnswer.card_play_completed && savedPhase === 'workbench'
             ? 'workbench'
             : 'card-play',
       );
-      const savedStep = Number(window.localStorage.getItem(trialStepKey(taskId)));
+      const savedStep = Number(window.localStorage.getItem(trialStepKey(taskId, progressMode)));
       if (Number.isInteger(savedStep) && savedStep >= 0 && savedStep < 5) {
         setStepIndex(savedStep);
       } else if (task) {
-        const firstIncomplete = task.steps.findIndex(step => !session.answer.step_answers[step.id]?.trim());
+        const firstIncomplete = task.steps.findIndex(step => !nextAnswer.step_answers[step.id]?.trim());
         setStepIndex(firstIncomplete === -1 ? task.steps.length - 1 : firstIncomplete);
       }
     }
-  }, [session, task, taskId]);
+  }, [demoAnswer, demoMode, progressMode, session, task, taskId]);
 
   useEffect(() => {
-    window.localStorage.setItem(trialPhaseKey(taskId), phase);
-  }, [phase, taskId]);
+    window.localStorage.setItem(trialPhaseKey(taskId, progressMode), phase);
+  }, [phase, progressMode, taskId]);
 
   useEffect(() => {
-    window.localStorage.setItem(trialStepKey(taskId), String(stepIndex));
-  }, [stepIndex, taskId]);
+    window.localStorage.setItem(trialStepKey(taskId, progressMode), String(stepIndex));
+  }, [progressMode, stepIndex, taskId]);
 
   const currentStep = task?.steps[stepIndex];
   const isBusy = status === 'saving' || status === 'submitting';
@@ -89,14 +104,16 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     return <div className="min-h-[calc(100vh-64px)] grid place-items-center text-sm text-stone-500">正在准备小任务…</div>;
   }
 
-  if (session.status === 'submitted' && session.evaluation && session.observed_evidence) {
-    const evaluation = session.evaluation;
+  const evaluation = demoSubmitted ? createDemoTrialEvaluation(task) : session.evaluation;
+  const observedEvidence = demoSubmitted ? createDemoObservedEvidence(task) : session.observed_evidence;
+
+  if ((demoSubmitted || session.status === 'submitted') && evaluation && observedEvidence) {
     return (
       <div className="min-h-[calc(100vh-64px)] max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <div className="craft-card rounded-3xl border border-stone-200 bg-white/95 p-6 sm:p-8 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] font-mono font-bold text-emerald-700">本次任务 · {task.id}</p>
+              <p className="text-[10px] font-mono font-bold text-emerald-700">本次任务 · {task.id}{demoMode ? ' · 演示数据' : ''}</p>
               <h1 className="mt-1 text-2xl font-serif craft-serif text-stone-900">完成了，来看看这次的表现</h1>
               <p className="mt-2 max-w-3xl text-sm leading-relaxed text-stone-600">{evaluation.summary}</p>
             </div>
@@ -133,8 +150,8 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
               <p className="text-xs font-bold text-emerald-900">这次你表现出来的能力</p>
-              <p className="mt-1.5 text-xs leading-relaxed text-emerald-900/80">{session.observed_evidence.statement}</p>
-              <p className="mt-2 text-[10px] leading-relaxed text-emerald-800/70">{session.observed_evidence.caveats.join(' · ')}</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-emerald-900/80">{observedEvidence.statement}</p>
+              <p className="mt-2 text-[10px] leading-relaxed text-emerald-800/70">{observedEvidence.caveats.join(' · ')}</p>
             </div>
             <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
               <p className="text-xs font-bold text-stone-900">下一步可以试试</p>
@@ -156,6 +173,23 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     const challenge = task.ability_challenges[answer.card_play_current_index];
     const round = answer.card_play_rounds.find(item => item.challenge_id === challenge?.id);
     if (!challenge || !round?.selected_card_ids.length) return;
+    if (demoMode) {
+      const matchedCardIds = round.selected_card_ids.filter(cardId => confirmedCards.some(card => card.id === cardId));
+      const nextRounds = answer.card_play_rounds.map(item => item.challenge_id === challenge.id ? {
+        ...item,
+        match_level: 'high' as const,
+        matched_card_ids: matchedCardIds,
+        matched_skills: challenge.target_skills,
+        feedback: challenge.reference_behavior,
+      } : item);
+      setAnswer({
+        ...answer,
+        selected_card_ids: Array.from(new Set(nextRounds.flatMap(item => item.selected_card_ids))),
+        card_play_rounds: nextRounds,
+        card_play_completed: task.ability_challenges.every(item => nextRounds.some(roundItem => roundItem.challenge_id === item.id && roundItem.match_level)),
+      });
+      return;
+    }
     const completedChallengeIds = new Set(answer.card_play_rounds.map(item => item.challenge_id));
     const isLastChallenge = answer.card_play_current_index === task.ability_challenges.length - 1;
     const completedAnswer = {
@@ -172,13 +206,14 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     if (index < 0 || index >= task.ability_challenges.length || index === answer.card_play_current_index) return;
     const nextAnswer = { ...answer, card_play_current_index: index };
     setAnswer(nextAnswer);
+    if (demoMode) return;
     const saved = await save(nextAnswer);
     setAnswer(saved.answer);
   };
 
   const handleEnterWorkbench = () => {
     if (!answer.card_play_completed) return;
-    window.localStorage.setItem(trialPhaseKey(taskId), 'workbench');
+    window.localStorage.setItem(trialPhaseKey(taskId, progressMode), 'workbench');
     setPhase('workbench');
   };
 
@@ -189,7 +224,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
         cards={confirmedCards}
         answer={answer}
         error={error}
-        saving={status === 'saving'}
+        saving={!demoMode && status === 'saving'}
         onChange={setAnswer}
         onEvaluate={() => void handleCardPlayEvaluate()}
         onSelectChallenge={(index) => void handleSelectCardPlayChallenge(index)}
@@ -237,21 +272,36 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
 
   const handleNext = async () => {
     if (!currentStep || !answer.step_answers[currentStep.id]?.trim()) return;
-    await save(answer);
-    if (stepIndex === 3 && !session.event_revealed) await revealEvent();
+    if (!demoMode) {
+      await save(answer);
+      if (stepIndex === 3 && !session.event_revealed) await revealEvent();
+    }
     const nextStepIndex = Math.min(task.steps.length - 1, stepIndex + 1);
-    window.localStorage.setItem(trialStepKey(taskId), String(nextStepIndex));
+    window.localStorage.setItem(trialStepKey(taskId, progressMode), String(nextStepIndex));
     setStepIndex(nextStepIndex);
   };
 
   const handleSubmit = async () => {
     if (!currentStep || !answer.step_answers[currentStep.id]?.trim() || !answer.event_decision || !answer.event_response.trim()) return;
+    if (demoMode) {
+      setDemoSubmitted(true);
+      return;
+    }
     await save(answer);
     await submit();
     await onTrialComplete?.();
   };
 
   const handleCoach = async (level: 1 | 2 | 3) => {
+    if (demoMode) {
+      const prompt = task.coach_prompts[level - 1] || '请先整理当前判断、证据来源和待验证项。';
+      setCoachText(prompt);
+      setAnswer(current => current ? ({
+        ...current,
+        coach_usage: [...current.coach_usage, { level, prompt, used_at: new Date().toISOString() }],
+      }) : current);
+      return;
+    }
     const prompt = await requestCoach(level, answer);
     setCoachText(prompt);
   };
@@ -264,7 +314,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
             <div className="flex flex-wrap items-center gap-4">
               <button onClick={onBackToExplore} className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-900"><ArrowLeft className="w-3.5 h-3.5" />返回职业探索</button>
               <button onClick={() => {
-                window.localStorage.setItem(trialPhaseKey(taskId), 'card-play');
+                window.localStorage.setItem(trialPhaseKey(taskId, progressMode), 'card-play');
                 setPhase('card-play');
               }} className="text-xs text-purple-700 hover:text-purple-950">返回能力出牌</button>
             </div>
@@ -326,7 +376,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
                   <div className="mt-2 flex flex-wrap gap-2"><span className="rounded-full bg-white px-2 py-1 text-[10px] text-stone-500">填写方式：{currentStep?.input_mode}</span><span className="rounded-full bg-white px-2 py-1 text-[10px] text-stone-500">注意：{currentStep?.constraint}</span></div>
                 </div>
 
-                {stepIndex === 4 && session.event_revealed && (
+                {stepIndex === 4 && (demoMode || session.event_revealed) && (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
                     <p className="text-xs font-bold text-amber-900">{task.event.actor}</p>
                     <p className="mt-1 text-xs leading-relaxed text-amber-900/80">{task.event.message}</p>
@@ -353,17 +403,17 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
 
             <div className="flex items-center justify-between gap-3 border-t border-stone-100 pt-3">
               <button onClick={() => setStepIndex(index => Math.max(0, index - 1))} disabled={stepIndex === 0 || isBusy} className="craft-btn-secondary px-4 py-2 text-xs disabled:opacity-40">上一步</button>
-              {stepIndex < 4 ? <button onClick={() => void handleNext()} disabled={isBusy || !answer.step_answers[currentStep?.id || '']?.trim()} className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs disabled:opacity-50">{stepIndex === 3 ? '保存并接收事件' : '保存并继续'}<ArrowRight className="w-3.5 h-3.5" /></button> : <button onClick={() => void handleSubmit()} disabled={isBusy || !answer.step_answers[currentStep?.id || '']?.trim() || !answer.event_decision || !answer.event_response.trim()} className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs disabled:opacity-50"><Send className="w-3.5 h-3.5" />{status === 'submitting' ? 'Qwen 评价中…' : '提交任务并评价'}</button>}
+              {stepIndex < 4 ? <button onClick={() => void handleNext()} disabled={isBusy || !answer.step_answers[currentStep?.id || '']?.trim()} className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs disabled:opacity-50">{stepIndex === 3 ? '保存并接收事件' : '保存并继续'}<ArrowRight className="w-3.5 h-3.5" /></button> : <button onClick={() => void handleSubmit()} disabled={isBusy || !answer.step_answers[currentStep?.id || '']?.trim() || !answer.event_decision || !answer.event_response.trim()} className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs disabled:opacity-50"><Send className="w-3.5 h-3.5" />{demoMode ? '查看演示评价' : status === 'submitting' ? 'Qwen 评价中…' : '提交任务并评价'}</button>}
             </div>
           </main>
 
           <aside className="xl:w-[280px] space-y-3">
             <div className="rounded-2xl border border-stone-800 bg-stone-900 p-4 text-white shadow-sm">
-              <h2 className="flex items-center gap-2 text-sm font-bold"><Bot className="w-4 h-4 text-purple-300" />需要一点帮助？</h2>
+              <h2 className="flex items-center gap-2 text-sm font-bold"><Bot className="w-4 h-4 text-purple-300" />思路提示</h2>
               <p className="mt-2 text-[11px] leading-relaxed text-stone-300">只帮你理清思路，不替你完成。用过的提示会留在这次记录中。</p>
               <div className="mt-3 grid grid-cols-3 gap-1.5">{([1, 2, 3] as const).map(level => <button key={level} onClick={() => void handleCoach(level)} disabled={isBusy} className="rounded-full bg-white/10 px-2 py-1.5 text-[10px] text-stone-200 hover:bg-white/15">{level === 1 ? '给个方向' : level === 2 ? '帮我拆解' : '看个小例子'}</button>)}</div>
               <AnimatePresence initial={false}>{coachText && <motion.div key={coachText} initial={{ opacity: 0, y: 8, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }} exit={{ opacity: 0, y: -4, height: 0 }} className="mt-3 overflow-hidden rounded-xl bg-white/10 p-3 text-xs leading-relaxed text-stone-200">{coachText}</motion.div>}</AnimatePresence>
-              <p className="mt-3 text-[10px] text-stone-400">已使用 {session.answer.coach_usage.length} 次</p>
+              <p className="mt-3 text-[10px] text-stone-400">已使用 {answer.coach_usage.length} 次</p>
             </div>
             <div className="craft-card rounded-2xl border border-stone-200 bg-white/95 p-4">
               <h2 className="text-xs font-bold text-stone-900">完成进度</h2>

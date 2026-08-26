@@ -28,6 +28,7 @@ interface CareerExploreScreenProps {
   initialSelectedCardIds?: string[];
   initialRecommendation?: ApiCareerRecommendation | null;
   initialRecommendationCardSignature?: string | null;
+  demoRecommendation?: ApiCareerRecommendation | null;
   onStartStageTwo: (taskId: TrialTaskId) => void;
   onOpenWikiModal: () => void;
   onOpenCardDetail: (card: SkillCard) => void;
@@ -45,6 +46,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   initialSelectedCardIds = [],
   initialRecommendation = null,
   initialRecommendationCardSignature = null,
+  demoRecommendation = null,
   onStartStageTwo,
   onOpenWikiModal,
   onOpenCardDetail,
@@ -71,6 +73,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   const selectionSignatureRef = useRef(createCareerSelectionSignature([]));
   const selectionRevisionRef = useRef(0);
   const selectionHydratedRef = useRef(false);
+  const demoRecommendationOpenedRef = useRef(false);
 
   useEffect(() => {
     if (!profileReady) return;
@@ -126,6 +129,22 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     onSelectionChange,
     profileReady,
   ]);
+
+  useEffect(() => {
+    if (!demoRecommendation) {
+      demoRecommendationOpenedRef.current = false;
+      return;
+    }
+    const selectedCards = deckSlots.filter((card): card is SkillCard => Boolean(card));
+    if (demoRecommendationOpenedRef.current || selectedCards.length === 0) return;
+    demoRecommendationOpenedRef.current = true;
+    const signature = createCareerSelectionSignature(selectedCards);
+    setRecommendation(demoRecommendation);
+    setRecommendationStatus('idle');
+    setRecommendationError(null);
+    setShowExploreResultModal(true);
+    onRecommendationChange?.(demoRecommendation, signature);
+  }, [deckSlots, demoRecommendation, onRecommendationChange]);
 
   const publishSelection = (slots: (SkillCard | null)[]) => {
     const selectedCards = slots.filter((card): card is SkillCard => Boolean(card));
@@ -230,6 +249,14 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     if (recommendationRequestRef.current) return;
     const requestSignature = createCareerSelectionSignature(selectedCards);
     const requestRevision = selectionRevisionRef.current;
+    if (demoRecommendation) {
+      setRecommendationStatus('idle');
+      setRecommendationError(null);
+      setRecommendation(demoRecommendation);
+      setShowExploreResultModal(true);
+      onRecommendationChange?.(demoRecommendation, requestSignature);
+      return;
+    }
     setRecommendationStatus('loading');
     setRecommendationError(null);
     setRecommendation(null);

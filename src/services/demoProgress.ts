@@ -68,10 +68,14 @@ export function saveDemoProgress(progress: DemoProgress): void {
   }
 }
 
-export function trialPhaseKey(taskId: TrialTaskId): string {
-  return `before-choosing:trial-ui:${taskId}:phase`;
+export function trialPhaseKey(taskId: TrialTaskId, mode: 'demo' | 'use' = 'use'): string {
+  return mode === 'use'
+    ? `before-choosing:trial-ui:${taskId}:phase`
+    : `before-choosing:trial-ui:demo:${taskId}:phase`;
 }
 
-export function trialStepKey(taskId: TrialTaskId): string {
-  return `before-choosing:trial-ui:${taskId}:step`;
+export function trialStepKey(taskId: TrialTaskId, mode: 'demo' | 'use' = 'use'): string {
+  return mode === 'use'
+    ? `before-choosing:trial-ui:${taskId}:step`
+    : `before-choosing:trial-ui:demo:${taskId}:step`;
 }

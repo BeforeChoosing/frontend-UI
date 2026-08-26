@@ -16,6 +16,14 @@ import { StageTransition } from './components/StageTransition';
 import { useProfileCards } from './hooks/useProfileCards';
 import type { ApiCareerRecommendation, ProfileCardPatchRequest, TrialTaskId } from './types/api';
 import { loadDemoProgress, saveDemoProgress } from './services/demoProgress';
+import { createCareerSelectionSignature } from './services/careerRecommendationState';
+import { loadAppMode, saveAppMode, type AppMode } from './services/appMode';
+import {
+  DEMO_CAREER_RECOMMENDATION,
+  DEMO_EXPERIENCE_TEXT,
+  DEMO_PROFILE_EVIDENCE,
+  DEMO_SKILL_CARDS,
+} from './data/demoMode';
 import { motion, AnimatePresence, MotionConfig } from 'motion/react';
 
 function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
@@ -25,14 +33,17 @@ function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard
 }
 
 export default function App() {
+  const [initialAppMode] = useState(loadAppMode);
   const [initialProgress] = useState(loadDemoProgress);
-  const [currentScreen, setCurrentScreen] = useState<ScreenMode>(initialProgress.currentScreen);
-  const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>(initialProgress.selectedTrialTaskId);
-  const [careerSelectedCardIds, setCareerSelectedCardIds] = useState<string[]>(initialProgress.careerSelectedCardIds);
-  const [careerRecommendation, setCareerRecommendation] = useState<ApiCareerRecommendation | null>(initialProgress.careerRecommendation);
-  const [careerRecommendationCardSignature, setCareerRecommendationCardSignature] = useState<string | null>(initialProgress.careerRecommendationCardSignature);
+  const demoSelectedCards = DEMO_SKILL_CARDS.slice(0, 4);
+  const [appMode, setAppMode] = useState<AppMode>(initialAppMode);
+  const [currentScreen, setCurrentScreen] = useState<ScreenMode>(initialAppMode === 'demo' ? 'landing' : initialProgress.currentScreen);
+  const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>(initialAppMode === 'demo' ? 'A-02' : initialProgress.selectedTrialTaskId);
+  const [careerSelectedCardIds, setCareerSelectedCardIds] = useState<string[]>(initialAppMode === 'demo' ? demoSelectedCards.map(card => card.id) : initialProgress.careerSelectedCardIds);
+  const [careerRecommendation, setCareerRecommendation] = useState<ApiCareerRecommendation | null>(initialAppMode === 'demo' ? DEMO_CAREER_RECOMMENDATION : initialProgress.careerRecommendation);
+  const [careerRecommendationCardSignature, setCareerRecommendationCardSignature] = useState<string | null>(initialAppMode === 'demo' ? createCareerSelectionSignature(demoSelectedCards) : initialProgress.careerRecommendationCardSignature);
   const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>([]);
-  const [draftCards, setDraftCards] = useState<SkillCard[]>([]);
+  const [draftCards, setDraftCards] = useState<SkillCard[]>(initialAppMode === 'demo' ? DEMO_SKILL_CARDS.slice(0, 3) : []);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
@@ -57,6 +68,7 @@ export default function App() {
   }, [persistedCards]);
 
   useEffect(() => {
+    if (appMode !== 'use') return;
     saveDemoProgress({
       currentScreen,
       selectedTrialTaskId,
@@ -64,7 +76,31 @@ export default function App() {
       careerRecommendation,
       careerRecommendationCardSignature,
     });
-  }, [careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, selectedTrialTaskId]);
+  }, [appMode, careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, selectedTrialTaskId]);
+
+  const handleAppModeChange = (nextMode: AppMode) => {
+    if (nextMode === appMode) return;
+    saveAppMode(nextMode);
+    setAppMode(nextMode);
+    setIsStageTwoFocusMode(false);
+    if (nextMode === 'demo') {
+      const selectedCards = DEMO_SKILL_CARDS.slice(0, 4);
+      setCurrentScreen('landing');
+      setSelectedTrialTaskId('A-02');
+      setCareerSelectedCardIds(selectedCards.map(card => card.id));
+      setCareerRecommendation(DEMO_CAREER_RECOMMENDATION);
+      setCareerRecommendationCardSignature(createCareerSelectionSignature(selectedCards));
+      setDraftCards(DEMO_SKILL_CARDS.slice(0, 3));
+      return;
+    }
+    const progress = loadDemoProgress();
+    setCurrentScreen(progress.currentScreen);
+    setSelectedTrialTaskId(progress.selectedTrialTaskId);
+    setCareerSelectedCardIds(progress.careerSelectedCardIds);
+    setCareerRecommendation(progress.careerRecommendation);
+    setCareerRecommendationCardSignature(progress.careerRecommendationCardSignature);
+    setDraftCards([]);
+  };
 
   const handleUpdateProfileCard = async (
     cardId: string,
@@ -96,6 +132,7 @@ export default function App() {
   };
 
   const [isStageTwoFocusMode, setIsStageTwoFocusMode] = useState<boolean>(false);
+  const activeCards = appMode === 'demo' ? DEMO_SKILL_CARDS : persistedCards;
 
   // Dynamic subtle ambient glows matching Craft.do warm paper workspace
   const getScreenBackground = (screen: ScreenMode) => {
@@ -149,7 +186,9 @@ export default function App() {
           onOpenAuth={() => setIsAuthOpen(true)}
           onOpenFigmaGuide={() => setIsFigmaGuideOpen(true)}
           isLoggedIn={auth.isLoggedIn}
-          unlockedCardCount={unlockedCards.length}
+          unlockedCardCount={activeCards.length}
+          appMode={appMode}
+          onAppModeChange={handleAppModeChange}
         />
       )}
 
@@ -169,13 +208,16 @@ export default function App() {
           )}
 
           {currentScreen === 'input-experience' && (
-            <StageTransition key="input-experience">
+            <StageTransition key={`input-experience-${appMode}`}>
               <ExperienceInputScreen
                 onGenerateCards={(cards) => {
                   setDraftCards(cards);
                   setCurrentScreen('verify-cards');
                 }}
                 onBackToLanding={() => setCurrentScreen('landing')}
+                demoMode={appMode === 'demo'}
+                demoCards={DEMO_SKILL_CARDS.slice(0, 3)}
+                demoExperienceText={DEMO_EXPERIENCE_TEXT}
               />
             </StageTransition>
           )}
@@ -186,6 +228,10 @@ export default function App() {
                 initialCards={draftCards}
                 allAccumulatedCards={unlockedCards}
                 onConfirmAndSaveToPool={async (newCards) => {
+                  if (appMode === 'demo') {
+                    setUnlockedCards(prev => mergeCardsById(prev, newCards));
+                    return;
+                  }
                   const storedCards = await confirmCards(newCards);
                   setUnlockedCards(prev => mergeCardsById(prev, storedCards));
                 }}
@@ -204,11 +250,12 @@ export default function App() {
           {currentScreen === 'career-explore' && (
             <StageTransition key="career-explore">
               <CareerExploreScreen
-                confirmedCards={persistedCards}
-                profileReady={profileStatus === 'success'}
+                confirmedCards={activeCards}
+                profileReady={appMode === 'demo' || profileStatus === 'success'}
                 initialSelectedCardIds={careerSelectedCardIds}
                 initialRecommendation={careerRecommendation}
                 initialRecommendationCardSignature={careerRecommendationCardSignature}
+                demoRecommendation={appMode === 'demo' ? DEMO_CAREER_RECOMMENDATION : null}
                 onStartStageTwo={(taskId) => {
                   setSelectedTrialTaskId(taskId);
                   setCurrentScreen('stage2');
@@ -225,10 +272,11 @@ export default function App() {
           )}
 
           {currentScreen === 'stage2' && (
-            <StageTransition key="stage2">
+            <StageTransition key={`stage2-${appMode}`}>
               <DynamicTrialTaskScreen
                 taskId={selectedTrialTaskId}
-                confirmedCards={persistedCards}
+                confirmedCards={activeCards}
+                demoMode={appMode === 'demo'}
                 onBackToExplore={() => setCurrentScreen('career-explore')}
                 onEnterProfile={() => setCurrentScreen('profile')}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
@@ -241,15 +289,16 @@ export default function App() {
           {currentScreen === 'report' && (
             <StageTransition key="report">
               <UserProfileScreen
-                persistedCards={persistedCards}
-                profileEvidence={profileEvidence}
-                profileVersion={profileVersion}
-                profileUpdatedAt={profileUpdatedAt}
+                persistedCards={activeCards}
+                profileEvidence={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE : profileEvidence}
+                profileVersion={appMode === 'demo' ? 4 : profileVersion}
+                profileUpdatedAt={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE[0].created_at : profileUpdatedAt}
                 auth={auth}
                 onNavigate={(screen) => setCurrentScreen(screen)}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
-                onUpdateCard={handleUpdateProfileCard}
-                onDeleteCard={handleDeleteProfileCard}
+                onUpdateCard={appMode === 'use' ? handleUpdateProfileCard : undefined}
+                onDeleteCard={appMode === 'use' ? handleDeleteProfileCard : undefined}
+                readOnly={appMode === 'demo'}
                 initialArchTab="reports"
               />
             </StageTransition>
@@ -258,15 +307,16 @@ export default function App() {
           {currentScreen === 'profile' && (
             <StageTransition key="profile">
               <UserProfileScreen
-                persistedCards={persistedCards}
-                profileEvidence={profileEvidence}
-                profileVersion={profileVersion}
-                profileUpdatedAt={profileUpdatedAt}
+                persistedCards={activeCards}
+                profileEvidence={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE : profileEvidence}
+                profileVersion={appMode === 'demo' ? 4 : profileVersion}
+                profileUpdatedAt={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE[0].created_at : profileUpdatedAt}
                 auth={auth}
                 onNavigate={(screen) => setCurrentScreen(screen)}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
-                onUpdateCard={handleUpdateProfileCard}
-                onDeleteCard={handleDeleteProfileCard}
+                onUpdateCard={appMode === 'use' ? handleUpdateProfileCard : undefined}
+                onDeleteCard={appMode === 'use' ? handleDeleteProfileCard : undefined}
+                readOnly={appMode === 'demo'}
                 initialArchTab="insight"
               />
             </StageTransition>

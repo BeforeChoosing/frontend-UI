@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScreenMode } from '../types';
+import type { AppMode } from '../services/appMode';
 import { Sparkles, Layers, Compass, FileText, BookOpen, User, Palette } from 'lucide-react';
 
 interface HeaderProps {
@@ -9,6 +10,8 @@ interface HeaderProps {
   onOpenFigmaGuide: () => void;
   isLoggedIn: boolean;
   unlockedCardCount: number;
+  appMode: AppMode;
+  onAppModeChange: (mode: AppMode) => void;
 }
 
 const STAGE_HEADER_PILLS: Record<ScreenMode, { label: string; bg: string; text: string; dot: string; stageNumber: string }> = {
@@ -29,15 +32,17 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenFigmaGuide,
   isLoggedIn,
   unlockedCardCount,
+  appMode,
+  onAppModeChange,
 }) => {
   const currentPill = STAGE_HEADER_PILLS[currentScreen] || STAGE_HEADER_PILLS.landing;
 
   return (
     <header className="sticky top-4 z-50 px-4 sm:px-6 w-full max-w-5xl mx-auto mb-3 pointer-events-auto">
-      <div className="craft-nav-pill rounded-full px-4 sm:px-6 py-2 flex items-center justify-between transition-all duration-300">
+      <div className="craft-nav-pill rounded-full px-3 sm:px-6 py-2 flex items-center justify-between gap-2 transition-all duration-300">
         
         {/* Brand / Craft Style Logo */}
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex min-w-0 items-center gap-4 sm:gap-6">
           <button
             onClick={() => onNavigate('landing')}
             className="flex items-center gap-2.5 group cursor-pointer text-left"
@@ -46,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="w-7 h-7 rounded-full bg-[#1C1A18] text-white flex items-center justify-center font-bold text-xs tracking-tighter group-hover:opacity-90 transition shadow-xs">
               b.
             </div>
-            <span className="font-bold tracking-tight text-[15px] text-[#1C1A18] font-sans lowercase">
+            <span className="whitespace-nowrap font-bold tracking-tight text-[15px] text-[#1C1A18] font-sans lowercase">
               before<span className="text-amber-500 font-bold">.</span>choosing
             </span>
           </button>
@@ -122,12 +127,25 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Actions - Craft Style User & Black Tactile Pill CTA */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex items-center rounded-full border border-stone-200 bg-stone-100/90 p-0.5" aria-label="运行模式">
+            {(['demo', 'use'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => onAppModeChange(mode)}
+                className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold transition sm:px-3 ${appMode === mode ? 'bg-white text-stone-950 shadow-xs' : 'text-stone-500 hover:text-stone-800'}`}
+                aria-pressed={appMode === mode}
+              >
+                <span className="sm:hidden">{mode === 'demo' ? '演示' : '使用'}</span>
+                <span className="hidden sm:inline">{mode === 'demo' ? '演示模式' : '使用模式'}</span>
+              </button>
+            ))}
+          </div>
           
           {/* Login / Auth Button */}
           {!isLoggedIn ? (
             <button
               onClick={onOpenAuth}
-              className="flex items-center gap-1.5 text-xs font-medium text-stone-700 hover:text-stone-950 bg-stone-100/80 hover:bg-stone-200/80 transition cursor-pointer px-3 py-1.5 rounded-full border border-stone-200/60 shadow-2xs"
+              className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-stone-700 hover:text-stone-950 bg-stone-100/80 hover:bg-stone-200/80 transition cursor-pointer px-3 py-1.5 rounded-full border border-stone-200/60 shadow-2xs"
               id="header-login-btn"
             >
               <User className="w-3.5 h-3.5 text-stone-600" />
@@ -166,7 +184,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onNavigate('report');
               }
             }}
-            className="craft-btn-black px-4 py-1.5 text-xs font-medium cursor-pointer whitespace-nowrap"
+            className="hidden sm:block craft-btn-black px-4 py-1.5 text-xs font-medium cursor-pointer whitespace-nowrap"
             id="craft-main-cta"
           >
             {currentScreen === 'landing' ? '开始探索' : '下一步'}

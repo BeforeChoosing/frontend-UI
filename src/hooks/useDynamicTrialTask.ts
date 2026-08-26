@@ -26,16 +26,18 @@ interface LoadedDynamicTrial {
 // React StrictMode intentionally re-runs effects in development. Keep the first
 // request in flight so the second effect reuses it instead of creating a second
 // local workbench session.
-const pendingTrialLoads = new Map<TrialTaskId, Promise<LoadedDynamicTrial>>();
+const pendingTrialLoads = new Map<string, Promise<LoadedDynamicTrial>>();
 
-function storageKey(taskId: TrialTaskId) {
-  return `before-choosing:dynamic-trial:${taskId}`;
+function storageKey(taskId: TrialTaskId, namespace: 'demo' | 'use') {
+  return namespace === 'use'
+    ? `before-choosing:dynamic-trial:${taskId}`
+    : `before-choosing:dynamic-trial:demo:${taskId}`;
 }
 
-async function resolveDynamicTrial(taskId: TrialTaskId): Promise<LoadedDynamicTrial> {
+async function resolveDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use'): Promise<LoadedDynamicTrial> {
   const task = await getDynamicTrialTask(taskId);
   let session: ApiDynamicTrialSession | null = null;
-  const storedId = window.localStorage.getItem(storageKey(taskId));
+  const storedId = window.localStorage.getItem(storageKey(taskId, namespace));
 
   if (storedId) {
     try {
@@ -43,30 +45,31 @@ async function resolveDynamicTrial(taskId: TrialTaskId): Promise<LoadedDynamicTr
       if (session.task_id !== taskId) session = null;
     } catch (cause) {
       if (!(cause instanceof ApiClientError) || cause.status !== 404) throw cause;
-      window.localStorage.removeItem(storageKey(taskId));
+      window.localStorage.removeItem(storageKey(taskId, namespace));
     }
   }
 
   if (!session) {
     session = await createDynamicTrialSession(taskId);
-    window.localStorage.setItem(storageKey(taskId), session.id);
+    window.localStorage.setItem(storageKey(taskId, namespace), session.id);
   }
 
   return { task, session };
 }
 
-function loadDynamicTrial(taskId: TrialTaskId): Promise<LoadedDynamicTrial> {
-  const pending = pendingTrialLoads.get(taskId);
+function loadDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use'): Promise<LoadedDynamicTrial> {
+  const pendingKey = `${namespace}:${taskId}`;
+  const pending = pendingTrialLoads.get(pendingKey);
   if (pending) return pending;
 
-  const request = resolveDynamicTrial(taskId).finally(() => {
-    if (pendingTrialLoads.get(taskId) === request) pendingTrialLoads.delete(taskId);
+  const request = resolveDynamicTrial(taskId, namespace).finally(() => {
+    if (pendingTrialLoads.get(pendingKey) === request) pendingTrialLoads.delete(pendingKey);
   });
-  pendingTrialLoads.set(taskId, request);
+  pendingTrialLoads.set(pendingKey, request);
   return request;
 }
 
-export function useDynamicTrialTask(taskId: TrialTaskId) {
+export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'use' = 'use') {
   const [task, setTask] = useState<ApiTrialTaskDefinition | null>(null);
   const [session, setSession] = useState<ApiDynamicTrialSession | null>(null);
   const [status, setStatus] = useState<DynamicTrialStatus>('loading');
@@ -80,7 +83,7 @@ export function useDynamicTrialTask(taskId: TrialTaskId) {
       setStatus('loading');
       setError(null);
       try {
-        const { task: taskResponse, session: sessionResponse } = await loadDynamicTrial(taskId);
+        const { task: taskResponse, session: sessionResponse } = await loadDynamicTrial(taskId, namespace);
         if (!cancelled) {
           setTask(taskResponse);
           setSession(sessionResponse);
@@ -95,7 +98,7 @@ export function useDynamicTrialTask(taskId: TrialTaskId) {
     };
     void load();
     return () => { cancelled = true; };
-  }, [taskId]);
+  }, [namespace, taskId]);
 
   const run = useCallback(async <T extends ApiDynamicTrialSession>(
     state: DynamicTrialStatus,

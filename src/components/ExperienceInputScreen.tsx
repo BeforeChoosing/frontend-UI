@@ -32,6 +32,9 @@ import { extractProfileMaterial } from '../api/profile';
 interface ExperienceInputScreenProps {
   onGenerateCards: (cards: SkillCard[]) => void;
   onBackToLanding: () => void;
+  demoMode?: boolean;
+  demoCards?: SkillCard[];
+  demoExperienceText?: string;
 }
 
 export interface ChatMessage {
@@ -423,9 +426,12 @@ const SAMPLE_DOCS = [
 export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   onGenerateCards,
   onBackToLanding,
+  demoMode = false,
+  demoCards = [],
+  demoExperienceText = '',
 }) => {
-  const [inputText, setInputText] = useState('');
-  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [inputText, setInputText] = useState(demoMode ? demoExperienceText : '');
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(demoMode ? 'project' : null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState('');
   
@@ -769,6 +775,17 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setAnalysisStep('正在整理你做过的事…');
 
     try {
+      if (demoMode && demoCards.length > 0) {
+        setMessages(prev => [...prev, {
+          id: `ai-analysis-${Date.now()}`,
+          role: 'ai',
+          content: '演示经历已整理完成，候选能力卡均来自页面中的固定示例数据。',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          detectedSignals: demoCards.map(card => card.title),
+        }]);
+        onGenerateCards(demoCards);
+        return;
+      }
       const proposal = await analyzeExperience({
         experience_text: combinedContent,
         target_role: 'AI Native 产品经理',
