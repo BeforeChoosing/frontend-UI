@@ -16,7 +16,7 @@ export const AppModeSwitcher: React.FC<AppModeSwitcherProps> = ({ appMode, onCha
         className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition active:scale-[0.97] ${appMode === mode ? 'bg-stone-900 text-white shadow-xs' : 'text-stone-500 hover:bg-stone-100 hover:text-stone-900'}`}
         aria-pressed={appMode === mode}
       >
-        {mode === 'demo' ? '演示' : '使用'}
+        {mode === 'demo' ? '演示' : '正式'}
       </button>
     ))}
   </div>

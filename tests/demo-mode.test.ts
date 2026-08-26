@@ -85,7 +85,7 @@ test('演示评价和画像证据结构完整', () => {
   assert.equal(DEMO_SKILL_CARDS.every(card => Boolean(card.evidenceQuote && card.workplaceApplication)), true);
 });
 
-test('演示模式与使用模式采用独立的界面进度键', () => {
+test('演示模式与正式模式采用独立的界面进度键', () => {
   assert.notEqual(trialPhaseKey('A-02', 'demo'), trialPhaseKey('A-02', 'use'));
   assert.notEqual(trialStepKey('A-02', 'demo'), trialStepKey('A-02', 'use'));
 });

@@ -436,23 +436,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const [analysisStep, setAnalysisStep] = useState('');
   
   // Real-time Chat Messages state
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    demoMode
-      ? {
-          id: 'msg-demo-init',
-          role: 'ai',
-          content: '演示模式已载入一段完整项目经历。直接整理即可查看候选能力卡，无需输入或上传材料。',
-          timestamp: '刚刚',
-          detectedSignals: ['示例经历已载入', '候选能力卡已准备', '不调用 Qwen'],
-        }
-      : {
-          id: 'msg-init',
-          role: 'ai',
-          content: '写下一段具体经历，或者上传简历和作品。重点说清你做了什么、结果怎样；不确定的地方我们会直接标出来。',
-          timestamp: '刚刚',
-          detectedSignals: ['可以直接写', '可以上传材料', '只整理你说过的内容'],
-        },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [{
+    id: 'msg-init',
+    role: 'ai',
+    content: '写下一段具体经历，或者上传简历和作品。重点说清你做了什么、结果怎样；不确定的地方我们会直接标出来。',
+    timestamp: '刚刚',
+    detectedSignals: ['可以直接写', '可以上传材料', '只整理你说过的内容'],
+  }]);
   const [isAiThinking, setIsAiThinking] = useState(false);
 
   // File Upload Dialog & Drawer state
@@ -485,7 +475,6 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
   // Handle User Sending a Message in the conversation
   const handleSendMessage = () => {
-    if (demoMode) return;
     const text = inputText.trim();
     if (!text || isAiThinking) return;
 
@@ -788,7 +777,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         setMessages(prev => [...prev, {
           id: `ai-analysis-${Date.now()}`,
           role: 'ai',
-          content: '演示经历已整理完成，候选能力卡均来自页面中的固定示例数据。',
+          content: '校园二手书流转产品经历已经整理好了。接下来确认候选能力卡内容。',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           detectedSignals: demoCards.map(card => card.title),
         }]);
@@ -975,26 +964,17 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
           {/* Quick upload guide prompt bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-stone-100 text-[11px] text-stone-600">
-            {demoMode ? (
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-stone-700">演示说明</span>
-                <span>示例经历、候选能力卡与后续任务内容均已准备。</span>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-stone-400">💡 提示：</span>
-                  <span>可以直接写，也可以点左侧 📎 上传简历或作品</span>
-                </div>
-                <button
-                  onClick={handleTriggerUpload}
-                  className="text-stone-800 hover:text-stone-950 font-medium underline underline-offset-2 flex items-center gap-1 cursor-pointer"
-                >
-                  <span>上传材料</span>
-                  <ExternalLink className="w-3 h-3" />
-                </button>
-              </>
-            )}
+            <div className="flex items-center gap-1.5">
+              <span className="text-stone-400">💡 提示：</span>
+              <span>可以直接写，也可以点左侧 📎 上传简历或作品</span>
+            </div>
+            <button
+              onClick={handleTriggerUpload}
+              className="text-stone-800 hover:text-stone-950 font-medium underline underline-offset-2 flex items-center gap-1 cursor-pointer"
+            >
+              <span>上传材料</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
           </div>
 
         </motion.div>
@@ -1014,7 +994,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           <div className="craft-card w-full rounded-2xl sm:rounded-3xl p-4 sm:p-5 bg-white/90 backdrop-blur-xl border border-stone-200/50 flex flex-col sm:flex-row gap-3.5 items-stretch">
             
             {/* Left Toolbar Icons */}
-            {!demoMode && <div className="flex sm:flex-col items-center justify-center sm:justify-start gap-2 shrink-0 pt-0.5 border-b sm:border-b-0 sm:border-r border-stone-100 pb-2 sm:pb-0 sm:pr-3.5">
+            <div className="flex sm:flex-col items-center justify-center sm:justify-start gap-2 shrink-0 pt-0.5 border-b sm:border-b-0 sm:border-r border-stone-100 pb-2 sm:pb-0 sm:pr-3.5">
               {/* Upload Button */}
               <button
                 type="button"
@@ -1045,7 +1025,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               >
                 {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-stone-700" />}
               </button>
-            </div>}
+            </div>
 
             {/* Central Writing Area & Chat Action */}
             <div className="flex-1 min-h-[140px] sm:min-h-[160px] flex flex-col justify-between">
@@ -1061,13 +1041,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               <textarea
                 ref={textareaRef}
                 value={inputText}
-                readOnly={demoMode}
                 onChange={(e) => {
                   setInputText(e.target.value);
                   if (selectedPresetId) setSelectedPresetId(null);
                 }}
                 onKeyDown={(e) => {
-                  if (demoMode) return;
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSendMessage();
@@ -1075,14 +1053,14 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 }}
                 rows={4}
                 placeholder="写下一次项目、实习、比赛或长期兴趣。&#10;重点说说：你做了什么，后来发生了什么。"
-                className={`w-full h-full bg-transparent text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 leading-relaxed resize-none outline-none font-normal p-1 ${demoMode ? 'cursor-default' : ''}`}
+                className="w-full h-full bg-transparent text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 leading-relaxed resize-none outline-none font-normal p-1"
               />
 
               {/* Word Count / Helper status & Send Button */}
               <div className="flex items-center justify-between text-[11px] text-stone-400 pt-2 border-t border-stone-100">
                 <div className="flex items-center gap-2">
-                  <span>{demoMode ? `示例经历 · ${inputText.length} 字` : inputText ? `已输入 ${inputText.length} 字` : '可以从下方选择一个经历模板'}</span>
-                  {inputText && !demoMode && (
+                  <span>{inputText ? `已输入 ${inputText.length} 字` : '可以从下方选择一个经历模板'}</span>
+                  {inputText && (
                     <button
                       onClick={() => {
                         setInputText('');
@@ -1097,7 +1075,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 </div>
 
                 {/* Send button for real-time conversational exchange */}
-                {!demoMode && <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <span className="hidden sm:inline text-[10px] text-stone-400">Enter 发送</span>
                   <button
                     onClick={handleSendMessage}
@@ -1111,7 +1089,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   <span>发送</span>
                     <Send className="w-3 h-3" />
                   </button>
-                </div>}
+                </div>
               </div>
             </div>
 
@@ -1136,7 +1114,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           3. BOTTOM QUICK START (Pill Chips Grid strictly from wireframe)
           ======================================================================
         */}
-        {!demoMode && <motion.div
+        <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
@@ -1172,7 +1150,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               );
             })}
           </div>
-        </motion.div>}
+        </motion.div>
 
       </div>
 
@@ -1206,7 +1184,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             </>
           ) : (
             <span className="tracking-wide text-white font-medium">
-              {demoMode ? '整理演示经历' : '帮我整理这段经历'}
+              帮我整理这段经历
             </span>
           )}
         </button>
@@ -1329,7 +1307,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   {/* One-click Sample Demo Documents */}
                   <div className="space-y-2 pt-1">
                     <div className="text-xs font-bold text-stone-800 flex items-center justify-between">
-                      <span>或者选择预设演示文档一键体验：</span>
+                      <span>或者选择预设文档快速开始：</span>
                       <span className="text-[10px] text-stone-500 font-normal">快速测试</span>
                     </div>
 

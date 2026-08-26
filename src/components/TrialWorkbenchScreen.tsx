@@ -25,7 +25,6 @@ interface TrialWorkbenchScreenProps {
   completedStepIds: string[];
   active: boolean;
   busy: boolean;
-  demoMode: boolean;
   coachText: string | null;
   onActiveChange: (active: boolean) => void;
   onBackToExplore: () => void;
@@ -56,7 +55,6 @@ export function TrialWorkbenchScreen({
   completedStepIds,
   active,
   busy,
-  demoMode,
   coachText,
   onActiveChange,
   onBackToExplore,
@@ -251,7 +249,7 @@ export function TrialWorkbenchScreen({
             </div>
             <div className="flex shrink-0 items-center justify-between border-t border-stone-200 px-4 py-3">
               <button onClick={onPrevious} disabled={stepIndex === 0 || busy} className="craft-btn-secondary px-4 py-2 text-xs disabled:opacity-40">上一步</button>
-              {stepIndex < task.steps.length - 1 ? <button onClick={onNext} disabled={busy || !answer.step_answers[currentStep.id]?.trim()} className="craft-btn-black flex items-center gap-1.5 px-5 py-2 text-xs disabled:opacity-40">保存并继续<ArrowRight className="h-3.5 w-3.5" /></button> : <button onClick={onSubmit} disabled={busy || !answer.step_answers[currentStep.id]?.trim() || !answer.event_decision || !answer.event_response.trim()} className="craft-btn-black flex items-center gap-1.5 px-5 py-2 text-xs disabled:opacity-40"><Send className="h-3.5 w-3.5" />{demoMode ? '提交演示方案' : '提交任务并评价'}</button>}
+              {stepIndex < task.steps.length - 1 ? <button onClick={onNext} disabled={busy || !answer.step_answers[currentStep.id]?.trim()} className="craft-btn-black flex items-center gap-1.5 px-5 py-2 text-xs disabled:opacity-40">保存并继续<ArrowRight className="h-3.5 w-3.5" /></button> : <button onClick={onSubmit} disabled={busy || !answer.step_answers[currentStep.id]?.trim() || !answer.event_decision || !answer.event_response.trim()} className="craft-btn-black flex items-center gap-1.5 px-5 py-2 text-xs disabled:opacity-40"><Send className="h-3.5 w-3.5" />提交任务并评价</button>}
             </div>
           </section>
         </main>
