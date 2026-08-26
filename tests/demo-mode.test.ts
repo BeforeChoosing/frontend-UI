@@ -5,6 +5,7 @@ import {
   createDemoTrialAnswer,
   createDemoTrialEvaluation,
   DEMO_SKILL_CARDS,
+  evaluateDemoCardPlayRound,
 } from '../src/data/demoMode';
 import { trialPhaseKey, trialStepKey } from '../src/services/demoProgress';
 import type { ApiTrialTaskDefinition } from '../src/types/api';
@@ -51,16 +52,27 @@ const task: ApiTrialTaskDefinition = {
   source_note: '固定任务库',
 };
 
-test('演示作答覆盖三轮能力出牌、五步任务和事件响应', () => {
+test('演示任务准备示例草稿，但能力出牌从未完成状态开始', () => {
   const answer = createDemoTrialAnswer(task);
 
   assert.equal(answer.card_play_rounds.length, 3);
-  assert.equal(answer.card_play_completed, true);
-  assert.equal(answer.card_play_rounds.every(round => round.selected_card_ids.length > 0), true);
+  assert.equal(answer.card_play_completed, false);
+  assert.equal(answer.card_play_rounds.every(round => round.selected_card_ids.length === 0), true);
+  assert.equal(answer.card_play_rounds.every(round => round.match_level === null), true);
   assert.equal(task.steps.every(step => Boolean(answer.step_answers[step.id]?.trim())), true);
   assert.equal(answer.evidence_refs.length, 3);
   assert.equal(answer.event_decision, '调整');
   assert.notEqual(answer.event_response.trim(), '');
+});
+
+test('演示能力出牌根据实际选择返回对应等级', () => {
+  const challenge = task.ability_challenges[0];
+  const directMatch = evaluateDemoCardPlayRound(challenge, [DEMO_SKILL_CARDS[0]]);
+  const weakMatch = evaluateDemoCardPlayRound(challenge, [DEMO_SKILL_CARDS[5]]);
+
+  assert.equal(directMatch.match_level, 'high');
+  assert.deepEqual(directMatch.matched_card_ids, DEMO_SKILL_CARDS.slice(0, 1).map(card => card.id));
+  assert.equal(weakMatch.match_level, 'low');
 });
 
 test('演示评价和画像证据结构完整', () => {

@@ -2,8 +2,10 @@ import type { SkillCard } from '../types';
 import type {
   ApiCareerRecommendation,
   ApiDynamicTrialAnswer,
+  ApiDynamicTrialCardPlayRound,
   ApiObservedEvidence,
   ApiProfileEvidence,
+  ApiTrialAbilityChallenge,
   ApiTrialEvaluation,
   ApiTrialTaskDefinition,
 } from '../types/api';
@@ -152,36 +154,74 @@ const DEMO_STEP_ANSWERS: Record<string, string> = {
   event: '调整验证顺序，但保持 Top 2。基础模型没有明显退化，应优先验证 Memory、Tool 和 Workflow 层，而不是更换模型。',
 };
 
-export function createDemoTrialAnswer(
-  task: ApiTrialTaskDefinition,
-  cards: SkillCard[] = DEMO_SKILL_CARDS,
-): ApiDynamicTrialAnswer {
-  const rounds = task.ability_challenges.map((challenge, index) => {
-    const selected = [cards[index % cards.length], cards[(index + 1) % cards.length]].filter(Boolean);
-    return {
-      challenge_id: challenge.id,
-      selected_card_ids: selected.map(card => card.id),
-      match_level: 'high' as const,
-      matched_card_ids: selected.map(card => card.id),
-      matched_skills: challenge.target_skills,
-      feedback: challenge.reference_behavior,
-    };
-  });
+const DEMO_CATEGORY_SKILL_WEIGHTS: Record<string, Record<string, number>> = {
+  洞察分析: { 用户洞察: 8, 数据驱动: 2, 模型评测: 1, 商业意识: 1 },
+  产品策略: { 方案与交互: 7, 商业意识: 5, AI产品化: 4, 优先级判断: 8, 跨团队落地: 2 },
+  技术落地: { AI产品化: 8, 模型评测: 5, 方案与交互: 2, 创新趋势: 7, 跨团队落地: 2 },
+  数据驱动: { 数据驱动: 8, 模型评测: 6, 用户洞察: 2, 商业意识: 3, 优先级判断: 5 },
+  协作沟通: { 跨团队落地: 8, 商业意识: 5, 方案与交互: 2, 优先级判断: 2 },
+  交互体验: { 方案与交互: 8, 用户洞察: 5, AI产品化: 2, 跨团队落地: 1 },
+};
+
+export function evaluateDemoCardPlayRound(
+  challenge: ApiTrialAbilityChallenge,
+  selectedCards: SkillCard[],
+): ApiDynamicTrialCardPlayRound {
+  const scoredCards = selectedCards.map(card => ({
+    card,
+    score: Math.max(...challenge.target_skills.map(skill => DEMO_CATEGORY_SKILL_WEIGHTS[card.category]?.[skill] || 0), 0),
+  }));
+  const matchedCards = scoredCards.filter(item => item.score > 0).map(item => item.card);
+  const matchedSkills = challenge.target_skills.filter(skill => (
+    selectedCards.some(card => (DEMO_CATEGORY_SKILL_WEIGHTS[card.category]?.[skill] || 0) > 0)
+  ));
+  const directMatch = scoredCards.some(item => item.score >= 6);
+  const matchLevel = directMatch || matchedCards.length >= 2
+    ? 'high'
+    : matchedCards.length > 0
+      ? 'partial'
+      : 'low';
+  const skillText = challenge.target_skills.join('、');
+  const feedback = matchLevel === 'high'
+    ? `所选能力与“${skillText}”直接对应，可用于本轮任务要求。参考表现：${challenge.reference_behavior}`
+    : matchLevel === 'partial'
+      ? `所选能力可提供辅助支持，但与“${skillText}”的直接对应仍不充分。参考表现：${challenge.reference_behavior}`
+      : `当前选择与“${skillText}”关联较弱。本轮参考表现：${challenge.reference_behavior}`;
+
+  return {
+    challenge_id: challenge.id,
+    selected_card_ids: selectedCards.map(card => card.id),
+    match_level: matchLevel,
+    matched_card_ids: matchedCards.map(card => card.id),
+    matched_skills: matchedSkills,
+    feedback,
+  };
+}
+
+export function createDemoTrialAnswer(task: ApiTrialTaskDefinition): ApiDynamicTrialAnswer {
+  const rounds = task.ability_challenges.map(challenge => ({
+    challenge_id: challenge.id,
+    selected_card_ids: [],
+    match_level: null,
+    matched_card_ids: [],
+    matched_skills: [],
+    feedback: '',
+  }));
   const materials = task.materials.slice(0, 3).map(material => material.id);
   return {
-    selected_card_ids: Array.from(new Set(rounds.flatMap(round => round.selected_card_ids))),
+    selected_card_ids: [],
     card_play_rounds: rounds,
     card_play_current_index: 0,
     card_play_rationale: '优先使用用户洞察和问题拆解识别系统性原因，再用数据验证确定修复顺序。',
     validation_hypothesis: '如果问题主要来自 Memory 与 Tool 链路，修复后任务成功率应提升，人工覆盖率应下降。',
-    card_play_completed: true,
+    card_play_completed: false,
     step_answers: Object.fromEntries(task.steps.map(step => [
       step.id,
       DEMO_STEP_ANSWERS[step.id] || `${step.instruction} 已按照任务约束完成演示填写。`,
     ])),
     viewed_material_ids: materials,
     evidence_refs: materials,
-    step_revisions: Object.fromEntries(task.steps.map(step => [step.id, 1])),
+    step_revisions: Object.fromEntries(task.steps.map(step => [step.id, 0])),
     coach_usage: [],
     event_decision: '调整',
     event_response: '模型效果没有明显退化，因此保持 Memory 与 Tool 两项系统性问题，优先验证状态写入读取链路，再验证工具决策、权限和错误回传。',

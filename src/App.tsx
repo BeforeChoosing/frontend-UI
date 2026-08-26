@@ -38,11 +38,11 @@ export default function App() {
   const [initialProgress] = useState(loadDemoProgress);
   const demoSelectedCards = DEMO_SKILL_CARDS.slice(0, 4);
   const [appMode, setAppMode] = useState<AppMode>(initialAppMode);
-  const [currentScreen, setCurrentScreen] = useState<ScreenMode>(initialAppMode === 'demo' ? 'input-experience' : initialProgress.currentScreen);
+  const [currentScreen, setCurrentScreen] = useState<ScreenMode>(initialAppMode === 'demo' ? 'landing' : initialProgress.currentScreen);
   const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>(initialAppMode === 'demo' ? 'A-02' : initialProgress.selectedTrialTaskId);
   const [careerSelectedCardIds, setCareerSelectedCardIds] = useState<string[]>(initialAppMode === 'demo' ? demoSelectedCards.map(card => card.id) : initialProgress.careerSelectedCardIds);
-  const [careerRecommendation, setCareerRecommendation] = useState<ApiCareerRecommendation | null>(initialAppMode === 'demo' ? DEMO_CAREER_RECOMMENDATION : initialProgress.careerRecommendation);
-  const [careerRecommendationCardSignature, setCareerRecommendationCardSignature] = useState<string | null>(initialAppMode === 'demo' ? createCareerSelectionSignature(demoSelectedCards) : initialProgress.careerRecommendationCardSignature);
+  const [careerRecommendation, setCareerRecommendation] = useState<ApiCareerRecommendation | null>(initialAppMode === 'demo' ? null : initialProgress.careerRecommendation);
+  const [careerRecommendationCardSignature, setCareerRecommendationCardSignature] = useState<string | null>(initialAppMode === 'demo' ? null : initialProgress.careerRecommendationCardSignature);
   const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>([]);
   const [draftCards, setDraftCards] = useState<SkillCard[]>(initialAppMode === 'demo' ? DEMO_SKILL_CARDS.slice(0, 3) : []);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -88,11 +88,11 @@ export default function App() {
       const selectedCards = DEMO_SKILL_CARDS.slice(0, 4);
       window.localStorage.setItem(trialPhaseKey('A-02', 'demo'), 'card-play');
       window.localStorage.setItem(trialStepKey('A-02', 'demo'), '0');
-      setCurrentScreen('input-experience');
+      setCurrentScreen('landing');
       setSelectedTrialTaskId('A-02');
       setCareerSelectedCardIds(selectedCards.map(card => card.id));
-      setCareerRecommendation(DEMO_CAREER_RECOMMENDATION);
-      setCareerRecommendationCardSignature(createCareerSelectionSignature(selectedCards));
+      setCareerRecommendation(null);
+      setCareerRecommendationCardSignature(null);
       setDraftCards(DEMO_SKILL_CARDS.slice(0, 3));
       return;
     }

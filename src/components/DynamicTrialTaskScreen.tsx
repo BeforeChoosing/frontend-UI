@@ -21,6 +21,7 @@ import {
   createDemoObservedEvidence,
   createDemoTrialAnswer,
   createDemoTrialEvaluation,
+  evaluateDemoCardPlayRound,
 } from '../data/demoMode';
 
 interface DynamicTrialTaskScreenProps {
@@ -52,6 +53,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const [activeMaterialId, setActiveMaterialId] = useState<string | null>(null);
   const [coachText, setCoachText] = useState<string | null>(null);
   const [demoSubmitted, setDemoSubmitted] = useState(false);
+  const [demoCompletedStepIds, setDemoCompletedStepIds] = useState<string[]>([]);
   const [phase, setPhase] = useState<'card-play' | 'workbench'>(() => (
     window.localStorage.getItem(trialPhaseKey(taskId, progressMode)) === 'workbench'
       ? 'workbench'
@@ -59,17 +61,26 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   ));
 
   const demoAnswer = useMemo(
-    () => demoMode && task ? createDemoTrialAnswer(task, confirmedCards) : null,
-    [confirmedCards, demoMode, task],
+    () => demoMode && task ? createDemoTrialAnswer(task) : null,
+    [demoMode, task],
   );
 
   useEffect(() => {
     if (session) {
       const nextAnswer = demoAnswer || session.answer;
       setAnswer(nextAnswer);
+      if (demoMode) {
+        setDemoSubmitted(false);
+        setDemoCompletedStepIds([]);
+        setPhase('card-play');
+        setStepIndex(0);
+        window.localStorage.setItem(trialPhaseKey(taskId, progressMode), 'card-play');
+        window.localStorage.setItem(trialStepKey(taskId, progressMode), '0');
+        return;
+      }
       const savedPhase = window.localStorage.getItem(trialPhaseKey(taskId, progressMode));
       setPhase(
-        !demoMode && session.status === 'submitted'
+        session.status === 'submitted'
           ? 'workbench'
           : nextAnswer.card_play_completed && savedPhase === 'workbench'
             ? 'workbench'
@@ -97,8 +108,9 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const isBusy = status === 'saving' || status === 'submitting';
   const completedCount = useMemo(() => {
     if (!task || !answer) return 0;
+    if (demoMode) return demoCompletedStepIds.length;
     return task.steps.filter(step => answer.step_answers[step.id]?.trim()).length;
-  }, [answer, task]);
+  }, [answer, demoCompletedStepIds.length, demoMode, task]);
 
   if (!task || !session || !answer || status === 'loading') {
     return <div className="min-h-[calc(100vh-64px)] grid place-items-center text-sm text-stone-500">正在准备小任务…</div>;
@@ -174,14 +186,14 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     const round = answer.card_play_rounds.find(item => item.challenge_id === challenge?.id);
     if (!challenge || !round?.selected_card_ids.length) return;
     if (demoMode) {
-      const matchedCardIds = round.selected_card_ids.filter(cardId => confirmedCards.some(card => card.id === cardId));
-      const nextRounds = answer.card_play_rounds.map(item => item.challenge_id === challenge.id ? {
-        ...item,
-        match_level: 'high' as const,
-        matched_card_ids: matchedCardIds,
-        matched_skills: challenge.target_skills,
-        feedback: challenge.reference_behavior,
-      } : item);
+      const cardsById = new Map(confirmedCards.map(card => [card.id, card]));
+      const selectedCards = round.selected_card_ids
+        .map(cardId => cardsById.get(cardId))
+        .filter((card): card is SkillCard => Boolean(card));
+      const evaluatedRound = evaluateDemoCardPlayRound(challenge, selectedCards);
+      const nextRounds = answer.card_play_rounds.map(item => (
+        item.challenge_id === challenge.id ? evaluatedRound : item
+      ));
       setAnswer({
         ...answer,
         selected_card_ids: Array.from(new Set(nextRounds.flatMap(item => item.selected_card_ids))),
@@ -272,7 +284,9 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
 
   const handleNext = async () => {
     if (!currentStep || !answer.step_answers[currentStep.id]?.trim()) return;
-    if (!demoMode) {
+    if (demoMode) {
+      setDemoCompletedStepIds(current => current.includes(currentStep.id) ? current : [...current, currentStep.id]);
+    } else {
       await save(answer);
       if (stepIndex === 3 && !session.event_revealed) await revealEvent();
     }
@@ -284,6 +298,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const handleSubmit = async () => {
     if (!currentStep || !answer.step_answers[currentStep.id]?.trim() || !answer.event_decision || !answer.event_response.trim()) return;
     if (demoMode) {
+      setDemoCompletedStepIds(current => current.includes(currentStep.id) ? current : [...current, currentStep.id]);
       setDemoSubmitted(true);
       return;
     }
@@ -417,7 +432,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
             </div>
             <div className="craft-card rounded-2xl border border-stone-200 bg-white/95 p-4">
               <h2 className="text-xs font-bold text-stone-900">完成进度</h2>
-              <div className="mt-3 space-y-2">{task.steps.map((step, index) => { const complete = Boolean(answer.step_answers[step.id]?.trim()); return <button key={step.id} onClick={() => index <= stepIndex && setStepIndex(index)} className="flex w-full items-center gap-2 text-left text-xs"><span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${complete ? 'bg-emerald-100 text-emerald-700' : index === stepIndex ? 'bg-purple-100 text-purple-700' : 'bg-stone-100 text-stone-400'}`}>{complete ? <Check className="w-3 h-3" /> : index + 1}</span><span className={index === stepIndex ? 'font-bold text-stone-900' : 'text-stone-500'}>{step.title}</span></button>; })}</div>
+              <div className="mt-3 space-y-2">{task.steps.map((step, index) => { const complete = demoMode ? demoCompletedStepIds.includes(step.id) : Boolean(answer.step_answers[step.id]?.trim()); return <button key={step.id} onClick={() => index <= stepIndex && setStepIndex(index)} className="flex w-full items-center gap-2 text-left text-xs"><span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${complete ? 'bg-emerald-100 text-emerald-700' : index === stepIndex ? 'bg-purple-100 text-purple-700' : 'bg-stone-100 text-stone-400'}`}>{complete ? <Check className="w-3 h-3" /> : index + 1}</span><span className={index === stepIndex ? 'font-bold text-stone-900' : 'text-stone-500'}>{step.title}</span></button>; })}</div>
             </div>
             <div className="craft-card rounded-2xl border border-stone-200 bg-white/95 p-4"><h2 className="text-xs font-bold text-stone-900">需要注意</h2><div className="mt-2 space-y-1.5">{task.constraints.map(item => <p key={item} className="text-[11px] leading-relaxed text-stone-600">• {item}</p>)}</div></div>
           </aside>

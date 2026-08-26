@@ -73,7 +73,6 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   const selectionSignatureRef = useRef(createCareerSelectionSignature([]));
   const selectionRevisionRef = useRef(0);
   const selectionHydratedRef = useRef(false);
-  const demoRecommendationOpenedRef = useRef(false);
 
   useEffect(() => {
     if (!profileReady) return;
@@ -107,14 +106,15 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     const selectionIntact = currentCardIds.length === restoredCardIds.length;
     if (!selectionIntact) onSelectionChange?.(restoredCardIds);
 
-    const canRestoreRecommendation = restoredCards.length > 0
+    const canRestoreRecommendation = !demoRecommendation
+      && restoredCards.length > 0
       && selectionIntact
       && Boolean(initialRecommendation)
       && isCareerRecommendationCurrent(initialRecommendationCardSignature, restoredCards);
     if (canRestoreRecommendation) {
       setRecommendation(initialRecommendation);
       setShowExploreResultModal(true);
-    } else if (initialRecommendation) {
+    } else if (!demoRecommendation && initialRecommendation) {
       setRecommendation(null);
       setShowExploreResultModal(false);
       onRecommendationChange?.(null, null);
@@ -125,26 +125,11 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     initialRecommendation,
     initialRecommendationCardSignature,
     initialSelectedCardIds,
+    demoRecommendation,
     onRecommendationChange,
     onSelectionChange,
     profileReady,
   ]);
-
-  useEffect(() => {
-    if (!demoRecommendation) {
-      demoRecommendationOpenedRef.current = false;
-      return;
-    }
-    const selectedCards = deckSlots.filter((card): card is SkillCard => Boolean(card));
-    if (demoRecommendationOpenedRef.current || selectedCards.length === 0) return;
-    demoRecommendationOpenedRef.current = true;
-    const signature = createCareerSelectionSignature(selectedCards);
-    setRecommendation(demoRecommendation);
-    setRecommendationStatus('idle');
-    setRecommendationError(null);
-    setShowExploreResultModal(true);
-    onRecommendationChange?.(demoRecommendation, signature);
-  }, [deckSlots, demoRecommendation, onRecommendationChange]);
 
   const publishSelection = (slots: (SkillCard | null)[]) => {
     const selectedCards = slots.filter((card): card is SkillCard => Boolean(card));

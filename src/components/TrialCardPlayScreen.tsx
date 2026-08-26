@@ -14,7 +14,7 @@ import {
   Target,
   X,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import type { SkillCard } from '../types';
 import type {
   ApiDynamicTrialAnswer,
@@ -67,6 +67,7 @@ export function TrialCardPlayScreen({
   onOpenCardDetail,
 }: TrialCardPlayScreenProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showJudgementGuide, setShowJudgementGuide] = useState(false);
   const challengeIndex = Math.min(
     Math.max(answer.card_play_current_index || 0, 0),
     task.ability_challenges.length - 1,
@@ -317,7 +318,7 @@ export function TrialCardPlayScreen({
             <div className="mt-5 space-y-2">
               {!evaluated && (
                 <>
-                  <button type="button" className="craft-btn-secondary flex w-full items-center justify-center gap-2 px-4 py-3 text-xs" title="查看本轮任务的判断重点">
+                  <button type="button" onClick={() => setShowJudgementGuide(true)} className="craft-btn-secondary flex w-full items-center justify-center gap-2 px-4 py-3 text-xs" title="查看本轮任务的判断重点">
                     <CircleHelp className="h-3.5 w-3.5" />查看判断重点
                   </button>
                   <button onClick={onEvaluate} disabled={!ready || saving} className="craft-btn-black flex w-full items-center justify-center gap-2 px-4 py-3 text-xs disabled:opacity-40">
@@ -385,6 +386,36 @@ export function TrialCardPlayScreen({
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showJudgementGuide && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+              className="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                <div>
+                  <p className="font-mono text-[10px] font-bold text-amber-700">CHALLENGE {String(challengeIndex + 1).padStart(2, '0')}</p>
+                  <h2 className="mt-1 font-serif text-lg text-stone-950">本轮判断重点</h2>
+                </div>
+                <button onClick={() => setShowJudgementGuide(false)} aria-label="关闭判断重点" className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-100 text-stone-500 transition hover:bg-stone-900 hover:text-white">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-4 rounded-2xl border border-amber-200/70 bg-amber-50/70 p-4">
+                <p className="text-xs font-bold text-stone-900">目标能力：{challenge.target_skills.join('、')}</p>
+                <p className="mt-2 text-xs leading-6 text-stone-700">{challenge.reference_behavior}</p>
+              </div>
+              <p className="mt-4 text-[11px] leading-relaxed text-stone-500">判断重点用于理解评价边界，不会替代能力卡选择。</p>
+              <button onClick={() => setShowJudgementGuide(false)} className="craft-btn-black mt-5 w-full px-4 py-3 text-xs">返回选牌</button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
