@@ -19,7 +19,7 @@ export function useProfileExploration() {
         setStatus('success');
         return response;
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : '能力探索暂时无法完成，请稍后重试。';
+        const message = '这次整理没有完成，你刚才发送的内容已经保留。稍后可以再次发送。';
         setStatus('error');
         setError(message);
         throw cause;

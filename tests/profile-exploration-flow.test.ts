@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const experienceSource = readFileSync(new URL('../src/components/ExperienceInputScreen.tsx', import.meta.url), 'utf8');
+const explorationHookSource = readFileSync(new URL('../src/hooks/useProfileExploration.ts', import.meta.url), 'utf8');
 const profileApiSource = readFileSync(new URL('../src/api/profile.ts', import.meta.url), 'utf8');
 const trialScreenSource = readFileSync(new URL('../src/components/DynamicTrialTaskScreen.tsx', import.meta.url), 'utf8');
 const cardPlaySource = readFileSync(new URL('../src/components/TrialCardPlayScreen.tsx', import.meta.url), 'utf8');
@@ -15,9 +16,12 @@ test('01 使用完整聊天记录、单一输入框和对话附件建立候选�
   assert.match(experienceSource, /Shift\+Enter 换行/);
   assert.doesNotMatch(experienceSource, /handleSendMessage/);
   assert.match(experienceSource, /整段用户对话和附件正文/);
+  assert.match(experienceSource, /和你一起把其中的行动与能力线索理清/);
+  assert.match(explorationHookSource, /你刚才发送的内容已经保留/);
   assert.match(experienceSource, /handleTriggerUpload/);
   assert.match(experienceSource, /发送交流/);
   assert.match(experienceSource, /分析经历/);
+  assert.doesNotMatch(experienceSource, />\s*助手\s*</);
   assert.match(profileApiSource, /\/profile\/exploration\/messages/);
   assert.match(verificationSource, /候选项目经历卡/);
   assert.match(verificationSource, /合并所选卡片/);

@@ -56,7 +56,7 @@ export interface ChatMessage {
 const INITIAL_CHAT_MESSAGE: ChatMessage = {
   id: 'msg-init',
   role: 'ai',
-  content: '告诉我一件对你有意义的经历，或者在对话中附上简历和项目材料。我会沿着你提供的事实补问，并整理其中的能力线索。',
+  content: '我们可以从一段对你有意义的经历开始。你也可以附上简历或项目材料，我会根据你提供的事实，和你一起把其中的行动与能力线索理清。',
   timestamp: '刚刚',
   detectedSignals: ['等待你的真实故事', '支持连续对话', '可以附加材料'],
 };
@@ -103,7 +103,9 @@ function loadExplorationMessages(demoMode: boolean): ChatMessage[] {
     const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'messages'));
     if (!raw) return [INITIAL_CHAT_MESSAGE];
     const parsed = JSON.parse(raw) as ChatMessage[];
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed.slice(-30) : [INITIAL_CHAT_MESSAGE];
+    return Array.isArray(parsed) && parsed.length > 0
+      ? parsed.slice(-30).map(message => message.id === INITIAL_CHAT_MESSAGE.id ? INITIAL_CHAT_MESSAGE : message)
+      : [INITIAL_CHAT_MESSAGE];
   } catch {
     return [INITIAL_CHAT_MESSAGE];
   }
@@ -896,28 +898,22 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
       <div className="space-y-4 sm:space-y-6 relative z-10">
         
-        {/* 
-          ======================================================================
-          1. TOP DYNAMIC AGENT CHAT BUBBLE (Conversational Agent Speech Area)
-          ======================================================================
-        */}
+        {/* Profile assistant conversation */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="craft-card w-full rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-white/85 backdrop-blur-xl border border-stone-200/50 flex flex-col gap-3 relative"
+          className="craft-card relative flex w-full flex-col gap-4 rounded-2xl border border-stone-200/50 bg-white/88 p-4 backdrop-blur-xl sm:rounded-3xl sm:p-6"
         >
           {/* Main Top Header Line */}
           <div className="flex items-start gap-3.5 sm:gap-5">
-            {/* Agent Avatar Circle */}
             <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-stone-100 text-stone-700 flex items-center justify-center shrink-0 border border-stone-200/60">
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-stone-900 text-emerald-300 flex items-center justify-center shadow-xs">
                 <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-300" />
               </div>
             </div>
 
-            {/* Agent Content and Real-time dialogue */}
-            <div className="space-y-1.5 flex-1 min-w-0">
+            <div className="min-w-0 flex-1 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight flex items-center gap-2">
                   <span>潜能挖掘助手</span>
@@ -938,16 +934,14 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 )}
               </div>
 
-              {/* Collapsed view: Latest AI response */}
               {!isChatExpanded ? (
-                <div className="space-y-2">
-                  <p className="text-xs sm:text-sm text-stone-700 leading-relaxed font-normal">
+                <div className="space-y-2 pt-0.5">
+                  <p className="max-w-3xl text-xs font-normal leading-6 text-stone-700 sm:text-sm">
                     {latestAiMessage.content}
                   </p>
 
-                  {/* Highlighted capability signals pill badges */}
                   {latestAiMessage.detectedSignals && latestAiMessage.detectedSignals.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <span className="text-[10px] text-stone-500 flex items-center gap-1">
                         <Lightbulb className="w-3 h-3 text-emerald-600" />
                         <span>捕捉到的线索：</span>
@@ -964,26 +958,19 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   )}
                 </div>
               ) : (
-                /* Expanded Dialogue List */
                 <div 
                   ref={chatScrollRef}
-                  className="max-h-60 overflow-y-auto space-y-3 pr-1 pt-1 scrollbar-thin"
+                  className="max-h-64 space-y-3 overflow-y-auto pr-1 scrollbar-thin"
                 >
                   {messages.map((msg) => (
                     <div 
                       key={msg.id} 
-                      className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      {msg.role === 'ai' && (
-                        <div className="w-6 h-6 rounded-full bg-stone-900 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5 text-[10px]">
-                            助手
-                        </div>
-                      )}
-                      
-                      <div className={`max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed ${
+                      <div className={`text-xs leading-relaxed ${
                         msg.role === 'user' 
-                          ? 'bg-stone-900 text-stone-100 rounded-tr-xs' 
-                          : 'bg-white/95 text-stone-800 border border-stone-200/80 rounded-tl-xs shadow-2xs'
+                          ? 'max-w-[85%] rounded-2xl rounded-tr-md bg-stone-900 px-3.5 py-2.5 text-stone-100'
+                          : 'w-full max-w-3xl border-b border-stone-100 pb-3 text-stone-700 last:border-b-0 last:pb-0'
                       }`}>
                         {msg.attachedFile && (
                           <div className="mb-1.5 pb-1.5 border-b border-stone-700/40 flex items-center gap-1.5 text-[11px] text-emerald-300">
@@ -992,22 +979,16 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                           </div>
                         )}
                         <p>{msg.content}</p>
-                        {msg.detectedSignals && (
-                          <div className="flex flex-wrap gap-1 mt-1.5 pt-1 border-t border-stone-100">
+                        {msg.detectedSignals && msg.detectedSignals.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
                             {msg.detectedSignals.map((s, idx) => (
-                              <span key={idx} className="text-[9px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-700">
+                              <span key={idx} className="rounded-md bg-stone-100 px-2 py-0.5 text-[9px] text-stone-600">
                                 {s}
                               </span>
                             ))}
                           </div>
                         )}
                       </div>
-
-                      {msg.role === 'user' && (
-                        <div className="w-6 h-6 rounded-full bg-stone-200 text-stone-700 flex items-center justify-center shrink-0 mt-0.5 text-[10px]">
-                          你
-                        </div>
-                      )}
                     </div>
                   ))}
 
