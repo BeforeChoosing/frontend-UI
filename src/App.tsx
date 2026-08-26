@@ -16,7 +16,7 @@ import { StageTransition } from './components/StageTransition';
 import { AppModeSwitcher } from './components/AppModeSwitcher';
 import { useProfileCards } from './hooks/useProfileCards';
 import type { ApiCareerRecommendation, ProfileCardPatchRequest, TrialTaskId } from './types/api';
-import { loadDemoProgress, saveDemoProgress, trialPhaseKey, trialStepKey } from './services/demoProgress';
+import { loadDemoProgress, saveDemoProgress, trialStepKey } from './services/demoProgress';
 import { createCareerSelectionSignature } from './services/careerRecommendationState';
 import { loadAppMode, saveAppMode, type AppMode } from './services/appMode';
 import {
@@ -86,7 +86,6 @@ export default function App() {
     setIsStageTwoFocusMode(false);
     if (nextMode === 'demo') {
       const selectedCards = DEMO_SKILL_CARDS.slice(0, 4);
-      window.localStorage.setItem(trialPhaseKey('A-02', 'demo'), 'card-play');
       window.localStorage.setItem(trialStepKey('A-02', 'demo'), '0');
       setCurrentScreen('landing');
       setSelectedTrialTaskId('A-02');

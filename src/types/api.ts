@@ -4,6 +4,39 @@ export interface ProfileProposalRequest {
   existing_card_titles?: string[];
 }
 
+export type ProfileExplorationFocus =
+  | 'ownership'
+  | 'decision'
+  | 'constraint'
+  | 'collaboration'
+  | 'result'
+  | 'transfer'
+  | 'evidence';
+
+export interface ProfileExplorationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ProfileExplorationRequest {
+  experience_text: string;
+  messages: ProfileExplorationMessage[];
+  target_role?: string;
+  existing_card_titles?: string[];
+  request_id?: string;
+}
+
+export interface ProfileExplorationResponse {
+  trace_id: string;
+  reply: string;
+  focus_dimension: ProfileExplorationFocus;
+  evidence_found: string[];
+  evidence_gap: string;
+  potential_hypotheses: string[];
+  ready_for_proposal: boolean;
+  notice: string;
+}
+
 export interface MaterialExtractResponse {
   file_name: string;
   text: string;

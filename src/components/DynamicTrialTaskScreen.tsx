@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { useDynamicTrialTask } from '../hooks/useDynamicTrialTask';
 import type { SkillCard } from '../types';
 import type { ApiDynamicTrialAnswer, TrialTaskId } from '../types/api';
 import { TrialCardPlayScreen } from './TrialCardPlayScreen';
 import { TrialWorkbenchScreen } from './TrialWorkbenchScreen';
-import { trialPhaseKey, trialStepKey } from '../services/demoProgress';
+import { trialStepKey } from '../services/demoProgress';
 import {
   createDemoObservedEvidence,
   createDemoTrialAnswer,
@@ -45,14 +45,22 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const [demoSubmitted, setDemoSubmitted] = useState(false);
   const [demoCompletedStepIds, setDemoCompletedStepIds] = useState<string[]>([]);
   const [workbenchActive, setWorkbenchActive] = useState(false);
-  const [phase, setPhase] = useState<'card-play' | 'workbench'>(() => (
-    window.localStorage.getItem(trialPhaseKey(taskId, progressMode)) === 'workbench' ? 'workbench' : 'card-play'
-  ));
+  const [phase, setPhase] = useState<'card-play' | 'workbench'>('card-play');
+  const initializedSessionRef = useRef<string | null>(null);
 
   const demoAnswer = useMemo(() => demoMode && task ? createDemoTrialAnswer(task) : null, [demoMode, task]);
 
   useEffect(() => {
     if (!session) return;
+    if (!demoMode) setAnswer(session.answer);
+  }, [demoMode, session]);
+
+  useEffect(() => {
+    if (!session || !task) return;
+    const initializationKey = `${progressMode}:${session.id}:${taskId}`;
+    if (initializedSessionRef.current === initializationKey) return;
+    initializedSessionRef.current = initializationKey;
+
     const nextAnswer = demoAnswer || session.answer;
     setAnswer(nextAnswer);
     setWorkbenchActive(false);
@@ -62,12 +70,12 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
       setDemoCompletedStepIds([]);
       setPhase('card-play');
       setStepIndex(0);
-      window.localStorage.setItem(trialPhaseKey(taskId, progressMode), 'card-play');
       window.localStorage.setItem(trialStepKey(taskId, progressMode), '0');
       return;
     }
-    const savedPhase = window.localStorage.getItem(trialPhaseKey(taskId, progressMode));
-    setPhase(session.status === 'submitted' ? 'workbench' : nextAnswer.card_play_completed && savedPhase === 'workbench' ? 'workbench' : 'card-play');
+    // Entering 03 always returns to the three-challenge overview. Completed
+    // rounds stay visible and the user explicitly continues to the briefing.
+    setPhase('card-play');
     const savedStep = Number(window.localStorage.getItem(trialStepKey(taskId, progressMode)));
     if (Number.isInteger(savedStep) && savedStep >= 0 && savedStep < task.steps.length) {
       setStepIndex(savedStep);
@@ -78,12 +86,11 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   }, [demoAnswer, demoMode, onFocusModeChange, progressMode, session, task, taskId]);
 
   useEffect(() => {
-    window.localStorage.setItem(trialPhaseKey(taskId, progressMode), phase);
     if (phase === 'card-play') {
       setWorkbenchActive(false);
       onFocusModeChange?.(false);
     }
-  }, [onFocusModeChange, phase, progressMode, taskId]);
+  }, [onFocusModeChange, phase]);
 
   useEffect(() => {
     window.localStorage.setItem(trialStepKey(taskId, progressMode), String(stepIndex));
@@ -140,6 +147,13 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
 
   const handleSelectCardPlayChallenge = async (index: number) => {
     if (index < 0 || index >= task.ability_challenges.length || index === answer.card_play_current_index) return;
+    const firstIncompleteIndex = task.ability_challenges.findIndex(challenge => (
+      !answer.card_play_rounds.some(round => round.challenge_id === challenge.id && round.match_level)
+    ));
+    const lastUnlockedIndex = firstIncompleteIndex === -1
+      ? task.ability_challenges.length - 1
+      : firstIncompleteIndex;
+    if (index > lastUnlockedIndex) return;
     const nextAnswer = { ...answer, card_play_current_index: index };
     setAnswer(nextAnswer);
     if (!demoMode) setAnswer((await save(nextAnswer)).answer);
@@ -147,7 +161,6 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
 
   const handleEnterWorkbench = () => {
     if (!answer.card_play_completed) return;
-    window.localStorage.setItem(trialPhaseKey(taskId, progressMode), 'workbench');
     setWorkbenchActive(false);
     onFocusModeChange?.(false);
     setPhase('workbench');

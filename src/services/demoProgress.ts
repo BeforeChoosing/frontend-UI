@@ -68,12 +68,6 @@ export function saveDemoProgress(progress: DemoProgress): void {
   }
 }
 
-export function trialPhaseKey(taskId: TrialTaskId, mode: 'demo' | 'use' = 'use'): string {
-  return mode === 'use'
-    ? `before-choosing:trial-ui:${taskId}:phase`
-    : `before-choosing:trial-ui:demo:${taskId}:phase`;
-}
-
 export function trialStepKey(taskId: TrialTaskId, mode: 'demo' | 'use' = 'use'): string {
   return mode === 'use'
     ? `before-choosing:trial-ui:${taskId}:step`

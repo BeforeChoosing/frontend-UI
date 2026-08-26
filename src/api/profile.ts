@@ -2,12 +2,23 @@ import { apiFormRequest, apiRequest } from './client';
 import type {
   ApiCardProposal,
   MaterialExtractResponse,
+  ProfileExplorationRequest,
+  ProfileExplorationResponse,
   ProfileCardPatchRequest,
   ProfileCardsResponse,
   ProfileOverviewResponse,
   ProfileProposalRequest,
   ProfileProposalResponse,
 } from '../types/api';
+
+export function createProfileExplorationMessage(
+  request: ProfileExplorationRequest,
+): Promise<ProfileExplorationResponse> {
+  return apiRequest<ProfileExplorationResponse>('/profile/exploration/messages', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
 
 export function extractProfileMaterial(file: File): Promise<MaterialExtractResponse> {
   const form = new FormData();

@@ -83,6 +83,12 @@ export function TrialCardPlayScreen({
   const evaluated = Boolean(currentRound.match_level && currentRound.feedback);
   const isLastChallenge = challengeIndex === task.ability_challenges.length - 1;
   const completedCount = answer.card_play_rounds.filter(item => item.match_level).length;
+  const firstIncompleteIndex = task.ability_challenges.findIndex(item => (
+    !answer.card_play_rounds.some(round => round.challenge_id === item.id && round.match_level)
+  ));
+  const lastUnlockedIndex = firstIncompleteIndex === -1
+    ? task.ability_challenges.length - 1
+    : firstIncompleteIndex;
   const ready = currentRound.selected_card_ids.length > 0
     && currentRound.selected_card_ids.length <= challenge.max_cards
     && missingCardIds.length === 0;
@@ -174,9 +180,9 @@ export function TrialCardPlayScreen({
                     <button
                       key={item.id}
                       onClick={() => onSelectChallenge(index)}
-                      disabled={saving}
+                      disabled={saving || index > lastUnlockedIndex}
                       aria-label={`切换到挑战 ${index + 1}`}
-                      className={`h-3 w-3 rounded-full border transition ${active ? 'border-stone-900 bg-stone-900 ring-2 ring-stone-200' : complete ? 'border-emerald-500 bg-emerald-500' : 'border-stone-300 bg-white'}`}
+                      className={`h-3 w-3 rounded-full border transition disabled:cursor-not-allowed disabled:opacity-35 ${active ? 'border-stone-900 bg-stone-900 ring-2 ring-stone-200' : complete ? 'border-emerald-500 bg-emerald-500' : 'border-stone-300 bg-white'}`}
                     />
                   );
                 })}
@@ -336,7 +342,7 @@ export function TrialCardPlayScreen({
 
               {evaluated && isLastChallenge && answer.card_play_completed && (
                 <button onClick={onEnterWorkbench} disabled={saving} className="craft-btn-black flex w-full items-center justify-center gap-2 px-4 py-3 text-xs">
-                  进入真实任务<ArrowRight className="h-3.5 w-3.5" />
+                  查看任务简报<ArrowRight className="h-3.5 w-3.5" />
                 </button>
               )}
               <p className="pt-2 text-[10px] leading-relaxed text-stone-400">本阶段只记录能力应用判断，最终评价以真实任务产出为准。</p>

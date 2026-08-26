@@ -27,6 +27,7 @@ import {
 import { SkillCard } from '../types';
 import { mapProfileProposalToSkillCards } from '../features/profile/profileAdapter';
 import { useExperienceAnalysis } from '../hooks/useExperienceAnalysis';
+import { useProfileExploration } from '../hooks/useProfileExploration';
 import { extractProfileMaterial } from '../api/profile';
 
 interface ExperienceInputScreenProps {
@@ -48,6 +49,39 @@ export interface ChatMessage {
     size: string;
     type: 'resume' | 'portfolio' | 'link';
   };
+}
+
+const INITIAL_CHAT_MESSAGE: ChatMessage = {
+  id: 'msg-init',
+  role: 'ai',
+  content: '先整理一段经历，再通过补充交流还原你亲自完成的行动、判断依据和实际结果。',
+  timestamp: '刚刚',
+  detectedSignals: ['只依据你提供的内容', '潜能线索需要验证', '确认后再写入档案'],
+};
+
+const EXPLORATION_FOCUS_LABELS = {
+  ownership: '本人职责',
+  decision: '判断依据',
+  constraint: '限制条件',
+  collaboration: '协作过程',
+  result: '实际结果',
+  transfer: '可迁移行为',
+  evidence: '证据完整度',
+} as const;
+
+function explorationStorageKey(demoMode: boolean, field: 'draft' | 'messages'): string {
+  return `before-choosing:profile-exploration:${demoMode ? 'demo' : 'use'}:${field}`;
+}
+
+function loadExplorationMessages(demoMode: boolean): ChatMessage[] {
+  try {
+    const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'messages'));
+    if (!raw) return [INITIAL_CHAT_MESSAGE];
+    const parsed = JSON.parse(raw) as ChatMessage[];
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed.slice(-12) : [INITIAL_CHAT_MESSAGE];
+  } catch {
+    return [INITIAL_CHAT_MESSAGE];
+  }
 }
 
 interface QuickPreset {
@@ -430,19 +464,17 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   demoCards = [],
   demoExperienceText = '',
 }) => {
-  const [inputText, setInputText] = useState(demoMode ? demoExperienceText : '');
+  const [inputText, setInputText] = useState(() => (
+    window.localStorage.getItem(explorationStorageKey(demoMode, 'draft'))
+    || (demoMode ? demoExperienceText : '')
+  ));
+  const [coachInput, setCoachInput] = useState('');
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState('');
   
   // Real-time Chat Messages state
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [{
-    id: 'msg-init',
-    role: 'ai',
-    content: '写下一段具体经历，或者上传简历和作品。重点说清你做了什么、结果怎样；不确定的地方我们会直接标出来。',
-    timestamp: '刚刚',
-    detectedSignals: ['可以直接写', '可以上传材料', '只整理你说过的内容'],
-  }]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode));
   const [isAiThinking, setIsAiThinking] = useState(false);
 
   // File Upload Dialog & Drawer state
@@ -461,6 +493,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   // Expand dialogue history
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const { analyze: analyzeExperience, error: analysisError } = useExperienceAnalysis();
+  const { explore: exploreProfile, status: explorationStatus, error: explorationError } = useProfileExploration();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -473,91 +506,62 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     }
   }, [messages, isAiThinking]);
 
-  // Handle User Sending a Message in the conversation
-  const handleSendMessage = () => {
-    const text = inputText.trim();
-    if (!text || isAiThinking) return;
+  useEffect(() => {
+    window.localStorage.setItem(explorationStorageKey(demoMode, 'draft'), inputText);
+  }, [demoMode, inputText]);
 
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: text,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
+  useEffect(() => {
+    window.localStorage.setItem(
+      explorationStorageKey(demoMode, 'messages'),
+      JSON.stringify(messages.slice(-12)),
+    );
+  }, [demoMode, messages]);
 
-    setMessages(prev => [...prev, userMsg]);
-    setInputText('');
-    setSelectedPresetId(null);
+  const handleSendCoachMessage = async () => {
+    const text = coachInput.trim();
+    if (!text || inputText.trim().length < 20 || explorationStatus === 'loading') return;
     setIsAiThinking(true);
-
-    // Analyze intent to generate conversational feedback
-    setTimeout(() => {
-      let aiReply = '';
-      let signals: string[] = [];
-
-      if (text.includes('书') || text.includes('小程序') || text.includes('项目') || text.includes('团队')) {
-        aiReply = '该经历包含真实用户、复杂流程和结果验证等要素，体现了问题拆解能力。可继续补充多方协作中的具体阻力与处理结果。';
-        signals = ['问题拆解', '复杂协同', 'MVP敏捷验证'];
-      } else if (text.includes('摄影') || text.includes('兴趣') || text.includes('拍摄') || text.includes('故事')) {
-        aiReply = '该经历包含长期实践、信任建立与结构化表达等能力线索。可继续补充沟通动作和作品结果，便于形成可核验记录。';
-        signals = ['用户同理心', '叙事架构', '自驱探索'];
-      } else if (text.includes('考研') || text.includes('选择') || text.includes('岗位') || text.includes('决策')) {
-        aiReply = '该经历使用系统化调研和能力差距表支持职业方向判断，决策过程清晰。可继续补充当时梳理出的核心能力差异。';
-        signals = ['结构化决策', '技术敏锐度', '业务建模'];
-      } else if (text.includes('场地') || text.includes('冲突') || text.includes('危机') || text.includes('紧急')) {
-        aiReply = '该经历体现突发情况下的应急处置、资源调度与项目控制能力。可补充备用方案的选择依据和执行结果。';
-        signals = ['危机处置', '多线程调度', '同理沟通'];
-      } else if (text.includes('自学') || text.includes('AI') || text.includes('Python') || text.includes('机器人')) {
-        aiReply = '该经历体现从技术学习到工具交付的完整过程，并以真实用户使用结果证明了方案价值。';
-        signals = ['技术自学力', '敏捷交付', '工具化提效'];
-      } else if (text.includes('实验') || text.includes('接线') || text.includes('图') || text.includes('改进')) {
-        aiReply = '该经历通过轻量可视化改进降低了操作成本，并以提问率和完成时间验证了实际效果。';
-        signals = ['体验减负', '信息降维', '高ROI意识'];
-      } else {
-        aiReply = '当前内容已形成初步能力线索。补充具体行动、结果和协作对象后，可提交经历分析以生成候选能力卡。';
-        signals = ['自驱行动力', '逻辑思考', '价值交付'];
-      }
-
-      const aiMsg: ChatMessage = {
-        id: `ai-${Date.now()}`,
+    try {
+      const conversation = messages.slice(-11).map(message => ({
+        role: message.role === 'ai' ? 'assistant' as const : 'user' as const,
+        content: message.content,
+      }));
+      conversation.push({ role: 'user', content: text });
+      const response = await exploreProfile({
+        experience_text: inputText.trim().slice(0, 12000),
+        messages: conversation,
+        target_role: 'AI Native 产品经理',
+        request_id: `profile-${Date.now()}`,
+      });
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setMessages(prev => [...prev, {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: text,
+        timestamp,
+      }, {
+        id: `ai-${response.trace_id}`,
         role: 'ai',
-        content: aiReply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        detectedSignals: signals
-      };
-
-      setMessages(prev => [...prev, aiMsg]);
+        content: response.reply,
+        timestamp,
+        detectedSignals: [
+          EXPLORATION_FOCUS_LABELS[response.focus_dimension],
+          ...response.evidence_found.slice(0, 2),
+        ],
+      }].slice(-12));
+      setCoachInput('');
+      setIsChatExpanded(true);
+    } catch {
+      // The hook exposes the backend/Qwen error beside the exploration composer.
+    } finally {
       setIsAiThinking(false);
-    }, 800);
+    }
   };
 
   // Quick Preset Click Handler
   const handleSelectPreset = (preset: QuickPreset) => {
     setSelectedPresetId(preset.id);
     setInputText(preset.sampleText);
-    
-    // Add interactive prompt to chat
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: preset.sampleText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages(prev => [...prev, userMsg]);
-    setIsAiThinking(true);
-
-    setTimeout(() => {
-      const aiMsg: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        role: 'ai',
-        content: preset.analysisSummary,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        detectedSignals: preset.cards.map(c => c.title)
-      };
-      setMessages(prev => [...prev, aiMsg]);
-      setIsAiThinking(false);
-    }, 700);
 
     if (textareaRef.current) {
       textareaRef.current.focus();
@@ -765,7 +769,10 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       .filter(message => message.role === 'user')
       .map(message => message.content)
       .join('\n');
-    const combinedContent = inputText.trim() || userMessages;
+    const combinedContent = [inputText.trim(), userMessages]
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, 12000);
     if (!combinedContent || isAnalyzing) return;
 
     setIsAnalyzing(true);
@@ -900,7 +907,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     >
                       {msg.role === 'ai' && (
                         <div className="w-6 h-6 rounded-full bg-stone-900 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5 text-[10px]">
-                            提取
+                            教练
                         </div>
                       )}
                       
@@ -977,6 +984,33 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             </button>
           </div>
 
+          <div className="grid gap-2 border-t border-stone-100 pt-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <label className="block text-[11px] font-medium text-stone-700">
+              补充交流
+              <textarea
+                value={coachInput}
+                onChange={event => setCoachInput(event.target.value)}
+                rows={2}
+                maxLength={1000}
+                placeholder="补充你希望进一步梳理的行动、判断或结果。Enter 仅用于换行。"
+                className="mt-1.5 w-full resize-none rounded-2xl border border-stone-200 bg-white/90 px-3 py-2 text-xs font-normal leading-5 text-stone-800 outline-none transition-colors focus:border-emerald-400"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => void handleSendCoachMessage()}
+              disabled={!coachInput.trim() || inputText.trim().length < 20 || explorationStatus === 'loading'}
+              className="craft-btn-black flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {explorationStatus === 'loading' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              发送给能力教练
+            </button>
+          </div>
+          {inputText.trim().length < 20 && coachInput.trim() && (
+            <p className="text-[10px] text-amber-700">先在经历草稿中补充至少 20 个字，再发送本轮交流。</p>
+          )}
+          {explorationError && <p role="alert" className="text-[10px] text-rose-700">{explorationError}</p>}
+
         </motion.div>
 
         {/* 
@@ -1027,7 +1061,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               </button>
             </div>
 
-            {/* Central Writing Area & Chat Action */}
+            {/* Central persistent experience draft */}
             <div className="flex-1 min-h-[140px] sm:min-h-[160px] flex flex-col justify-between">
               
               {/* Voice feedback banner */}
@@ -1045,18 +1079,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   setInputText(e.target.value);
                   if (selectedPresetId) setSelectedPresetId(null);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
                 rows={4}
                 placeholder="写下一次项目、实习、比赛或长期兴趣。&#10;重点说说：你做了什么，后来发生了什么。"
                 className="w-full h-full bg-transparent text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 leading-relaxed resize-none outline-none font-normal p-1"
               />
 
-              {/* Word Count / Helper status & Send Button */}
+              {/* Word Count / persistent draft status */}
               <div className="flex items-center justify-between text-[11px] text-stone-400 pt-2 border-t border-stone-100">
                 <div className="flex items-center gap-2">
                   <span>{inputText ? `已输入 ${inputText.length} 字` : '可以从下方选择一个经历模板'}</span>
@@ -1074,22 +1102,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   )}
                 </div>
 
-                {/* Send button for real-time conversational exchange */}
-                <div className="flex items-center gap-2">
-                  <span className="hidden sm:inline text-[10px] text-stone-400">Enter 发送</span>
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!inputText.trim() || isAiThinking}
-                    className={`py-1.5 px-3 rounded-full text-xs font-medium transition flex items-center gap-1.5 cursor-pointer ${
-                      inputText.trim() && !isAiThinking
-                        ? 'bg-stone-900 hover:bg-stone-800 text-white active:scale-95 shadow-xs'
-                        : 'bg-stone-100 text-stone-400 cursor-not-allowed'
-                    }`}
-                  >
-                  <span>发送</span>
-                    <Send className="w-3 h-3" />
-                  </button>
-                </div>
+                <span className="text-[10px] text-stone-400">草稿自动保存在当前浏览器</span>
               </div>
             </div>
 
