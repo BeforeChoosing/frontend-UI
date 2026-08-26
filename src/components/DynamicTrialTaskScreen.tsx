@@ -12,31 +12,71 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useDynamicTrialTask } from '../hooks/useDynamicTrialTask';
+import type { SkillCard } from '../types';
 import type { ApiDynamicTrialAnswer, TrialTaskId } from '../types/api';
 import { TaskStepInput } from './TaskStepInput';
+import { TrialCardPlayScreen } from './TrialCardPlayScreen';
+import { trialPhaseKey, trialStepKey } from '../services/demoProgress';
 
 interface DynamicTrialTaskScreenProps {
   taskId: TrialTaskId;
+  confirmedCards: SkillCard[];
   onBackToExplore: () => void;
   onEnterProfile: () => void;
+  onOpenCardDetail: (card: SkillCard) => void;
   onTrialComplete?: () => Promise<unknown> | void;
 }
 
 export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   taskId,
+  confirmedCards,
   onBackToExplore,
   onEnterProfile,
+  onOpenCardDetail,
   onTrialComplete,
 }) => {
   const { task, session, status, error, save, revealEvent, requestCoach, submit } = useDynamicTrialTask(taskId);
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(() => {
+    const saved = Number(window.localStorage.getItem(trialStepKey(taskId)));
+    return Number.isInteger(saved) && saved >= 0 && saved < 5 ? saved : 0;
+  });
   const [answer, setAnswer] = useState<ApiDynamicTrialAnswer | null>(null);
   const [activeMaterialId, setActiveMaterialId] = useState<string | null>(null);
   const [coachText, setCoachText] = useState<string | null>(null);
+  const [phase, setPhase] = useState<'card-play' | 'workbench'>(() => (
+    window.localStorage.getItem(trialPhaseKey(taskId)) === 'workbench'
+      ? 'workbench'
+      : 'card-play'
+  ));
 
   useEffect(() => {
-    if (session) setAnswer(session.answer);
-  }, [session]);
+    if (session) {
+      setAnswer(session.answer);
+      const savedPhase = window.localStorage.getItem(trialPhaseKey(taskId));
+      setPhase(
+        session.status === 'submitted'
+          ? 'workbench'
+          : session.answer.card_play_completed && savedPhase === 'workbench'
+            ? 'workbench'
+            : 'card-play',
+      );
+      const savedStep = Number(window.localStorage.getItem(trialStepKey(taskId)));
+      if (Number.isInteger(savedStep) && savedStep >= 0 && savedStep < 5) {
+        setStepIndex(savedStep);
+      } else if (task) {
+        const firstIncomplete = task.steps.findIndex(step => !session.answer.step_answers[step.id]?.trim());
+        setStepIndex(firstIncomplete === -1 ? task.steps.length - 1 : firstIncomplete);
+      }
+    }
+  }, [session, task, taskId]);
+
+  useEffect(() => {
+    window.localStorage.setItem(trialPhaseKey(taskId), phase);
+  }, [phase, taskId]);
+
+  useEffect(() => {
+    window.localStorage.setItem(trialStepKey(taskId), String(stepIndex));
+  }, [stepIndex, taskId]);
 
   const currentStep = task?.steps[stepIndex];
   const isBusy = status === 'saving' || status === 'submitting';
@@ -112,6 +152,54 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     );
   }
 
+  const handleCardPlayEvaluate = async () => {
+    const challenge = task.ability_challenges[answer.card_play_current_index];
+    const round = answer.card_play_rounds.find(item => item.challenge_id === challenge?.id);
+    if (!challenge || !round?.selected_card_ids.length) return;
+    const completedChallengeIds = new Set(answer.card_play_rounds.map(item => item.challenge_id));
+    const isLastChallenge = answer.card_play_current_index === task.ability_challenges.length - 1;
+    const completedAnswer = {
+      ...answer,
+      card_play_completed: isLastChallenge
+        && task.ability_challenges.every(item => completedChallengeIds.has(item.id)),
+    };
+    setAnswer(completedAnswer);
+    const saved = await save(completedAnswer);
+    setAnswer(saved.answer);
+  };
+
+  const handleSelectCardPlayChallenge = async (index: number) => {
+    if (index < 0 || index >= task.ability_challenges.length || index === answer.card_play_current_index) return;
+    const nextAnswer = { ...answer, card_play_current_index: index };
+    setAnswer(nextAnswer);
+    const saved = await save(nextAnswer);
+    setAnswer(saved.answer);
+  };
+
+  const handleEnterWorkbench = () => {
+    if (!answer.card_play_completed) return;
+    window.localStorage.setItem(trialPhaseKey(taskId), 'workbench');
+    setPhase('workbench');
+  };
+
+  if (phase === 'card-play') {
+    return (
+      <TrialCardPlayScreen
+        task={task}
+        cards={confirmedCards}
+        answer={answer}
+        error={error}
+        saving={status === 'saving'}
+        onChange={setAnswer}
+        onEvaluate={() => void handleCardPlayEvaluate()}
+        onSelectChallenge={(index) => void handleSelectCardPlayChallenge(index)}
+        onEnterWorkbench={handleEnterWorkbench}
+        onBack={onBackToExplore}
+        onOpenCardDetail={onOpenCardDetail}
+      />
+    );
+  }
+
   const updateStepAnswer = (value: string) => {
     if (!currentStep) return;
     setAnswer(current => current ? ({
@@ -151,7 +239,9 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     if (!currentStep || !answer.step_answers[currentStep.id]?.trim()) return;
     await save(answer);
     if (stepIndex === 3 && !session.event_revealed) await revealEvent();
-    setStepIndex(Math.min(task.steps.length - 1, stepIndex + 1));
+    const nextStepIndex = Math.min(task.steps.length - 1, stepIndex + 1);
+    window.localStorage.setItem(trialStepKey(taskId), String(nextStepIndex));
+    setStepIndex(nextStepIndex);
   };
 
   const handleSubmit = async () => {
@@ -162,7 +252,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   };
 
   const handleCoach = async (level: 1 | 2 | 3) => {
-    const prompt = await requestCoach(level);
+    const prompt = await requestCoach(level, answer);
     setCoachText(prompt);
   };
 
@@ -171,8 +261,15 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
       <div className="space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
           <div>
-            <button onClick={onBackToExplore} className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-900"><ArrowLeft className="w-3.5 h-3.5" />返回职业探索</button>
+            <div className="flex flex-wrap items-center gap-4">
+              <button onClick={onBackToExplore} className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-900"><ArrowLeft className="w-3.5 h-3.5" />返回职业探索</button>
+              <button onClick={() => {
+                window.localStorage.setItem(trialPhaseKey(taskId), 'card-play');
+                setPhase('card-play');
+              }} className="text-xs text-purple-700 hover:text-purple-950">返回能力出牌</button>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-mono font-bold text-sky-800">03 · 阶段 2 / 2</span>
               <span className="rounded-full bg-purple-100 px-2 py-1 text-[10px] font-mono font-bold text-purple-800">{task.id}</span>
               <span className="rounded-full bg-stone-100 px-2 py-1 text-[10px] font-mono text-stone-600">{task.role_type}</span>
               <span className="flex items-center gap-1 rounded-full bg-stone-100 px-2 py-1 text-[10px] font-mono text-stone-600"><Clock3 className="w-3 h-3" />{task.estimated_minutes}</span>

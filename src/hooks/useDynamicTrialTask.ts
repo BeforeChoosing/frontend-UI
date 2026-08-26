@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiClientError } from '../api/client';
 import {
   createDynamicTrialSession,
@@ -71,6 +71,8 @@ export function useDynamicTrialTask(taskId: TrialTaskId) {
   const [session, setSession] = useState<ApiDynamicTrialSession | null>(null);
   const [status, setStatus] = useState<DynamicTrialStatus>('loading');
   const [error, setError] = useState<string | null>(null);
+  const sessionActionRef = useRef<Promise<ApiDynamicTrialSession> | null>(null);
+  const coachActionRef = useRef<Promise<string> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,18 +101,25 @@ export function useDynamicTrialTask(taskId: TrialTaskId) {
     state: DynamicTrialStatus,
     action: () => Promise<T>,
   ) => {
-    setStatus(state);
-    setError(null);
-    try {
-      const next = await action();
-      setSession(next);
-      setStatus('ready');
-      return next;
-    } catch (cause) {
-      setStatus('error');
-      setError(cause instanceof Error ? cause.message : '请求失败，请稍后重试。');
-      throw cause;
-    }
+    if (sessionActionRef.current) return sessionActionRef.current as Promise<T>;
+    const request = (async () => {
+      setStatus(state);
+      setError(null);
+      try {
+        const next = await action();
+        setSession(next);
+        setStatus('ready');
+        return next;
+      } catch (cause) {
+        setStatus('error');
+        setError(cause instanceof Error ? cause.message : '请求失败，请稍后重试。');
+        throw cause;
+      } finally {
+        sessionActionRef.current = null;
+      }
+    })();
+    sessionActionRef.current = request;
+    return request;
   }, []);
 
   const save = useCallback((answer: ApiDynamicTrialAnswer) => {
@@ -123,21 +132,33 @@ export function useDynamicTrialTask(taskId: TrialTaskId) {
     return run('saving', () => revealDynamicTrialEvent(session.id));
   }, [run, session]);
 
-  const requestCoach = useCallback(async (level: 1 | 2 | 3) => {
+  const requestCoach = useCallback(async (
+    level: 1 | 2 | 3,
+    draftAnswer: ApiDynamicTrialAnswer,
+  ) => {
     if (!session) throw new Error('试路会话尚未准备完成。');
-    setStatus('saving');
-    setError(null);
-    try {
-      const response = await useDynamicTrialCoach(session.id, level);
-      const next = await getDynamicTrialSession(session.id);
-      setSession(next);
-      setStatus('ready');
-      return response.prompt;
-    } catch (cause) {
-      setStatus('error');
-      setError(cause instanceof Error ? cause.message : 'Coach 提示加载失败。');
-      throw cause;
-    }
+    if (coachActionRef.current) return coachActionRef.current;
+    const request = (async () => {
+      setStatus('saving');
+      setError(null);
+      try {
+        const saved = await saveDynamicTrialAnswer(session.id, draftAnswer);
+        setSession(saved);
+        const response = await useDynamicTrialCoach(session.id, level);
+        const next = await getDynamicTrialSession(session.id);
+        setSession(next);
+        setStatus('ready');
+        return response.prompt;
+      } catch (cause) {
+        setStatus('error');
+        setError(cause instanceof Error ? cause.message : 'Coach 提示加载失败。');
+        throw cause;
+      } finally {
+        coachActionRef.current = null;
+      }
+    })();
+    coachActionRef.current = request;
+    return request;
   }, [session]);
 
   const submit = useCallback(() => {

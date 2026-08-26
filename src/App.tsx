@@ -14,7 +14,8 @@ import { FigmaGuideModal } from './components/FigmaGuideModal';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { StageTransition } from './components/StageTransition';
 import { useProfileCards } from './hooks/useProfileCards';
-import type { ProfileCardPatchRequest, TrialTaskId } from './types/api';
+import type { ApiCareerRecommendation, ProfileCardPatchRequest, TrialTaskId } from './types/api';
+import { loadDemoProgress, saveDemoProgress } from './services/demoProgress';
 import { motion, AnimatePresence, MotionConfig } from 'motion/react';
 
 function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
@@ -24,8 +25,12 @@ function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard
 }
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<ScreenMode>('landing');
-  const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>('A-02');
+  const [initialProgress] = useState(loadDemoProgress);
+  const [currentScreen, setCurrentScreen] = useState<ScreenMode>(initialProgress.currentScreen);
+  const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>(initialProgress.selectedTrialTaskId);
+  const [careerSelectedCardIds, setCareerSelectedCardIds] = useState<string[]>(initialProgress.careerSelectedCardIds);
+  const [careerRecommendation, setCareerRecommendation] = useState<ApiCareerRecommendation | null>(initialProgress.careerRecommendation);
+  const [careerRecommendationCardSignature, setCareerRecommendationCardSignature] = useState<string | null>(initialProgress.careerRecommendationCardSignature);
   const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>([]);
   const [draftCards, setDraftCards] = useState<SkillCard[]>([]);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -38,6 +43,7 @@ export default function App() {
     version: profileVersion,
     updatedAt: profileUpdatedAt,
     evidence: profileEvidence,
+    status: profileStatus,
     refresh: refreshProfile,
     confirmCards,
     updateCard,
@@ -49,6 +55,16 @@ export default function App() {
       setUnlockedCards(prev => mergeCardsById(prev, persistedCards));
     }
   }, [persistedCards]);
+
+  useEffect(() => {
+    saveDemoProgress({
+      currentScreen,
+      selectedTrialTaskId,
+      careerSelectedCardIds,
+      careerRecommendation,
+      careerRecommendationCardSignature,
+    });
+  }, [careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, selectedTrialTaskId]);
 
   const handleUpdateProfileCard = async (
     cardId: string,
@@ -189,9 +205,18 @@ export default function App() {
             <StageTransition key="career-explore">
               <CareerExploreScreen
                 confirmedCards={persistedCards}
+                profileReady={profileStatus === 'success'}
+                initialSelectedCardIds={careerSelectedCardIds}
+                initialRecommendation={careerRecommendation}
+                initialRecommendationCardSignature={careerRecommendationCardSignature}
                 onStartStageTwo={(taskId) => {
                   setSelectedTrialTaskId(taskId);
                   setCurrentScreen('stage2');
+                }}
+                onSelectionChange={setCareerSelectedCardIds}
+                onRecommendationChange={(nextRecommendation, cardSignature) => {
+                  setCareerRecommendation(nextRecommendation);
+                  setCareerRecommendationCardSignature(cardSignature);
                 }}
                 onOpenWikiModal={() => setIsWikiOpen(true)}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
@@ -203,8 +228,10 @@ export default function App() {
             <StageTransition key="stage2">
               <DynamicTrialTaskScreen
                 taskId={selectedTrialTaskId}
+                confirmedCards={persistedCards}
                 onBackToExplore={() => setCurrentScreen('career-explore')}
                 onEnterProfile={() => setCurrentScreen('profile')}
+                onOpenCardDetail={(card) => setSelectedCard(card)}
                 onTrialComplete={refreshProfile}
               />
             </StageTransition>

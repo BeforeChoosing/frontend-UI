@@ -8,7 +8,8 @@
     "build": "vite build && node scripts/build-artifacts.mjs copy",
     "preview": "vite preview",
     "clean": "node scripts/build-artifacts.mjs clean",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:state": "tsx --test tests/state-regressions.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

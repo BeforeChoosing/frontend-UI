@@ -274,6 +274,16 @@ export interface ApiTrialTaskMaterial {
   is_simulated: boolean;
 }
 
+export interface ApiTrialAbilityChallenge {
+  id: string;
+  title: string;
+  scenario: string;
+  prompt: string;
+  target_skills: string[];
+  reference_behavior: string;
+  max_cards: number;
+}
+
 export interface ApiTrialTaskDefinition {
   id: TrialTaskId;
   track: 'feature' | 'agent' | 'platform' | 'model';
@@ -294,6 +304,7 @@ export interface ApiTrialTaskDefinition {
   event: { actor: string; message: string; instruction: string };
   coach_prompts: string[];
   rubric: ApiA02RubricCriterion[];
+  ability_challenges: ApiTrialAbilityChallenge[];
   level_anchors: Record<'L1' | 'L2' | 'L3' | 'L4' | 'L5', string>;
   source_note: string;
 }
@@ -304,7 +315,22 @@ export interface ApiDynamicTrialCoachUsage {
   used_at: string;
 }
 
+export interface ApiDynamicTrialCardPlayRound {
+  challenge_id: string;
+  selected_card_ids: string[];
+  match_level?: 'high' | 'partial' | 'low' | null;
+  matched_card_ids: string[];
+  matched_skills: string[];
+  feedback: string;
+}
+
 export interface ApiDynamicTrialAnswer {
+  selected_card_ids: string[];
+  card_play_rounds: ApiDynamicTrialCardPlayRound[];
+  card_play_current_index: number;
+  card_play_rationale: string;
+  validation_hypothesis: string;
+  card_play_completed: boolean;
   step_answers: Record<string, string>;
   viewed_material_ids: string[];
   evidence_refs: string[];
