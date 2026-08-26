@@ -15,7 +15,7 @@ import { UserProfileScreen } from './components/UserProfileScreen';
 import { StageTransition } from './components/StageTransition';
 import { AppModeSwitcher } from './components/AppModeSwitcher';
 import { useProfileCards } from './hooks/useProfileCards';
-import type { ApiCareerRecommendation, ProfileCardPatchRequest, TrialTaskId } from './types/api';
+import type { ApiCareerRecommendation, ApiExperienceSummary, ProfileCardPatchRequest, TrialTaskId } from './types/api';
 import { loadDemoProgress, saveDemoProgress, trialStepKey } from './services/demoProgress';
 import { createCareerSelectionSignature } from './services/careerRecommendationState';
 import { loadAppMode, saveAppMode, type AppMode } from './services/appMode';
@@ -45,6 +45,7 @@ export default function App() {
   const [careerRecommendationCardSignature, setCareerRecommendationCardSignature] = useState<string | null>(initialAppMode === 'demo' ? null : initialProgress.careerRecommendationCardSignature);
   const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>([]);
   const [draftCards, setDraftCards] = useState<SkillCard[]>(initialAppMode === 'demo' ? DEMO_SKILL_CARDS.slice(0, 3) : []);
+  const [draftExperience, setDraftExperience] = useState<ApiExperienceSummary | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
@@ -93,6 +94,7 @@ export default function App() {
       setCareerRecommendation(null);
       setCareerRecommendationCardSignature(null);
       setDraftCards(DEMO_SKILL_CARDS.slice(0, 3));
+      setDraftExperience(null);
       return;
     }
     const progress = loadDemoProgress();
@@ -102,6 +104,7 @@ export default function App() {
     setCareerRecommendation(progress.careerRecommendation);
     setCareerRecommendationCardSignature(progress.careerRecommendationCardSignature);
     setDraftCards([]);
+    setDraftExperience(null);
   };
 
   const handleUpdateProfileCard = async (
@@ -206,8 +209,9 @@ export default function App() {
           {currentScreen === 'input-experience' && (
             <StageTransition key={`input-experience-${appMode}`}>
               <ExperienceInputScreen
-                onGenerateCards={(cards) => {
+                onGenerateCards={(cards, experience) => {
                   setDraftCards(cards);
+                  setDraftExperience(experience);
                   setCurrentScreen('verify-cards');
                 }}
                 onBackToLanding={() => setCurrentScreen('landing')}
@@ -222,6 +226,7 @@ export default function App() {
             <StageTransition key="verify-cards">
               <AbilityCardVerificationScreen
                 initialCards={draftCards}
+                initialExperience={draftExperience}
                 allAccumulatedCards={unlockedCards}
                 onConfirmAndSaveToPool={async (newCards) => {
                   if (appMode === 'demo') {
@@ -230,6 +235,13 @@ export default function App() {
                   }
                   const storedCards = await confirmCards(newCards);
                   setUnlockedCards(prev => mergeCardsById(prev, storedCards));
+                }}
+                onWithdrawConfirmedCard={async (cardId) => {
+                  if (appMode === 'demo') {
+                    setUnlockedCards(prev => prev.filter(card => card.id !== cardId));
+                    return;
+                  }
+                  await handleDeleteProfileCard(cardId);
                 }}
                 onContinueSupplement={() => {
                   setCurrentScreen('input-experience');

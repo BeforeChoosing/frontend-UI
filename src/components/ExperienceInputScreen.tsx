@@ -22,16 +22,18 @@ import {
   ChevronDown,
   ChevronUp,
   FolderArchive,
-  Award
+  Award,
+  ShieldCheck,
 } from 'lucide-react';
 import { SkillCard } from '../types';
 import { mapProfileProposalToSkillCards } from '../features/profile/profileAdapter';
 import { useExperienceAnalysis } from '../hooks/useExperienceAnalysis';
 import { useProfileExploration } from '../hooks/useProfileExploration';
 import { extractProfileMaterial } from '../api/profile';
+import type { ApiExperienceSummary } from '../types/api';
 
 interface ExperienceInputScreenProps {
-  onGenerateCards: (cards: SkillCard[]) => void;
+  onGenerateCards: (cards: SkillCard[], experience: ApiExperienceSummary) => void;
   onBackToLanding: () => void;
   demoMode?: boolean;
   demoCards?: SkillCard[];
@@ -54,9 +56,9 @@ export interface ChatMessage {
 const INITIAL_CHAT_MESSAGE: ChatMessage = {
   id: 'msg-init',
   role: 'ai',
-  content: '先整理一段经历，再通过补充交流还原你亲自完成的行动、判断依据和实际结果。',
+  content: '档案助手只依据你上传的材料建立候选证据，并仅补问材料中尚不清楚的职责、行动和结果。',
   timestamp: '刚刚',
-  detectedSignals: ['只依据你提供的内容', '潜能线索需要验证', '确认后再写入档案'],
+  detectedSignals: ['材料是证据来源', '未确认内容不进入推荐', '内容由你决定是否保留'],
 };
 
 const EXPLORATION_FOCUS_LABELS = {
@@ -69,12 +71,42 @@ const EXPLORATION_FOCUS_LABELS = {
   evidence: '证据完整度',
 } as const;
 
-function explorationStorageKey(demoMode: boolean, field: 'draft' | 'messages'): string {
-  return `before-choosing:profile-exploration:${demoMode ? 'demo' : 'use'}:${field}`;
+type UploadedMaterial = {
+  name: string;
+  size: string;
+  type: 'resume' | 'portfolio' | 'link';
+};
+
+const DEMO_UPLOADED_MATERIALS: UploadedMaterial[] = [
+  { name: '示例个人简历.pdf', size: '1.2 MB', type: 'resume' },
+  { name: '校园二手书项目补充材料.pdf', size: '860 KB', type: 'portfolio' },
+];
+
+const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
+  title: '校园二手书流转产品实践',
+  actions: ['访谈学生并归纳信任成本与碰面效率问题', '推动集中交接点与评分机制上线'],
+  result: '上线首月完成 800 余笔书籍流转',
+  source_refs: ['示例个人简历.pdf', '校园二手书项目补充材料.pdf'],
+};
+
+function explorationStorageKey(
+  demoMode: boolean,
+  field: 'evidence' | 'messages' | 'materials' | 'consent',
+): string {
+  const versionedField = field === 'messages' ? 'messages-v2' : field;
+  return `before-choosing:profile-exploration:${demoMode ? 'demo' : 'use'}:${versionedField}`;
 }
 
 function loadExplorationMessages(demoMode: boolean): ChatMessage[] {
   try {
+    if (!demoMode) {
+      const rawMaterials = window.localStorage.getItem(explorationStorageKey(false, 'materials'));
+      const materials = rawMaterials ? JSON.parse(rawMaterials) as UploadedMaterial[] : [];
+      const hasBothMaterials = Array.isArray(materials)
+        && materials.some(item => item.type === 'resume')
+        && materials.some(item => item.type === 'portfolio');
+      if (!hasBothMaterials) return [INITIAL_CHAT_MESSAGE];
+    }
     const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'messages'));
     if (!raw) return [INITIAL_CHAT_MESSAGE];
     const parsed = JSON.parse(raw) as ChatMessage[];
@@ -82,6 +114,38 @@ function loadExplorationMessages(demoMode: boolean): ChatMessage[] {
   } catch {
     return [INITIAL_CHAT_MESSAGE];
   }
+}
+
+function loadUploadedMaterials(demoMode: boolean): UploadedMaterial[] {
+  try {
+    const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'materials'));
+    if (!raw) return demoMode ? DEMO_UPLOADED_MATERIALS : [];
+    const parsed = JSON.parse(raw) as UploadedMaterial[];
+    return Array.isArray(parsed) ? parsed.filter(item => item?.name && item?.type) : [];
+  } catch {
+    return demoMode ? DEMO_UPLOADED_MATERIALS : [];
+  }
+}
+
+function upsertMaterialEvidence(
+  current: string,
+  type: 'resume' | 'portfolio',
+  fileName: string,
+  text: string,
+): string {
+  const label = type === 'resume' ? '个人简历' : '项目补充材料';
+  const start = `【${label}开始】`;
+  const end = `【${label}结束】`;
+  const startIndex = current.indexOf(start);
+  const endIndex = current.indexOf(end);
+  const withoutPrevious = startIndex >= 0 && endIndex >= startIndex
+    ? `${current.slice(0, startIndex)}${current.slice(endIndex + end.length)}`.trim()
+    : current.trim();
+  const boundedText = text.slice(0, 5200);
+  return [withoutPrevious, `${start}\n文件：${fileName}\n${boundedText}\n${end}`]
+    .filter(Boolean)
+    .join('\n\n')
+    .slice(0, 12000);
 }
 
 interface QuickPreset {
@@ -465,7 +529,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   demoExperienceText = '',
 }) => {
   const [inputText, setInputText] = useState(() => (
-    window.localStorage.getItem(explorationStorageKey(demoMode, 'draft'))
+    window.localStorage.getItem(explorationStorageKey(demoMode, 'evidence'))
     || (demoMode ? demoExperienceText : '')
   ));
   const [coachInput, setCoachInput] = useState('');
@@ -480,7 +544,10 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   // File Upload Dialog & Drawer state
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadTab, setUploadTab] = useState<'resume' | 'portfolio' | 'link'>('resume');
-  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; size: string; type: 'resume' | 'portfolio' | 'link' }>>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedMaterial[]>(() => loadUploadedMaterials(demoMode));
+  const [hasConsented, setHasConsented] = useState(() => (
+    window.localStorage.getItem(explorationStorageKey(demoMode, 'consent')) === 'accepted'
+  ));
   const [linkInput, setLinkInput] = useState('');
   const [isParsingFile, setIsParsingFile] = useState(false);
   const [parsingStep, setParsingStep] = useState('');
@@ -507,7 +574,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   }, [messages, isAiThinking]);
 
   useEffect(() => {
-    window.localStorage.setItem(explorationStorageKey(demoMode, 'draft'), inputText);
+    window.localStorage.setItem(explorationStorageKey(demoMode, 'evidence'), inputText);
   }, [demoMode, inputText]);
 
   useEffect(() => {
@@ -517,9 +584,27 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     );
   }, [demoMode, messages]);
 
+  useEffect(() => {
+    window.localStorage.setItem(
+      explorationStorageKey(demoMode, 'materials'),
+      JSON.stringify(uploadedFiles),
+    );
+  }, [demoMode, uploadedFiles]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      explorationStorageKey(demoMode, 'consent'),
+      hasConsented ? 'accepted' : 'declined',
+    );
+  }, [demoMode, hasConsented]);
+
+  const hasResume = uploadedFiles.some(file => file.type === 'resume');
+  const hasProjectMaterial = uploadedFiles.some(file => file.type === 'portfolio');
+  const hasRequiredMaterials = hasResume && hasProjectMaterial;
+
   const handleSendCoachMessage = async () => {
     const text = coachInput.trim();
-    if (!text || inputText.trim().length < 20 || explorationStatus === 'loading') return;
+    if (!text || !hasConsented || !hasRequiredMaterials || inputText.trim().length < 20 || explorationStatus === 'loading') return;
     setIsAiThinking(true);
     try {
       const conversation = messages.slice(-11).map(message => ({
@@ -629,28 +714,31 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     if (!files || files.length === 0) return;
 
     const file = files[0];
+    if (uploadTab === 'resume' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setUploadError('个人简历需要使用包含可复制文本的 PDF 文件。');
+      e.target.value = '';
+      return;
+    }
     setUploadError(null);
     setIsParsingFile(true);
     setParsingStep('正在读取文档中的可复制文本...');
     try {
       const extracted = await extractProfileMaterial(file);
       const fileSize = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
-      const newFile = { name: extracted.file_name, size: fileSize, type: uploadTab };
-      setUploadedFiles(prev => [...prev, newFile]);
-      setInputText(prev => [
-        prev.trim(),
-        `【材料：${extracted.file_name}】\n${extracted.text}`,
-      ].filter(Boolean).join('\n\n').slice(0, 12000));
-      setMessages(prev => [...prev, {
+      const materialType = uploadTab === 'resume' ? 'resume' : 'portfolio';
+      const newFile: UploadedMaterial = { name: extracted.file_name, size: fileSize, type: materialType };
+      setUploadedFiles(prev => [...prev.filter(item => item.type !== materialType), newFile]);
+      setInputText(prev => upsertMaterialEvidence(prev, materialType, extracted.file_name, extracted.text));
+      setMessages([INITIAL_CHAT_MESSAGE, {
         id: `user-upload-${Date.now()}`,
         role: 'user',
-        content: `【上传了${uploadTab === 'resume' ? '简历' : '作品集'}】${extracted.file_name}`,
+        content: `【上传了${materialType === 'resume' ? '个人简历' : '项目补充材料'}】${extracted.file_name}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         attachedFile: newFile,
       }, {
         id: `ai-upload-${Date.now()}`,
         role: 'ai',
-        content: `已提取 ${extracted.char_count} 字可复制文本${extracted.truncated ? '（内容较长，已截取前 12000 字）' : ''}。请在输入框核对后再生成候选能力卡。`,
+        content: `已提取 ${extracted.char_count} 字可复制文本${extracted.truncated ? '（内容较长，已截取前 12000 字）' : ''}。材料内容目前仅作为候选证据，确认前不会进入职业推荐。`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         detectedSignals: ['文字已读出', '等你确认', '还没有保存到档案'],
       }]);
@@ -773,7 +861,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       .filter(Boolean)
       .join('\n\n')
       .slice(0, 12000);
-    if (!combinedContent || isAnalyzing) return;
+    if (!hasConsented || !hasRequiredMaterials || !combinedContent || isAnalyzing) return;
 
     setIsAnalyzing(true);
     setIsAiThinking(true);
@@ -788,7 +876,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           detectedSignals: demoCards.map(card => card.title),
         }]);
-        onGenerateCards(demoCards);
+        onGenerateCards(demoCards, DEMO_EXPERIENCE_SUMMARY);
         return;
       }
       const proposal = await analyzeExperience({
@@ -804,7 +892,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         detectedSignals: cards.map(card => card.title),
       };
       setMessages(prev => [...prev, aiMsg]);
-      onGenerateCards(cards);
+      onGenerateCards(cards, proposal.experience);
     } catch {
       // The hook exposes the actionable backend/Qwen error below the CTA.
       setAnalysisStep('');
@@ -851,7 +939,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             <div className="space-y-1.5 flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight flex items-center gap-2">
-                  <span>先说说你的经历</span>
+                  <span>建立个人证据档案</span>
                   <span className="craft-chip-green text-[10px] font-medium px-2 py-0.5 rounded-full font-mono">
                     01 · 认识自己
                   </span>
@@ -972,197 +1060,131 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           {/* Quick upload guide prompt bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-stone-100 text-[11px] text-stone-600">
             <div className="flex items-center gap-1.5">
-              <span className="text-stone-400">💡 提示：</span>
-              <span>可以直接写，也可以点左侧 📎 上传简历或作品</span>
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+              <span>助手只补问材料中的证据缺口，未经确认的内容不会进入职业推荐。</span>
             </div>
             <button
-              onClick={handleTriggerUpload}
+              onClick={() => {
+                setUploadTab(hasResume ? 'portfolio' : 'resume');
+                handleTriggerUpload();
+              }}
+              disabled={!hasConsented}
               className="text-stone-800 hover:text-stone-950 font-medium underline underline-offset-2 flex items-center gap-1 cursor-pointer"
             >
-              <span>上传材料</span>
+              <span>{hasRequiredMaterials ? '替换材料' : '上传材料'}</span>
               <ExternalLink className="w-3 h-3" />
             </button>
           </div>
 
           <div className="grid gap-2 border-t border-stone-100 pt-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <label className="block text-[11px] font-medium text-stone-700">
-              补充交流
+              回复档案助手
               <textarea
                 value={coachInput}
                 onChange={event => setCoachInput(event.target.value)}
                 rows={2}
                 maxLength={1000}
-                placeholder="补充你希望进一步梳理的行动、判断或结果。Enter 仅用于换行。"
+                placeholder="根据档案助手当前补问，补充材料中未说明的事实。Enter 仅用于换行。"
                 className="mt-1.5 w-full resize-none rounded-2xl border border-stone-200 bg-white/90 px-3 py-2 text-xs font-normal leading-5 text-stone-800 outline-none transition-colors focus:border-emerald-400"
               />
             </label>
             <button
               type="button"
               onClick={() => void handleSendCoachMessage()}
-              disabled={!coachInput.trim() || inputText.trim().length < 20 || explorationStatus === 'loading'}
+              disabled={!coachInput.trim() || !hasConsented || !hasRequiredMaterials || inputText.trim().length < 20 || explorationStatus === 'loading'}
               className="craft-btn-black flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
             >
               {explorationStatus === 'loading' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-              发送给能力教练
+              发送回复
             </button>
           </div>
-          {inputText.trim().length < 20 && coachInput.trim() && (
-            <p className="text-[10px] text-amber-700">先在经历草稿中补充至少 20 个字，再发送本轮交流。</p>
+          {(!hasConsented || !hasRequiredMaterials) && coachInput.trim() && (
+            <p className="text-[10px] text-amber-700">完成建档授权并上传两类材料后，可以回复档案助手的补问。</p>
           )}
           {explorationError && <p role="alert" className="text-[10px] text-rose-700">{explorationError}</p>}
 
         </motion.div>
 
-        {/* 
-          ======================================================================
-          2. MIDDLE MAIN INPUT CARD (Clean Canvas with Left Tools & Right Avatar)
-          ======================================================================
-        */}
+        {/* Consent and material evidence */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.05 }}
-          className="space-y-2"
+          className="craft-card space-y-4 rounded-3xl border border-stone-200/60 bg-white/90 p-5 sm:p-6"
         >
-          {/* The Large Input Board */}
-          <div className="craft-card w-full rounded-2xl sm:rounded-3xl p-4 sm:p-5 bg-white/90 backdrop-blur-xl border border-stone-200/50 flex flex-col sm:flex-row gap-3.5 items-stretch">
-            
-            {/* Left Toolbar Icons */}
-            <div className="flex sm:flex-col items-center justify-center sm:justify-start gap-2 shrink-0 pt-0.5 border-b sm:border-b-0 sm:border-r border-stone-100 pb-2 sm:pb-0 sm:pr-3.5">
-              {/* Upload Button */}
+          <div className="flex flex-col justify-between gap-3 border-b border-stone-100 pb-4 sm:flex-row sm:items-start">
+            <div>
+              <p className="font-serif text-base text-stone-950">建立个人证据档案</p>
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-stone-600">
+                系统只保存你确认过的能力卡和项目经历卡。候选内容可以修改、合并或删除，确认后也可以撤回。
+              </p>
+            </div>
+            {!hasConsented ? (
               <button
                 type="button"
-                onClick={handleTriggerUpload}
-                title="上传简历文档或作品集"
-                className="w-9 h-9 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-700 hover:text-stone-950 flex items-center justify-center transition border border-stone-200/50 cursor-pointer group relative"
-                id="btn-upload-attachment"
+                onClick={() => setHasConsented(true)}
+                className="craft-btn-black shrink-0 px-4 py-2.5 text-xs"
               >
-                <Paperclip className="w-4 h-4 text-stone-700 group-hover:scale-110 transition-transform" />
-                {uploadedFiles.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-600 text-[9px] text-white flex items-center justify-center font-mono font-bold">
-                    {uploadedFiles.length}
-                  </span>
-                )}
+                开始建立档案
               </button>
-
-              {/* Voice Button */}
+            ) : (
               <button
                 type="button"
-                onClick={handleToggleVoice}
-                title="语音输入自述"
-                className={`w-9 h-9 rounded-xl flex items-center justify-center transition border border-stone-200/50 cursor-pointer ${
-                  isRecording 
-                    ? 'bg-rose-500 text-white animate-pulse' 
-                    : 'bg-stone-50 hover:bg-stone-100 text-stone-700 hover:text-stone-950'
-                }`}
-                id="btn-voice-input"
+                onClick={() => setHasConsented(false)}
+                className="craft-btn-secondary shrink-0 px-4 py-2.5 text-xs"
               >
-                {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-stone-700" />}
+                暂停建立档案
               </button>
-            </div>
-
-            {/* Central persistent experience draft */}
-            <div className="flex-1 min-h-[140px] sm:min-h-[160px] flex flex-col justify-between">
-              
-              {/* Voice feedback banner */}
-              {voiceNotice && (
-                <div className="mb-2 py-1 px-2.5 rounded-lg bg-emerald-50 text-emerald-900 text-xs font-medium flex items-center justify-between border border-emerald-200/50">
-                  <span>🎙️ {voiceNotice}</span>
-                  {isRecording && <span className="text-[10px] text-emerald-700">点击麦克风停止</span>}
-                </div>
-              )}
-
-              <textarea
-                ref={textareaRef}
-                value={inputText}
-                onChange={(e) => {
-                  setInputText(e.target.value);
-                  if (selectedPresetId) setSelectedPresetId(null);
-                }}
-                rows={4}
-                placeholder="写下一次项目、实习、比赛或长期兴趣。&#10;重点说说：你做了什么，后来发生了什么。"
-                className="w-full h-full bg-transparent text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 leading-relaxed resize-none outline-none font-normal p-1"
-              />
-
-              {/* Word Count / persistent draft status */}
-              <div className="flex items-center justify-between text-[11px] text-stone-400 pt-2 border-t border-stone-100">
-                <div className="flex items-center gap-2">
-                  <span>{inputText ? `已输入 ${inputText.length} 字` : '可以从下方选择一个经历模板'}</span>
-                  {inputText && (
-                    <button
-                      onClick={() => {
-                        setInputText('');
-                        setSelectedPresetId(null);
-                      }}
-                      className="text-stone-400 hover:text-stone-700 transition flex items-center gap-0.5 cursor-pointer"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>清空</span>
-                    </button>
-                  )}
-                </div>
-
-                <span className="text-[10px] text-stone-400">草稿自动保存在当前浏览器</span>
-              </div>
-            </div>
-
-            {/* Right User Avatar Badge */}
-            <div className="hidden sm:flex flex-col items-center justify-start shrink-0 pl-3.5 border-l border-stone-100 pt-0.5">
-              <div className="w-9 h-9 rounded-full bg-stone-100 text-stone-600 flex flex-col items-center justify-center border border-stone-200/50">
-                <User className="w-4 h-4 text-stone-600" />
-              </div>
-              <span className="text-[10px] text-stone-400 font-medium mt-1">你</span>
-            </div>
-
+            )}
           </div>
 
-          {/* Subtitle / Footnote */}
-          <p className="text-center text-[11px] sm:text-xs text-stone-500 font-normal">
-            整理后会得到几张候选能力卡，你可以保留、修改或删除。
-          </p>
-        </motion.div>
-
-        {/* 
-          ======================================================================
-          3. BOTTOM QUICK START (Pill Chips Grid strictly from wireframe)
-          ======================================================================
-        */}
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="space-y-3 pt-1 text-center"
-        >
-          {/* Quick Start Title and Description */}
-          <div>
-            <h3 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif">
-              快速开始
-            </h3>
-            <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5">
-              选一个开头，我们帮你把话题展开
-            </p>
-          </div>
-
-          {/* 2 Rows of 4 Pills */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 max-w-3xl mx-auto">
-            {PRESET_EXPERIENCES.map((preset) => {
-              const isSelected = selectedPresetId === preset.id;
+          <div className="grid gap-3 sm:grid-cols-2">
+            {([
+              {
+                type: 'resume' as const,
+                title: '文本型 PDF 简历',
+                description: '用于识别教育、实践和项目经历的基础事实。',
+                complete: hasResume,
+              },
+              {
+                type: 'portfolio' as const,
+                title: '项目补充材料',
+                description: '用于补充本人职责、关键行动、判断依据和实际结果。',
+                complete: hasProjectMaterial,
+              },
+            ]).map(item => {
+              const material = uploadedFiles.find(file => file.type === item.type);
               return (
-                <button
-                  key={preset.id}
-                  onClick={() => handleSelectPreset(preset)}
-                  className={`py-2 px-3 rounded-full text-xs font-normal transition-all duration-200 cursor-pointer border text-center truncate ${
-                    isSelected
-                      ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
-                      : 'bg-white/80 hover:bg-white text-stone-700 hover:text-stone-950 border-stone-200/70 hover:border-stone-400'
-                  }`}
-                  title={preset.sampleText}
-                >
-                  {preset.label}
-                </button>
+                <div key={item.type} className={`rounded-2xl border p-4 ${item.complete ? 'border-emerald-200 bg-emerald-50/55' : 'border-stone-200 bg-stone-50/70'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.complete ? 'bg-emerald-100 text-emerald-800' : 'bg-white text-stone-500'}`}>
+                      {item.complete ? <CheckCircle2 className="h-4 w-4" /> : <FilePlus className="h-4 w-4" />}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUploadTab(item.type);
+                        handleTriggerUpload();
+                      }}
+                      disabled={!hasConsented}
+                      className="text-[11px] font-medium text-stone-700 underline underline-offset-2 disabled:cursor-not-allowed disabled:text-stone-300"
+                    >
+                      {item.complete ? '替换' : '上传'}
+                    </button>
+                  </div>
+                  <p className="mt-3 text-sm font-medium text-stone-900">{item.title}</p>
+                  <p className="mt-1 text-[11px] leading-5 text-stone-500">{item.description}</p>
+                  <p className="mt-3 truncate border-t border-current/10 pt-2 text-[10px] text-stone-500">
+                    {material ? `${material.name} · ${material.size}` : '尚未上传'}
+                  </p>
+                </div>
               );
             })}
           </div>
+
+          <p className="text-[11px] leading-5 text-stone-500">
+            两类材料齐备后，档案助手可以进行少量补问；生成的能力卡和项目经历卡仍需逐项确认。
+          </p>
         </motion.div>
 
       </div>
@@ -1180,9 +1202,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       >
         <button
           onClick={handleStartAnalysis}
-          disabled={(!inputText.trim() && messages.length <= 1) || isAnalyzing}
+          disabled={!hasConsented || !hasRequiredMaterials || !inputText.trim() || isAnalyzing}
           className={`w-full sm:w-64 py-3.5 px-8 rounded-full font-medium text-sm sm:text-base transition-all duration-200 cursor-pointer shadow-sm flex items-center justify-center gap-2 ${
-            (inputText.trim() || messages.length > 1) && !isAnalyzing
+            hasConsented && hasRequiredMaterials && inputText.trim() && !isAnalyzing
               ? 'bg-stone-900 hover:bg-black text-white active:scale-98'
               : 'bg-stone-200/80 text-stone-400 cursor-not-allowed'
           }`}
@@ -1197,7 +1219,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             </>
           ) : (
             <span className="tracking-wide text-white font-medium">
-              帮我整理这段经历
+              生成候选证据卡
             </span>
           )}
         </button>
@@ -1246,18 +1268,17 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               <div className="space-y-1">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E8DDD0] text-stone-800 text-xs font-bold">
                   <UploadCloud className="w-3.5 h-3.5 text-amber-700" />
-                  <span>引导材料解析</span>
+                  <span>个人证据材料</span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold text-stone-900 font-serif craft-serif">
-                  上传个人简历或过去作品
+                  上传建档材料
                 </h3>
                 <p className="text-xs text-stone-600">
-                    系统将提炼文档中的客观事实、项目角色与核心产出，辅助完成能力提取。
+                    上传一份文本型 PDF 简历和一份项目补充材料。材料只用于生成待确认的候选证据。
                 </p>
               </div>
 
-              {/* Tabs: 简历 vs 过去作品 vs 在线链接 */}
-              <div className="grid grid-cols-3 gap-2 bg-[#EAE2D7] p-1 rounded-xl text-xs font-medium text-stone-700">
+              <div className="grid grid-cols-2 gap-2 bg-[#EAE2D7] p-1 rounded-xl text-xs font-medium text-stone-700">
                 <button
                   onClick={() => setUploadTab('resume')}
                   className={`py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
@@ -1275,22 +1296,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   }`}
                 >
                   <FolderArchive className="w-3.5 h-3.5" />
-                  <span>过去作品集</span>
-                </button>
-
-                <button
-                  onClick={() => setUploadTab('link')}
-                  className={`py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                    uploadTab === 'link' ? 'bg-white text-stone-900 shadow-xs font-bold' : 'hover:text-stone-950'
-                  }`}
-                >
-                  <LinkIcon className="w-3.5 h-3.5" />
-                  <span>在线作品链接</span>
+                  <span>项目补充材料</span>
                 </button>
               </div>
 
-              {/* Tab Content */}
-              {uploadTab !== 'link' ? (
+              {uploadTab !== 'link' && (
                 <div className="space-y-4">
                   {/* Drag & Drop Box */}
                   <div
@@ -1300,7 +1310,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     <input 
                       ref={fileInputRef}
                       type="file" 
-                      accept=".pdf,.docx,.txt,.md"
+                      accept={uploadTab === 'resume' ? '.pdf' : '.pdf,.docx,.txt,.md'}
                       className="hidden" 
                       onChange={handleFileUpload}
                     />
@@ -1312,75 +1322,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                         点击选择文件，或将文件拖放到此处
                       </p>
                       <p className="text-[11px] text-stone-500 mt-0.5">
-                        支持 PDF、Word (.docx)、Markdown、TXT 文档 (最大 20MB；扫描件暂不支持 OCR)
+                        {uploadTab === 'resume'
+                          ? '仅支持包含可复制文本的 PDF 简历，扫描件暂不支持 OCR'
+                          : '支持 PDF、Word、Markdown 和 TXT，扫描件暂不支持 OCR'}
                       </p>
                     </div>
-                  </div>
-
-                  {/* One-click Sample Demo Documents */}
-                  <div className="space-y-2 pt-1">
-                    <div className="text-xs font-bold text-stone-800 flex items-center justify-between">
-                      <span>或者选择预设文档快速开始：</span>
-                      <span className="text-[10px] text-stone-500 font-normal">快速测试</span>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      {SAMPLE_DOCS.map((doc, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => handleSelectSampleDoc(doc)}
-                          className="p-2.5 rounded-xl bg-[#EDE7DF] hover:bg-[#E2D9CE] border border-[#DDD3C6] transition cursor-pointer flex items-center justify-between group"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-stone-900 text-amber-200 flex items-center justify-center shrink-0">
-                              <FileText className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-stone-900 truncate group-hover:text-amber-900">
-                                {doc.name}
-                              </p>
-                              <p className="text-[10px] text-stone-500 truncate">
-                                {doc.summary}
-                              </p>
-                            </div>
-                          </div>
-
-                          <span className="text-[10px] text-stone-600 font-bold px-2 py-1 rounded bg-white/80 shrink-0 ml-2 group-hover:bg-stone-900 group-hover:text-amber-200 transition">
-                            载入解析
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* Online Link Input View */
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-stone-800 block">
-                      输入作品链接（如 GitHub、Figma、Notion、个人网站、飞书文档）
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="url"
-                        value={linkInput}
-                        onChange={(e) => setLinkInput(e.target.value)}
-                        placeholder="https://github.com/your-project 或 Notion 链接"
-                        className="flex-1 text-xs bg-white rounded-xl px-3.5 py-2.5 border border-stone-300 outline-none shadow-inner"
-                      />
-                      <button
-                        onClick={handleAddLink}
-                        disabled={!linkInput.trim()}
-                        className="py-2.5 px-4 rounded-xl bg-stone-900 text-amber-200 text-xs font-bold hover:bg-stone-800 disabled:opacity-50 cursor-pointer shadow-xs"
-                      >
-                        记录链接
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-[#EDE7DF] text-xs text-stone-600 space-y-1">
-                    <p className="font-bold text-stone-800">💡 提示：</p>
-                    <p>当前版本仅记录链接，不会自动抓取外部页面；请同时补充你在作品中的具体行动与结果。</p>
                   </div>
                 </div>
               )}
