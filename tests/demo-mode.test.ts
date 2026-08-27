@@ -7,7 +7,12 @@ import {
   DEMO_SKILL_CARDS,
   evaluateDemoCardPlayRound,
 } from '../src/data/demoMode';
-import { trialStepKey } from '../src/services/demoProgress';
+import {
+  loadDemoProgress,
+  progressStorageKey,
+  saveDemoProgress,
+  trialStepKey,
+} from '../src/services/demoProgress';
 import type { ApiTrialTaskDefinition } from '../src/types/api';
 
 const task: ApiTrialTaskDefinition = {
@@ -87,4 +92,27 @@ test('演示评价和画像证据结构完整', () => {
 
 test('演示模式与正式模式采用独立的界面进度键', () => {
   assert.notEqual(trialStepKey('A-02', 'demo'), trialStepKey('A-02', 'use'));
+});
+
+test('普通模式切换分别保存并恢复演示与正式流程进度', () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem(key: string) { return values.get(key) ?? null; },
+    setItem(key: string, value: string) { values.set(key, value); },
+  };
+  const shared = {
+    selectedTrialTaskId: 'A-02' as const,
+    careerSelectedCardIds: [],
+    careerRecommendation: null,
+    careerRecommendationCardSignature: null,
+    draftCards: [],
+    draftExperience: null,
+  };
+
+  saveDemoProgress({ ...shared, currentScreen: 'career-explore' }, 'demo', storage);
+  saveDemoProgress({ ...shared, currentScreen: 'input-experience' }, 'use', storage);
+
+  assert.notEqual(progressStorageKey('demo'), progressStorageKey('use'));
+  assert.equal(loadDemoProgress('demo', {}, storage).currentScreen, 'career-explore');
+  assert.equal(loadDemoProgress('use', {}, storage).currentScreen, 'input-experience');
 });

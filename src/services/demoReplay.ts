@@ -3,6 +3,7 @@ const DEMO_STORAGE_PREFIXES = [
   'before-choosing:dynamic-trial:demo:',
   'before-choosing:trial-ui:demo:',
   'before-choosing:confirmed-experience:demo',
+  'before-choosing:flow-progress:demo:',
 ] as const;
 
 export function isDemoReplayStorageKey(key: string): boolean {

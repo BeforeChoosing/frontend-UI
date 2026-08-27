@@ -18,6 +18,8 @@ test('重新演示只清除演示命名空间', () => {
     'before-choosing:dynamic-trial:demo:A-02': 'demo-session',
     'before-choosing:trial-ui:demo:A-02:step': '2',
     'before-choosing:confirmed-experience:demo': 'demo-experience',
+    'before-choosing:flow-progress:demo:v1': 'demo-flow',
+    'before-choosing:flow-progress:use:v1': 'formal-flow',
     'before-choosing:profile-exploration:use:messages-v3': 'formal-chat',
     'before-choosing:dynamic-trial:A-02': 'formal-session',
     'before-choosing:app-mode:v1': 'demo',
@@ -29,6 +31,8 @@ test('重新演示只清除演示命名空间', () => {
   assert.equal(storage.has('before-choosing:dynamic-trial:demo:A-02'), false);
   assert.equal(storage.has('before-choosing:trial-ui:demo:A-02:step'), false);
   assert.equal(storage.has('before-choosing:confirmed-experience:demo'), false);
+  assert.equal(storage.has('before-choosing:flow-progress:demo:v1'), false);
+  assert.equal(storage.has('before-choosing:flow-progress:use:v1'), true);
   assert.equal(storage.has('before-choosing:profile-exploration:use:messages-v3'), true);
   assert.equal(storage.has('before-choosing:dynamic-trial:A-02'), true);
   assert.equal(storage.has('before-choosing:app-mode:v1'), true);

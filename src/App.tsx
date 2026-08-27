@@ -16,7 +16,7 @@ import { StageTransition } from './components/StageTransition';
 import { AppModeSwitcher } from './components/AppModeSwitcher';
 import { useProfileCards } from './hooks/useProfileCards';
 import type { ApiCareerRecommendation, ApiExperienceSummary, ProfileCardPatchRequest, TrialTaskId } from './types/api';
-import { loadDemoProgress, saveDemoProgress, trialStepKey } from './services/demoProgress';
+import { loadDemoProgress, saveDemoProgress } from './services/demoProgress';
 import { createCareerSelectionSignature } from './services/careerRecommendationState';
 import { loadAppMode, saveAppMode, type AppMode } from './services/appMode';
 import { resetDemoReplayStorage } from './services/demoReplay';
@@ -37,17 +37,26 @@ function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard
 
 export default function App() {
   const [initialAppMode] = useState(loadAppMode);
-  const [initialProgress] = useState(loadDemoProgress);
   const demoSelectedCards = DEMO_SKILL_CARDS.slice(0, 4);
+  const [initialProgress] = useState(() => loadDemoProgress(
+    initialAppMode,
+    initialAppMode === 'demo'
+      ? {
+          careerSelectedCardIds: demoSelectedCards.map(card => card.id),
+          draftCards: DEMO_SKILL_CARDS.slice(0, 3),
+        }
+      : {},
+  ));
   const [appMode, setAppMode] = useState<AppMode>(initialAppMode);
-  const [currentScreen, setCurrentScreen] = useState<ScreenMode>(initialAppMode === 'demo' ? 'landing' : initialProgress.currentScreen);
-  const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>(initialAppMode === 'demo' ? 'A-02' : initialProgress.selectedTrialTaskId);
-  const [careerSelectedCardIds, setCareerSelectedCardIds] = useState<string[]>(initialAppMode === 'demo' ? demoSelectedCards.map(card => card.id) : initialProgress.careerSelectedCardIds);
-  const [careerRecommendation, setCareerRecommendation] = useState<ApiCareerRecommendation | null>(initialAppMode === 'demo' ? null : initialProgress.careerRecommendation);
-  const [careerRecommendationCardSignature, setCareerRecommendationCardSignature] = useState<string | null>(initialAppMode === 'demo' ? null : initialProgress.careerRecommendationCardSignature);
+  const [currentScreen, setCurrentScreen] = useState<ScreenMode>(initialProgress.currentScreen);
+  const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>(initialProgress.selectedTrialTaskId);
+  const [careerSelectedCardIds, setCareerSelectedCardIds] = useState<string[]>(initialProgress.careerSelectedCardIds);
+  const [careerRecommendation, setCareerRecommendation] = useState<ApiCareerRecommendation | null>(initialProgress.careerRecommendation);
+  const [careerRecommendationCardSignature, setCareerRecommendationCardSignature] = useState<string | null>(initialProgress.careerRecommendationCardSignature);
   const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>([]);
-  const [draftCards, setDraftCards] = useState<SkillCard[]>(initialAppMode === 'demo' ? DEMO_SKILL_CARDS.slice(0, 3) : []);
-  const [draftExperience, setDraftExperience] = useState<ApiExperienceSummary | null>(null);
+  const [demoUnlockedCards, setDemoUnlockedCards] = useState<SkillCard[]>([]);
+  const [draftCards, setDraftCards] = useState<SkillCard[]>(initialProgress.draftCards);
+  const [draftExperience, setDraftExperience] = useState<ApiExperienceSummary | null>(initialProgress.draftExperience);
   const [demoReplayId, setDemoReplayId] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
@@ -73,41 +82,47 @@ export default function App() {
   }, [persistedCards]);
 
   useEffect(() => {
-    if (appMode !== 'use') return;
     saveDemoProgress({
       currentScreen,
       selectedTrialTaskId,
       careerSelectedCardIds,
       careerRecommendation,
       careerRecommendationCardSignature,
-    });
-  }, [appMode, careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, selectedTrialTaskId]);
+      draftCards,
+      draftExperience,
+    }, appMode);
+  }, [appMode, careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, draftCards, draftExperience, selectedTrialTaskId]);
 
   const handleAppModeChange = (nextMode: AppMode) => {
     if (nextMode === appMode) return;
+    saveDemoProgress({
+      currentScreen,
+      selectedTrialTaskId,
+      careerSelectedCardIds,
+      careerRecommendation,
+      careerRecommendationCardSignature,
+      draftCards,
+      draftExperience,
+    }, appMode);
     saveAppMode(nextMode);
     setAppMode(nextMode);
     setIsStageTwoFocusMode(false);
-    if (nextMode === 'demo') {
-      const selectedCards = DEMO_SKILL_CARDS.slice(0, 4);
-      window.localStorage.setItem(trialStepKey('A-02', 'demo'), '0');
-      setCurrentScreen('landing');
-      setSelectedTrialTaskId('A-02');
-      setCareerSelectedCardIds(selectedCards.map(card => card.id));
-      setCareerRecommendation(null);
-      setCareerRecommendationCardSignature(null);
-      setDraftCards(DEMO_SKILL_CARDS.slice(0, 3));
-      setDraftExperience(null);
-      return;
-    }
-    const progress = loadDemoProgress();
+    const progress = loadDemoProgress(
+      nextMode,
+      nextMode === 'demo'
+        ? {
+            careerSelectedCardIds: demoSelectedCards.map(card => card.id),
+            draftCards: DEMO_SKILL_CARDS.slice(0, 3),
+          }
+        : {},
+    );
     setCurrentScreen(progress.currentScreen);
     setSelectedTrialTaskId(progress.selectedTrialTaskId);
     setCareerSelectedCardIds(progress.careerSelectedCardIds);
     setCareerRecommendation(progress.careerRecommendation);
     setCareerRecommendationCardSignature(progress.careerRecommendationCardSignature);
-    setDraftCards([]);
-    setDraftExperience(null);
+    setDraftCards(progress.draftCards);
+    setDraftExperience(progress.draftExperience);
   };
 
   const handleReplayDemo = () => {
@@ -120,6 +135,7 @@ export default function App() {
     setCareerRecommendation(null);
     setCareerRecommendationCardSignature(null);
     setUnlockedCards(persistedCards);
+    setDemoUnlockedCards([]);
     setDraftCards(DEMO_SKILL_CARDS.slice(0, 3));
     setDraftExperience(null);
     setIsAuthOpen(false);
@@ -246,14 +262,14 @@ export default function App() {
           )}
 
           {currentScreen === 'verify-cards' && (
-            <StageTransition key="verify-cards">
+            <StageTransition key={`verify-cards-${appMode}-${demoReplayId}`}>
               <AbilityCardVerificationScreen
                 initialCards={draftCards}
                 initialExperience={draftExperience}
-                allAccumulatedCards={unlockedCards}
+                allAccumulatedCards={appMode === 'demo' ? demoUnlockedCards : unlockedCards}
                 onConfirmAndSaveToPool={async (newCards) => {
                   if (appMode === 'demo') {
-                    setUnlockedCards(prev => mergeCardsById(prev, newCards));
+                    setDemoUnlockedCards(prev => mergeCardsById(prev, newCards));
                     return;
                   }
                   const storedCards = await confirmCards(newCards);
@@ -261,7 +277,7 @@ export default function App() {
                 }}
                 onWithdrawConfirmedCard={async (cardId) => {
                   if (appMode === 'demo') {
-                    setUnlockedCards(prev => prev.filter(card => card.id !== cardId));
+                    setDemoUnlockedCards(prev => prev.filter(card => card.id !== cardId));
                     return;
                   }
                   await handleDeleteProfileCard(cardId);
