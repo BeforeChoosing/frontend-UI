@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "node scripts/build-artifacts.mjs clean",
     "lint": "tsc --noEmit",
-    "test:state": "tsx --test tests/state-regressions.test.ts"
+    "test:state": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

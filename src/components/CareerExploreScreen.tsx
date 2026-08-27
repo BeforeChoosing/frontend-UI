@@ -28,6 +28,7 @@ interface CareerExploreScreenProps {
   initialSelectedCardIds?: string[];
   initialRecommendation?: ApiCareerRecommendation | null;
   initialRecommendationCardSignature?: string | null;
+  demoRecommendation?: ApiCareerRecommendation | null;
   onStartStageTwo: (taskId: TrialTaskId) => void;
   onOpenWikiModal: () => void;
   onOpenCardDetail: (card: SkillCard) => void;
@@ -45,6 +46,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
   initialSelectedCardIds = [],
   initialRecommendation = null,
   initialRecommendationCardSignature = null,
+  demoRecommendation = null,
   onStartStageTwo,
   onOpenWikiModal,
   onOpenCardDetail,
@@ -104,14 +106,15 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     const selectionIntact = currentCardIds.length === restoredCardIds.length;
     if (!selectionIntact) onSelectionChange?.(restoredCardIds);
 
-    const canRestoreRecommendation = restoredCards.length > 0
+    const canRestoreRecommendation = !demoRecommendation
+      && restoredCards.length > 0
       && selectionIntact
       && Boolean(initialRecommendation)
       && isCareerRecommendationCurrent(initialRecommendationCardSignature, restoredCards);
     if (canRestoreRecommendation) {
       setRecommendation(initialRecommendation);
       setShowExploreResultModal(true);
-    } else if (initialRecommendation) {
+    } else if (!demoRecommendation && initialRecommendation) {
       setRecommendation(null);
       setShowExploreResultModal(false);
       onRecommendationChange?.(null, null);
@@ -122,6 +125,7 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     initialRecommendation,
     initialRecommendationCardSignature,
     initialSelectedCardIds,
+    demoRecommendation,
     onRecommendationChange,
     onSelectionChange,
     profileReady,
@@ -230,6 +234,14 @@ export const CareerExploreScreen: React.FC<CareerExploreScreenProps> = ({
     if (recommendationRequestRef.current) return;
     const requestSignature = createCareerSelectionSignature(selectedCards);
     const requestRevision = selectionRevisionRef.current;
+    if (demoRecommendation) {
+      setRecommendationStatus('idle');
+      setRecommendationError(null);
+      setRecommendation(demoRecommendation);
+      setShowExploreResultModal(true);
+      onRecommendationChange?.(demoRecommendation, requestSignature);
+      return;
+    }
     setRecommendationStatus('loading');
     setRecommendationError(null);
     setRecommendation(null);

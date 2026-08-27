@@ -13,10 +13,21 @@ import { ExampleShowcaseModal } from './components/ExampleShowcaseModal';
 import { FigmaGuideModal } from './components/FigmaGuideModal';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { StageTransition } from './components/StageTransition';
+import { AppModeSwitcher } from './components/AppModeSwitcher';
 import { useProfileCards } from './hooks/useProfileCards';
-import type { ApiCareerRecommendation, ProfileCardPatchRequest, TrialTaskId } from './types/api';
+import type { ApiCareerRecommendation, ApiExperienceSummary, ProfileCardPatchRequest, TrialTaskId } from './types/api';
 import { loadDemoProgress, saveDemoProgress } from './services/demoProgress';
-import { motion, AnimatePresence, MotionConfig } from 'motion/react';
+import { createCareerSelectionSignature } from './services/careerRecommendationState';
+import { loadAppMode, saveAppMode, type AppMode } from './services/appMode';
+import { resetDemoReplayStorage } from './services/demoReplay';
+import { resetPendingDemoTrialLoads } from './hooks/useDynamicTrialTask';
+import {
+  DEMO_CAREER_RECOMMENDATION,
+  DEMO_EXPERIENCE_TEXT,
+  DEMO_PROFILE_EVIDENCE,
+  DEMO_SKILL_CARDS,
+} from './data/demoMode';
+import { AnimatePresence, MotionConfig } from 'motion/react';
 
 function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
   const cardsById = new Map(existing.map(card => [card.id, card]));
@@ -25,14 +36,28 @@ function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard
 }
 
 export default function App() {
-  const [initialProgress] = useState(loadDemoProgress);
+  const [initialAppMode] = useState(loadAppMode);
+  const demoSelectedCards = DEMO_SKILL_CARDS.slice(0, 4);
+  const [initialProgress] = useState(() => loadDemoProgress(
+    initialAppMode,
+    initialAppMode === 'demo'
+      ? {
+          careerSelectedCardIds: demoSelectedCards.map(card => card.id),
+          draftCards: DEMO_SKILL_CARDS.slice(0, 3),
+        }
+      : {},
+  ));
+  const [appMode, setAppMode] = useState<AppMode>(initialAppMode);
   const [currentScreen, setCurrentScreen] = useState<ScreenMode>(initialProgress.currentScreen);
   const [selectedTrialTaskId, setSelectedTrialTaskId] = useState<TrialTaskId>(initialProgress.selectedTrialTaskId);
   const [careerSelectedCardIds, setCareerSelectedCardIds] = useState<string[]>(initialProgress.careerSelectedCardIds);
   const [careerRecommendation, setCareerRecommendation] = useState<ApiCareerRecommendation | null>(initialProgress.careerRecommendation);
   const [careerRecommendationCardSignature, setCareerRecommendationCardSignature] = useState<string | null>(initialProgress.careerRecommendationCardSignature);
   const [unlockedCards, setUnlockedCards] = useState<SkillCard[]>([]);
-  const [draftCards, setDraftCards] = useState<SkillCard[]>([]);
+  const [demoUnlockedCards, setDemoUnlockedCards] = useState<SkillCard[]>([]);
+  const [draftCards, setDraftCards] = useState<SkillCard[]>(initialProgress.draftCards);
+  const [draftExperience, setDraftExperience] = useState<ApiExperienceSummary | null>(initialProgress.draftExperience);
+  const [demoReplayId, setDemoReplayId] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
@@ -63,8 +88,63 @@ export default function App() {
       careerSelectedCardIds,
       careerRecommendation,
       careerRecommendationCardSignature,
-    });
-  }, [careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, selectedTrialTaskId]);
+      draftCards,
+      draftExperience,
+    }, appMode);
+  }, [appMode, careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, draftCards, draftExperience, selectedTrialTaskId]);
+
+  const handleAppModeChange = (nextMode: AppMode) => {
+    if (nextMode === appMode) return;
+    saveDemoProgress({
+      currentScreen,
+      selectedTrialTaskId,
+      careerSelectedCardIds,
+      careerRecommendation,
+      careerRecommendationCardSignature,
+      draftCards,
+      draftExperience,
+    }, appMode);
+    saveAppMode(nextMode);
+    setAppMode(nextMode);
+    setIsStageTwoFocusMode(false);
+    const progress = loadDemoProgress(
+      nextMode,
+      nextMode === 'demo'
+        ? {
+            careerSelectedCardIds: demoSelectedCards.map(card => card.id),
+            draftCards: DEMO_SKILL_CARDS.slice(0, 3),
+          }
+        : {},
+    );
+    setCurrentScreen(progress.currentScreen);
+    setSelectedTrialTaskId(progress.selectedTrialTaskId);
+    setCareerSelectedCardIds(progress.careerSelectedCardIds);
+    setCareerRecommendation(progress.careerRecommendation);
+    setCareerRecommendationCardSignature(progress.careerRecommendationCardSignature);
+    setDraftCards(progress.draftCards);
+    setDraftExperience(progress.draftExperience);
+  };
+
+  const handleReplayDemo = () => {
+    resetDemoReplayStorage();
+    resetPendingDemoTrialLoads();
+    setIsStageTwoFocusMode(false);
+    setCurrentScreen('landing');
+    setSelectedTrialTaskId('A-02');
+    setCareerSelectedCardIds(demoSelectedCards.map(card => card.id));
+    setCareerRecommendation(null);
+    setCareerRecommendationCardSignature(null);
+    setUnlockedCards(persistedCards);
+    setDemoUnlockedCards([]);
+    setDraftCards(DEMO_SKILL_CARDS.slice(0, 3));
+    setDraftExperience(null);
+    setIsAuthOpen(false);
+    setIsWikiOpen(false);
+    setIsExampleOpen(false);
+    setIsFigmaGuideOpen(false);
+    setSelectedCard(null);
+    setDemoReplayId(current => current + 1);
+  };
 
   const handleUpdateProfileCard = async (
     cardId: string,
@@ -96,6 +176,7 @@ export default function App() {
   };
 
   const [isStageTwoFocusMode, setIsStageTwoFocusMode] = useState<boolean>(false);
+  const activeCards = appMode === 'demo' ? DEMO_SKILL_CARDS : persistedCards;
 
   // Dynamic subtle ambient glows matching Craft.do warm paper workspace
   const getScreenBackground = (screen: ScreenMode) => {
@@ -107,22 +188,16 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className={`min-h-screen ${getScreenBackground(currentScreen)} text-[#1C1A18] flex flex-col selection:bg-amber-100 selection:text-amber-900 transition-colors duration-500 relative overflow-x-hidden`}>
+    <div className={`min-h-screen ${getScreenBackground(currentScreen)} text-[#1C1A18] flex flex-col selection:bg-amber-100 selection:text-amber-900 transition-colors duration-150 relative overflow-x-hidden`}>
       
       {/* Subtle Craft Digital Paper Ambient Atmosphere (Soft, warm, restrained) */}
       {!(currentScreen === 'stage2' && isStageTwoFocusMode) && (
         <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
           {/* Subtle warm light glow top left */}
-          <motion.div
-            className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-amber-100/25 blur-3xl"
-            animate={{ x: [0, 18, 0], y: [0, 10, 0], scale: [1, 1.05, 1] }}
-            transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
-          />
+          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-amber-100/25 blur-3xl" />
           {/* Subtle stage-adaptive soft glow top right */}
-          <motion.div
-            animate={{ x: [0, -14, 0], y: [0, 16, 0], scale: [1.02, 0.98, 1.02] }}
-            transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
-            className={`absolute top-0 -right-20 w-[420px] h-[420px] rounded-full blur-3xl transition-colors duration-700 ${
+          <div
+            className={`absolute top-0 -right-20 w-[420px] h-[420px] rounded-full blur-3xl transition-colors duration-150 ${
             currentScreen === 'input-experience' || currentScreen === 'verify-cards' ? 'bg-emerald-100/20' :
             currentScreen === 'career-explore' ? 'bg-amber-100/25' :
             currentScreen === 'stage2' ? 'bg-sky-100/20' :
@@ -149,13 +224,15 @@ export default function App() {
           onOpenAuth={() => setIsAuthOpen(true)}
           onOpenFigmaGuide={() => setIsFigmaGuideOpen(true)}
           isLoggedIn={auth.isLoggedIn}
-          unlockedCardCount={unlockedCards.length}
+          unlockedCardCount={activeCards.length}
         />
       )}
 
+      {!isStageTwoFocusMode && <AppModeSwitcher appMode={appMode} onChange={handleAppModeChange} onReplayDemo={handleReplayDemo} />}
+
       {/* Main Screen Router with smooth Craft editorial transitions */}
       <main className="flex-1 relative z-10">
-        <AnimatePresence mode="wait">
+          <AnimatePresence initial={false}>
           {currentScreen === 'landing' && (
             <StageTransition key="landing">
               <LandingHero
@@ -169,25 +246,41 @@ export default function App() {
           )}
 
           {currentScreen === 'input-experience' && (
-            <StageTransition key="input-experience">
+            <StageTransition key={`input-experience-${appMode}-${demoReplayId}`}>
               <ExperienceInputScreen
-                onGenerateCards={(cards) => {
+                onGenerateCards={(cards, experience) => {
                   setDraftCards(cards);
+                  setDraftExperience(experience);
                   setCurrentScreen('verify-cards');
                 }}
                 onBackToLanding={() => setCurrentScreen('landing')}
+                demoMode={appMode === 'demo'}
+                demoCards={DEMO_SKILL_CARDS.slice(0, 3)}
+                demoExperienceText={DEMO_EXPERIENCE_TEXT}
               />
             </StageTransition>
           )}
 
           {currentScreen === 'verify-cards' && (
-            <StageTransition key="verify-cards">
+            <StageTransition key={`verify-cards-${appMode}-${demoReplayId}`}>
               <AbilityCardVerificationScreen
                 initialCards={draftCards}
-                allAccumulatedCards={unlockedCards}
+                initialExperience={draftExperience}
+                allAccumulatedCards={appMode === 'demo' ? demoUnlockedCards : unlockedCards}
                 onConfirmAndSaveToPool={async (newCards) => {
+                  if (appMode === 'demo') {
+                    setDemoUnlockedCards(prev => mergeCardsById(prev, newCards));
+                    return;
+                  }
                   const storedCards = await confirmCards(newCards);
                   setUnlockedCards(prev => mergeCardsById(prev, storedCards));
+                }}
+                onWithdrawConfirmedCard={async (cardId) => {
+                  if (appMode === 'demo') {
+                    setDemoUnlockedCards(prev => prev.filter(card => card.id !== cardId));
+                    return;
+                  }
+                  await handleDeleteProfileCard(cardId);
                 }}
                 onContinueSupplement={() => {
                   setCurrentScreen('input-experience');
@@ -197,6 +290,7 @@ export default function App() {
                 }}
                 onModifyExperience={() => setCurrentScreen('input-experience')}
                 onRegenerate={() => setCurrentScreen('input-experience')}
+                storageNamespace={appMode}
               />
             </StageTransition>
           )}
@@ -204,11 +298,12 @@ export default function App() {
           {currentScreen === 'career-explore' && (
             <StageTransition key="career-explore">
               <CareerExploreScreen
-                confirmedCards={persistedCards}
-                profileReady={profileStatus === 'success'}
+                confirmedCards={activeCards}
+                profileReady={appMode === 'demo' || profileStatus === 'success'}
                 initialSelectedCardIds={careerSelectedCardIds}
                 initialRecommendation={careerRecommendation}
                 initialRecommendationCardSignature={careerRecommendationCardSignature}
+                demoRecommendation={appMode === 'demo' ? DEMO_CAREER_RECOMMENDATION : null}
                 onStartStageTwo={(taskId) => {
                   setSelectedTrialTaskId(taskId);
                   setCurrentScreen('stage2');
@@ -225,14 +320,16 @@ export default function App() {
           )}
 
           {currentScreen === 'stage2' && (
-            <StageTransition key="stage2">
+            <StageTransition key={`stage2-${appMode}-${demoReplayId}`}>
               <DynamicTrialTaskScreen
                 taskId={selectedTrialTaskId}
-                confirmedCards={persistedCards}
+                confirmedCards={activeCards}
+                demoMode={appMode === 'demo'}
                 onBackToExplore={() => setCurrentScreen('career-explore')}
                 onEnterProfile={() => setCurrentScreen('profile')}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onTrialComplete={refreshProfile}
+                onFocusModeChange={setIsStageTwoFocusMode}
               />
             </StageTransition>
           )}
@@ -241,15 +338,16 @@ export default function App() {
           {currentScreen === 'report' && (
             <StageTransition key="report">
               <UserProfileScreen
-                persistedCards={persistedCards}
-                profileEvidence={profileEvidence}
-                profileVersion={profileVersion}
-                profileUpdatedAt={profileUpdatedAt}
+                persistedCards={activeCards}
+                profileEvidence={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE : profileEvidence}
+                profileVersion={appMode === 'demo' ? 4 : profileVersion}
+                profileUpdatedAt={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE[0].created_at : profileUpdatedAt}
                 auth={auth}
                 onNavigate={(screen) => setCurrentScreen(screen)}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
-                onUpdateCard={handleUpdateProfileCard}
-                onDeleteCard={handleDeleteProfileCard}
+                onUpdateCard={appMode === 'use' ? handleUpdateProfileCard : undefined}
+                onDeleteCard={appMode === 'use' ? handleDeleteProfileCard : undefined}
+                readOnly={appMode === 'demo'}
                 initialArchTab="reports"
               />
             </StageTransition>
@@ -258,15 +356,16 @@ export default function App() {
           {currentScreen === 'profile' && (
             <StageTransition key="profile">
               <UserProfileScreen
-                persistedCards={persistedCards}
-                profileEvidence={profileEvidence}
-                profileVersion={profileVersion}
-                profileUpdatedAt={profileUpdatedAt}
+                persistedCards={activeCards}
+                profileEvidence={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE : profileEvidence}
+                profileVersion={appMode === 'demo' ? 4 : profileVersion}
+                profileUpdatedAt={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE[0].created_at : profileUpdatedAt}
                 auth={auth}
                 onNavigate={(screen) => setCurrentScreen(screen)}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
-                onUpdateCard={handleUpdateProfileCard}
-                onDeleteCard={handleDeleteProfileCard}
+                onUpdateCard={appMode === 'use' ? handleUpdateProfileCard : undefined}
+                onDeleteCard={appMode === 'use' ? handleDeleteProfileCard : undefined}
+                readOnly={appMode === 'demo'}
                 initialArchTab="insight"
               />
             </StageTransition>

@@ -440,7 +440,6 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
       {/* 5. USER STORIES / TESTIMONIALS (Screenshot 4) */}
       <section className="px-4 sm:px-6 max-w-6xl mx-auto mb-16 text-center">
         <h2 className="craft-serif text-2xl sm:text-4xl font-normal text-stone-900 mb-10">
-          不同经历，都能从这里开始
           人们如何使用「选择之前」
         </h2>
 
@@ -475,7 +474,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               <span className="text-3xl">🚀</span>
             </div>
             <div className="text-xs font-semibold text-stone-900 uppercase">STEPHEN, 跨界探索者</div>
-            <p className="text-[11px] text-stone-500 mt-1">整理优势、试试方向、记录成长</p>
+            <p className="text-[11px] text-stone-500 mt-1">能力迁移、目标清单、潜能验证</p>
           </div>
 
           <div className="flex flex-col items-center text-center group cursor-pointer" onClick={onStartExplore}>
@@ -494,23 +493,23 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           <div>
             <div className="text-2xl mb-1">🏆</div>
-            <div className="text-xs font-semibold text-stone-900">内容由你确认</div>
-            <div className="text-[11px] text-stone-500">不擅自写入个人档案</div>
+            <div className="text-xs font-semibold text-stone-900">App Store 体验</div>
+            <div className="text-[11px] text-stone-500">年度优秀交互范式</div>
           </div>
           <div>
             <div className="text-3xl leading-none mb-1 font-sans"></div>
-            <div className="text-xs font-semibold text-stone-900">资料有出处</div>
-            <div className="text-[11px] text-stone-500">建议可以回看来源</div>
+            <div className="text-xs font-semibold text-stone-900">Apple 设计美学</div>
+            <div className="text-[11px] text-stone-500">极简工艺与克制体验</div>
           </div>
           <div>
             <div className="text-2xl mb-1">⌨️</div>
-            <div className="text-xs font-semibold text-stone-900">任务可续接</div>
-            <div className="text-[11px] text-stone-500">刷新页面也能继续</div>
+            <div className="text-xs font-semibold text-stone-900">Webby 奖项</div>
+            <div className="text-[11px] text-stone-500">涵盖多领域创新</div>
           </div>
           <div>
             <div className="text-2xl mb-1">📐</div>
-            <div className="text-xs font-semibold text-stone-900">结果可修改</div>
-            <div className="text-[11px] text-stone-500">能力卡随时可以调整</div>
+            <div className="text-xs font-semibold text-stone-900">德国设计奖</div>
+            <div className="text-[11px] text-stone-500">卓越沟通设计交互体验</div>
           </div>
         </div>
       </section>

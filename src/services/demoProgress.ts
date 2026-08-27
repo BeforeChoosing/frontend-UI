@@ -1,11 +1,18 @@
-import type { ScreenMode } from '../types';
-import type { ApiCareerRecommendation, TrialTaskId } from '../types/api';
+import type { ScreenMode, SkillCard } from '../types';
+import type { ApiCareerRecommendation, ApiExperienceSummary, TrialTaskId } from '../types/api';
 
-const STORAGE_KEY = 'before-choosing:demo-progress:v1';
+export type ProgressMode = 'demo' | 'use';
+
+const LEGACY_STORAGE_KEY = 'before-choosing:demo-progress:v1';
+const STORAGE_KEYS: Record<ProgressMode, string> = {
+  demo: 'before-choosing:flow-progress:demo:v1',
+  use: 'before-choosing:flow-progress:use:v1',
+};
 
 const RESTORABLE_SCREENS: ScreenMode[] = [
   'landing',
   'input-experience',
+  'verify-cards',
   'career-explore',
   'stage2',
   'report',
@@ -25,6 +32,8 @@ export interface DemoProgress {
   careerSelectedCardIds: string[];
   careerRecommendation: ApiCareerRecommendation | null;
   careerRecommendationCardSignature: string | null;
+  draftCards: SkillCard[];
+  draftExperience: ApiExperienceSummary | null;
 }
 
 const DEFAULT_PROGRESS: DemoProgress = {
@@ -33,45 +42,83 @@ const DEFAULT_PROGRESS: DemoProgress = {
   careerSelectedCardIds: [],
   careerRecommendation: null,
   careerRecommendationCardSignature: null,
+  draftCards: [],
+  draftExperience: null,
 };
 
-export function loadDemoProgress(): DemoProgress {
+type ProgressStorage = Pick<Storage, 'getItem' | 'setItem'>;
+
+export function progressStorageKey(mode: ProgressMode): string {
+  return STORAGE_KEYS[mode];
+}
+
+function isSkillCard(value: unknown): value is SkillCard {
+  if (!value || typeof value !== 'object') return false;
+  const card = value as Partial<SkillCard>;
+  return typeof card.id === 'string'
+    && typeof card.title === 'string'
+    && typeof card.description === 'string';
+}
+
+function isExperienceSummary(value: unknown): value is ApiExperienceSummary {
+  if (!value || typeof value !== 'object') return false;
+  const experience = value as Partial<ApiExperienceSummary>;
+  return typeof experience.title === 'string'
+    && Array.isArray(experience.actions)
+    && Array.isArray(experience.source_refs);
+}
+
+export function loadDemoProgress(
+  mode: ProgressMode = 'use',
+  fallback: Partial<DemoProgress> = {},
+  storage: ProgressStorage = window.localStorage,
+): DemoProgress {
+  const defaultProgress = { ...DEFAULT_PROGRESS, ...fallback };
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_PROGRESS;
+    const raw = storage.getItem(progressStorageKey(mode))
+      || (mode === 'use' ? storage.getItem(LEGACY_STORAGE_KEY) : null);
+    if (!raw) return defaultProgress;
     const parsed = JSON.parse(raw) as Partial<DemoProgress>;
     return {
       currentScreen: RESTORABLE_SCREENS.includes(parsed.currentScreen as ScreenMode)
         ? parsed.currentScreen as ScreenMode
-        : DEFAULT_PROGRESS.currentScreen,
+        : defaultProgress.currentScreen,
       selectedTrialTaskId: TASK_IDS.includes(parsed.selectedTrialTaskId as TrialTaskId)
         ? parsed.selectedTrialTaskId as TrialTaskId
-        : DEFAULT_PROGRESS.selectedTrialTaskId,
+        : defaultProgress.selectedTrialTaskId,
       careerSelectedCardIds: Array.isArray(parsed.careerSelectedCardIds)
         ? parsed.careerSelectedCardIds.filter((id): id is string => typeof id === 'string').slice(0, 4)
-        : [],
+        : defaultProgress.careerSelectedCardIds,
       careerRecommendation: parsed.careerRecommendation || null,
       careerRecommendationCardSignature: typeof parsed.careerRecommendationCardSignature === 'string'
         ? parsed.careerRecommendationCardSignature
         : null,
+      draftCards: Array.isArray(parsed.draftCards)
+        ? parsed.draftCards.filter(isSkillCard).slice(0, 12)
+        : defaultProgress.draftCards,
+      draftExperience: isExperienceSummary(parsed.draftExperience)
+        ? parsed.draftExperience
+        : defaultProgress.draftExperience,
     };
   } catch {
-    return DEFAULT_PROGRESS;
+    return defaultProgress;
   }
 }
 
-export function saveDemoProgress(progress: DemoProgress): void {
+export function saveDemoProgress(
+  progress: DemoProgress,
+  mode: ProgressMode = 'use',
+  storage: ProgressStorage = window.localStorage,
+): void {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    storage.setItem(progressStorageKey(mode), JSON.stringify(progress));
   } catch {
     // The backend session remains the source of truth when browser storage is unavailable.
   }
 }
 
-export function trialPhaseKey(taskId: TrialTaskId): string {
-  return `before-choosing:trial-ui:${taskId}:phase`;
-}
-
-export function trialStepKey(taskId: TrialTaskId): string {
-  return `before-choosing:trial-ui:${taskId}:step`;
+export function trialStepKey(taskId: TrialTaskId, mode: 'demo' | 'use' = 'use'): string {
+  return mode === 'use'
+    ? `before-choosing:trial-ui:${taskId}:step`
+    : `before-choosing:trial-ui:demo:${taskId}:step`;
 }

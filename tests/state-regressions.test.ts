@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   createCareerSelectionSignature,
   isCareerRecommendationCurrent,
 } from '../src/services/careerRecommendationState';
 import type { SkillCard } from '../src/types';
+
+const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
 
 const cards: SkillCard[] = [
   {
@@ -49,4 +52,20 @@ test('能力卡顺序变化会使旧请求结果失效', () => {
 
   assert.notEqual(requestSignature, currentSignature);
   assert.equal(requestSignature === currentSignature, false);
+});
+
+test('演示确认卡池不读取或修改正式模式能力卡状态', () => {
+  assert.match(
+    appSource,
+    /allAccumulatedCards=\{appMode === 'demo' \? demoUnlockedCards : unlockedCards\}/,
+  );
+  assert.match(
+    appSource,
+    /if \(appMode === 'demo'\) \{\s*setDemoUnlockedCards\(prev => mergeCardsById\(prev, newCards\)\)/,
+  );
+  assert.match(appSource, /key=\{`verify-cards-\$\{appMode\}-\$\{demoReplayId\}`\}/);
+  assert.doesNotMatch(
+    appSource,
+    /if \(appMode === 'demo'\) \{\s*setUnlockedCards\(prev => mergeCardsById\(prev, newCards\)\)/,
+  );
 });

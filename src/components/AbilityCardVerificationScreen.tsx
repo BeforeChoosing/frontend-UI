@@ -22,15 +22,19 @@ import {
   ChevronRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import type { ApiExperienceSummary } from '../types/api';
 
 interface AbilityCardVerificationScreenProps {
   initialCards: SkillCard[];
+  initialExperience: ApiExperienceSummary | null;
   allAccumulatedCards: SkillCard[];
   onConfirmAndSaveToPool: (newCards: SkillCard[]) => Promise<void> | void;
+  onWithdrawConfirmedCard: (cardId: string) => Promise<void> | void;
   onContinueSupplement: () => void;
   onStartCareerExplore: () => void;
   onModifyExperience: () => void;
   onRegenerate: () => void;
+  storageNamespace?: 'demo' | 'use';
 }
 
 // 3 verification states per card
@@ -38,12 +42,15 @@ export type VerificationStatus = 'confirmed' | 'unsure' | 'rejected';
 
 export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScreenProps> = ({
   initialCards,
+  initialExperience,
   allAccumulatedCards,
   onConfirmAndSaveToPool,
+  onWithdrawConfirmedCard,
   onContinueSupplement,
   onStartCareerExplore,
   onModifyExperience,
   onRegenerate,
+  storageNamespace = 'use',
 }) => {
   // Mode: 'verify' (Image 1: 验证卡牌) or 'added_pool' (Image 2/3: 已加入能力库展示)
   const [viewMode, setViewMode] = useState<'verify' | 'added_pool'>('verify');
@@ -73,6 +80,11 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [mergeSelection, setMergeSelection] = useState<string[]>([]);
+  const [experienceCard, setExperienceCard] = useState<ApiExperienceSummary | null>(initialExperience);
+  const [experienceStatus, setExperienceStatus] = useState<'confirmed' | 'rejected'>(initialExperience ? 'confirmed' : 'rejected');
+  const [isEditingExperience, setIsEditingExperience] = useState(false);
+  const [experienceSaved, setExperienceSaved] = useState(false);
 
   // Status handlers
   const handleSetStatus = (cardId: string, status: VerificationStatus) => {
@@ -103,6 +115,39 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
     setEditingCardId(null);
   };
 
+  const handleToggleMergeSelection = (cardId: string) => {
+    setMergeSelection(current => current.includes(cardId)
+      ? current.filter(id => id !== cardId)
+      : current.length < 2 ? [...current, cardId] : current);
+  };
+
+  const handleMergeSelected = () => {
+    if (mergeSelection.length !== 2) return;
+    const selectedCards = mergeSelection
+      .map(cardId => cards.find(card => card.id === cardId))
+      .filter((card): card is SkillCard => Boolean(card));
+    if (selectedCards.length !== 2) return;
+    const [first, second] = selectedCards;
+    const merged: SkillCard = {
+      ...first,
+      id: `${first.id}-merged-${second.id}`,
+      title: `${first.title}与${second.title}`,
+      description: `${first.description}；${second.description}`,
+      detail: [first.detail, second.detail].filter(Boolean).join('；'),
+      matchReason: [first.matchReason, second.matchReason].filter(Boolean).join('；'),
+      sourceRefs: Array.from(new Set([...(first.sourceRefs || []), ...(second.sourceRefs || [])])),
+    };
+    setCards(current => [...current.filter(card => !mergeSelection.includes(card.id)), merged]);
+    setCardStatuses(current => {
+      const next = { ...current };
+      mergeSelection.forEach(cardId => delete next[cardId]);
+      next[merged.id] = 'confirmed';
+      return next;
+    });
+    setMergeSelection([]);
+    handleStartEdit(merged);
+  };
+
   // Toggle card flip
   const handleToggleFlip = (cardId: string) => {
     setFlippedCardIds(prev => ({
@@ -124,6 +169,14 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
 
     try {
       await onConfirmAndSaveToPool(confirmed);
+      const experienceStorageKey = `before-choosing:confirmed-experience:${storageNamespace}`;
+      if (experienceCard && experienceStatus === 'confirmed') {
+        window.localStorage.setItem(experienceStorageKey, JSON.stringify(experienceCard));
+        setExperienceSaved(true);
+      } else {
+        window.localStorage.removeItem(experienceStorageKey);
+        setExperienceSaved(false);
+      }
       try {
         confetti({
           particleCount: 60,
@@ -149,6 +202,16 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
       onRegenerate();
       setIsRegenerating(false);
     }, 600);
+  };
+
+  const handleWithdrawConfirmedCard = async (cardId: string) => {
+    setSaveError(null);
+    try {
+      await onWithdrawConfirmedCard(cardId);
+      setConfirmedThisRound(current => current.filter(card => card.id !== cardId));
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : '撤回能力卡失败，请稍后重试。');
+    }
   };
 
   const confirmedCount = Object.values(cardStatuses).filter(s => s === 'confirmed').length;
@@ -204,22 +267,83 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
             <div className="space-y-1 flex-1">
               <div className="flex items-center justify-center sm:justify-start gap-2">
                 <span className="craft-chip-yellow text-[10px] font-mono font-medium px-2 py-0.5 rounded-full">
-                  02 · 确立坐标
+                  01 · 候选确认
                 </span>
                 <span className="text-[10px] text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full flex items-center gap-1 border border-stone-200/60">
-                  根据你写下的经历整理
+                  根据已上传材料整理
                 </span>
               </div>
               <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight">
-                以下是根据这段经历提炼的候选能力线索，请核对后确认。
+                以下是根据材料提炼的候选项目经历和能力线索，请逐项核对。
               </h2>
             </div>
           </motion.div>
 
           {/* Subtitle instruction */}
           <p className="text-center text-[11px] sm:text-xs text-stone-500 font-normal">
-            请选择你认可的能力卡，或修改卡牌内容后进行确认
+            所有内容目前都是候选项。只有确认保存的卡片才能进入后续职业推荐。
           </p>
+
+          {experienceCard && (
+            <motion.section
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: experienceStatus === 'rejected' ? 0.55 : 1, y: 0 }}
+              className="craft-card rounded-3xl border border-stone-200/70 bg-white/92 p-5 sm:p-6"
+            >
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                <div>
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-mono text-[10px] text-emerald-800">候选项目经历卡</span>
+                  <p className="mt-2 text-[11px] text-stone-500">来源：{experienceCard.source_refs.join('、') || '已上传材料'}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setIsEditingExperience(value => !value)} className="craft-btn-secondary px-3 py-2 text-[11px]">修改</button>
+                  <button
+                    onClick={() => setExperienceStatus(current => current === 'confirmed' ? 'rejected' : 'confirmed')}
+                    className={experienceStatus === 'confirmed' ? 'craft-btn-secondary px-3 py-2 text-[11px]' : 'craft-btn-black px-3 py-2 text-[11px]'}
+                  >
+                    {experienceStatus === 'confirmed' ? '删除候选' : '恢复候选'}
+                  </button>
+                </div>
+              </div>
+
+              {isEditingExperience ? (
+                <div className="mt-4 grid gap-3">
+                  <input
+                    value={experienceCard.title}
+                    onChange={event => setExperienceCard(current => current ? ({ ...current, title: event.target.value }) : current)}
+                    className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 outline-none focus:border-emerald-400"
+                    aria-label="项目经历名称"
+                  />
+                  <textarea
+                    value={experienceCard.actions.join('\n')}
+                    onChange={event => setExperienceCard(current => current ? ({ ...current, actions: event.target.value.split('\n').filter(Boolean) }) : current)}
+                    rows={3}
+                    className="resize-none rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs leading-5 text-stone-700 outline-none focus:border-emerald-400"
+                    aria-label="项目关键行动"
+                  />
+                  <input
+                    value={experienceCard.result || ''}
+                    onChange={event => setExperienceCard(current => current ? ({ ...current, result: event.target.value }) : current)}
+                    className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-700 outline-none focus:border-emerald-400"
+                    aria-label="项目结果"
+                  />
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                  <div className="rounded-2xl bg-stone-50 p-4">
+                    <p className="font-serif text-base text-stone-950">{experienceCard.title}</p>
+                    <p className="mt-2 text-xs leading-5 text-stone-600">{experienceCard.result || '材料中尚未明确项目结果'}</p>
+                  </div>
+                  <div className="rounded-2xl border border-stone-100 p-4">
+                    <p className="text-[10px] font-medium text-stone-500">材料中的关键行动</p>
+                    <ul className="mt-2 space-y-1.5 text-xs leading-5 text-stone-700">
+                      {experienceCard.actions.map(action => <li key={action}>· {action}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </motion.section>
+          )}
 
           {/* 
             ======================================================================
@@ -311,7 +435,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                         <div className="pt-2 text-center space-y-1 text-xs text-stone-500 leading-relaxed font-normal">
                           <p>• {card.detail || '在复杂情境中快速定位核心矛盾并组织资源'}</p>
                           <p>• {card.workplaceApplication ? `职场落地：${card.workplaceApplication}` : '具备敏捷试错与闭环度量意识'}</p>
-                          <p>• 这张卡怎么来的：{card.matchReason || '来自你写下的行动和结果'}</p>
+                          <p>• 这张卡怎么来的：{card.matchReason || '来自材料中的行动和结果'}</p>
                         </div>
                       )}
                     </div>
@@ -366,6 +490,16 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                     </button>
                   </div>
 
+                  {status !== 'rejected' && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleMergeSelection(card.id)}
+                      className={`mx-auto text-[10px] underline underline-offset-2 ${mergeSelection.includes(card.id) ? 'font-medium text-amber-800' : 'text-stone-400'}`}
+                    >
+                      {mergeSelection.includes(card.id) ? '已选择合并' : '选择合并'}
+                    </button>
+                  )}
+
                 </div>
               );
             })}
@@ -381,8 +515,22 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
         <div className="pt-6 pb-2 space-y-3 relative z-10">
           {/* Summary Text: 已确认 X/3 张卡牌 */}
           <div className="text-center text-xs text-stone-500 font-normal">
-            已选择 <strong className="text-stone-900 font-bold font-mono">{confirmedCount}</strong>/{initialCards.length} 张卡
+            已选择 <strong className="text-stone-900 font-bold font-mono">{confirmedCount}</strong>/{cards.length} 张卡
           </div>
+
+          {mergeSelection.length > 0 && (
+            <div className="flex items-center justify-center gap-3 text-xs text-stone-600">
+              <span>已选择 {mergeSelection.length}/2 张候选能力卡</span>
+              <button
+                type="button"
+                onClick={handleMergeSelected}
+                disabled={mergeSelection.length !== 2}
+                className="craft-btn-secondary px-3 py-1.5 text-[11px] disabled:opacity-40"
+              >
+                合并所选卡片
+              </button>
+            </div>
+          )}
 
           {/* 3 Buttons in a Row */}
           <div className="flex items-center justify-center gap-3 sm:gap-4 max-w-xl mx-auto">
@@ -391,7 +539,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
               onClick={onModifyExperience}
               className="craft-btn-secondary flex-1 py-2.5 px-4 text-xs sm:text-sm text-center"
             >
-              修改经历
+              返回材料
             </button>
 
             {/* 重新生成 */}
@@ -461,7 +609,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
           {/* Agent Dialogue */}
           <div className="space-y-1.5 flex-1">
             <h2 className="text-base sm:text-lg font-normal text-stone-900 font-serif craft-serif tracking-tight">
-              这段经历整理出了 <span className="text-amber-800 font-bold font-mono">{confirmedThisRound.length || confirmedCount}</span> 张能力卡。
+              本轮材料确认了 <span className="text-amber-800 font-bold font-mono">{confirmedThisRound.length || confirmedCount}</span> 张能力卡。
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-normal">
               只有你确认过的内容才会保存。后面的小任务会帮你看看这些优势如何用出来。
@@ -480,6 +628,25 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
           transition={{ duration: 0.4, delay: 0.1 }}
           className="w-full py-2"
         >
+          {experienceCard && experienceSaved && (
+            <div className="mx-auto mb-5 flex max-w-3xl flex-col justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:flex-row sm:items-center">
+              <div>
+                <p className="font-serif text-sm text-stone-950">{experienceCard.title}</p>
+                <p className="mt-1 text-[11px] text-stone-600">已确认的项目经历卡</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  window.localStorage.removeItem(`before-choosing:confirmed-experience:${storageNamespace}`);
+                  setExperienceSaved(false);
+                }}
+                className="craft-btn-secondary px-3 py-2 text-[11px]"
+              >
+                撤回项目经历卡
+              </button>
+            </div>
+          )}
+
           {/* Card Cards Grid: Flex or Grid depending on card count */}
           <div className={`grid gap-4 sm:gap-5 justify-center max-w-4xl mx-auto ${
             totalPoolCards.length <= 2 
@@ -507,6 +674,18 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                       ? 'bg-stone-900 text-white border-stone-800 shadow-md'
                       : 'bg-white/95 hover:bg-white text-stone-800 border-stone-200/70 shadow-xs hover:shadow-md'
                   }`}>
+                    {confirmedThisRound.some(item => item.id === card.id) && (
+                      <button
+                        type="button"
+                        onClick={event => {
+                          event.stopPropagation();
+                          void handleWithdrawConfirmedCard(card.id);
+                        }}
+                        className="absolute right-3 top-3 z-10 rounded-full border border-stone-200 bg-white/90 px-2 py-1 text-[9px] text-stone-600 hover:text-rose-700"
+                      >
+                        撤回
+                      </button>
+                    )}
                     
                     {/* Front View */}
                     {!isFlipped ? (
@@ -596,7 +775,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                 id="btn-continue-supplement"
               >
                 <PlusCircle className="w-4 h-4 text-stone-200" />
-                <span>继续补充经历</span>
+                <span>继续补充材料</span>
               </button>
 
               {/* Secondary: 开始职业探索 */}
@@ -626,7 +805,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                 className="craft-btn-secondary w-full py-2.5 px-6 text-xs sm:text-sm text-center"
                 id="btn-continue-supplement"
               >
-                继续补充经历
+                继续补充材料
               </button>
             </>
           )}

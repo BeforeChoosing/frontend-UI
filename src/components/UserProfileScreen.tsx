@@ -50,6 +50,7 @@ interface UserProfileScreenProps {
   onUpdateCard?: (cardId: string, patch: ProfileCardPatchRequest) => Promise<void> | void;
   onDeleteCard?: (cardId: string) => Promise<void> | void;
   initialArchTab?: 'insight' | 'cards' | 'paths' | 'reports';
+  readOnly?: boolean;
 }
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
@@ -62,7 +63,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onOpenCardDetail,
   onUpdateCard,
   onDeleteCard,
-  initialArchTab = 'insight'
+  initialArchTab = 'insight',
+  readOnly = false,
 }) => {
   // Bottom Arch Navigation State (4 states from the Figma wireframe: 'insight' | 'cards' | 'paths' | 'reports')
   const [activeArchTab, setActiveArchTab] = useState<'insight' | 'cards' | 'paths' | 'reports'>(initialArchTab);
@@ -564,7 +566,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                           <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-white text-stone-600 border border-stone-200">
                             {card.statusTag}
                           </span>
-                          {persistedCardIds.has(card.id) && (
+                          {persistedCardIds.has(card.id) && !readOnly && (
                             <>
                               <button
                                 type="button"
@@ -1018,7 +1020,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       )}
 
       {/* Confirmed Card Edit Modal */}
-      {editingCard && (
+      {editingCard && !readOnly && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
