@@ -81,7 +81,7 @@ npm run dev
 
 点击“分析经历”后，前端会把整段用户对话和附件解析正文作为同一个证据上下文，请求 `POST /api/v1/profile/proposals`，生成候选能力卡和候选项目经历卡。档案助手的回复只用于引导补充，不作为用户事实写入证据。用户可以确认、修改、合并或删除候选内容，确认后的卡片仍可撤回。只有确认保存的能力卡可以进入职业推荐。
 
-附件上传会先调用 `POST /api/v1/profile/materials/extract` 提取可复制文本。简历支持文本型 PDF；项目补充材料支持 PDF、Word、Markdown 和 TXT。扫描件 OCR 和外部链接抓取暂不支持。
+附件上传按材料类型选择后端接口：文本型 PDF、Word、Markdown 和 TXT 调用 `POST /api/v1/profile/materials/extract` 提取可复制文本；PNG、JPG、WebP 和没有文字层的扫描 PDF 调用 `POST /api/v1/profile/materials/multimodal-extract`，由百炼 Qwen-VL 返回候选文字、页码和归一化区域坐标。可复制文本不会重复调用视觉模型；外部链接抓取仍不在支持范围。
 
 职业探索完成后，后端会从 12 个固定任务中选择一项最适合补充当前证据的任务。选择依据是已确认能力卡、待验证项、最近评价中的能力等级、置信度、下一步建议和已完成任务，不由大模型自由出题。前端把任务 ID 交给第三阶段工作台，再加载对应材料、五步作答 Schema、中途事件和 Coach 提示。
 
