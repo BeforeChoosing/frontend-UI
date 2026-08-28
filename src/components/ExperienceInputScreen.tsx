@@ -143,6 +143,19 @@ function upsertMaterialEvidence(
     .slice(0, 12000);
 }
 
+function formatMultimodalEvidence(
+  items: Array<{
+    source_ref: string;
+    page: number;
+    bbox: number[];
+    quote: string;
+  }>,
+): string {
+  return items
+    .map(item => `[${item.source_ref} | 第${item.page}页 | bbox:${item.bbox.join(',')}] ${item.quote}`)
+    .join('\n');
+}
+
 interface QuickPreset {
   id: string;
   label: string;
@@ -750,7 +763,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       if (isImage) {
         setParsingStep('正在定位图片中的项目行动与结果...');
         const evidence = await extractProfileMultimodalEvidence(file);
-        extractedText = evidence.items.map(item => `[${item.source_ref}] ${item.quote}`).join('\n');
+        extractedText = formatMultimodalEvidence(evidence.items);
         extractionNotice = `已用 ${evidence.model} 定位 ${evidence.items.length} 条候选证据，保留页码与区域引用。`;
         detectedSignals = evidence.items.length > 0
           ? [`${evidence.items.length} 条区域证据`, '等待你核对', '还没有保存到档案']
@@ -767,7 +780,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           if (extension !== '.pdf' || !message.includes('没有可复制文本')) throw cause;
           setParsingStep('未发现文字层，正在用 Qwen-VL 定位扫描页证据...');
           const evidence = await extractProfileMultimodalEvidence(file);
-          extractedText = evidence.items.map(item => `[${item.source_ref}] ${item.quote}`).join('\n');
+          extractedText = formatMultimodalEvidence(evidence.items);
           extractionNotice = `已用 ${evidence.model} 定位 ${evidence.items.length} 条扫描页候选证据，保留页码与区域引用。`;
           detectedSignals = evidence.items.length > 0
             ? [`${evidence.items.length} 条页面证据`, '等待你核对', '还没有保存到档案']
