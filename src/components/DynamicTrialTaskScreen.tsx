@@ -75,6 +75,20 @@ function TrialEvaluationView({
           <p className="text-xs font-bold text-stone-900">结果依据</p>
           <p className="mt-1.5 text-xs leading-relaxed text-stone-600">{evaluation.level_reason}</p>
         </div>
+        {evaluation.verification && (
+          <div className={`mt-3 rounded-2xl border p-4 ${evaluation.verification.status === 'accepted' ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/70'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-bold text-stone-900">证据校验</p>
+              <span className={`rounded-full px-2 py-1 text-[10px] font-medium ${evaluation.verification.status === 'accepted' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
+                {evaluation.verification.status === 'accepted' ? '已通过' : '需要复核'}
+              </span>
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-stone-600">
+              证据覆盖率 {Math.round(evaluation.verification.evidence_coverage * 100)}%{evaluation.verification.model_reviewed ? ' · 已完成校验模型复核' : ' · 已完成本地规则校验'}。
+            </p>
+            {evaluation.verification.review_summary && <p className="mt-1 text-[11px] leading-relaxed text-stone-500">{evaluation.verification.review_summary}</p>}
+          </div>
+        )}
         <section className="mt-6">
           <div className="flex items-end justify-between gap-3">
             <div>

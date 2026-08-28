@@ -45,6 +45,30 @@ export interface MaterialExtractResponse {
   notice: string;
 }
 
+export interface MultimodalEvidenceItem {
+  id: string;
+  source_ref: string;
+  page: number;
+  bbox: [number, number, number, number];
+  coordinate_space: 'normalized_1000';
+  label: string;
+  quote: string;
+  evidence_type: 'documented_fact' | 'self_report' | 'inference';
+  confidence: number;
+  status: 'candidate' | 'confirmed' | 'rejected';
+}
+
+export interface MultimodalEvidenceResponse {
+  file_name: string;
+  file_sha256: string;
+  mime_type: string;
+  page_count: number;
+  model: string;
+  items: MultimodalEvidenceItem[];
+  rejected_count: number;
+  notice: string;
+}
+
 export interface ApiExperienceSummary {
   title: string;
   actions: string[];
@@ -294,6 +318,18 @@ export interface ApiTrialEvaluationDimension {
   evidence_refs?: string[];
 }
 
+export interface ApiTrialVerification {
+  status: 'accepted' | 'needs_review' | 'repaired';
+  triggered: boolean;
+  reason_codes: string[];
+  evidence_coverage: number;
+  invalid_evidence_ref_count: number;
+  missing_dimension_count: number;
+  score_without_evidence_count: number;
+  model_reviewed: boolean;
+  review_summary: string;
+}
+
 export interface ApiTrialEvaluation {
   summary: string;
   dimensions: ApiTrialEvaluationDimension[];
@@ -314,6 +350,7 @@ export interface ApiTrialEvaluation {
   confidence: TrialConfidence;
   evidence_refs?: string[];
   ability_applications?: ApiTrialAbilityApplication[];
+  verification?: ApiTrialVerification | null;
   evaluation_protocol?: string;
 }
 

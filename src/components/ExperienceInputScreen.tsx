@@ -29,7 +29,7 @@ import { SkillCard } from '../types';
 import { mapProfileProposalToSkillCards } from '../features/profile/profileAdapter';
 import { useExperienceAnalysis } from '../hooks/useExperienceAnalysis';
 import { useProfileExploration } from '../hooks/useProfileExploration';
-import { extractProfileMaterial } from '../api/profile';
+import { extractProfileMaterial, extractProfileMultimodalEvidence } from '../api/profile';
 import type { ApiExperienceSummary } from '../types/api';
 
 interface ExperienceInputScreenProps {
@@ -724,33 +724,74 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    if (uploadTab === 'resume' && !file.name.toLowerCase().endsWith('.pdf')) {
-      setUploadError('个人简历需要使用包含可复制文本的 PDF 文件。');
+    const extension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+    const allowedExtensions = uploadTab === 'resume'
+      ? ['.pdf', '.png', '.jpg', '.jpeg', '.webp']
+      : ['.pdf', '.docx', '.txt', '.md', '.png', '.jpg', '.jpeg', '.webp'];
+    if (!allowedExtensions.includes(extension)) {
+      setUploadError(uploadTab === 'resume'
+        ? '个人简历支持 PDF、PNG、JPG 和 WebP。'
+        : '项目补充材料支持 PDF、Word、Markdown、TXT、PNG、JPG 和 WebP。');
       e.target.value = '';
       return;
     }
     setUploadError(null);
     setIsParsingFile(true);
-    setParsingStep('正在读取文档中的可复制文本...');
+    setParsingStep('正在读取材料中的文字与页面证据...');
     try {
-      const extracted = await extractProfileMaterial(file);
       const fileSize = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
       const materialType = uploadTab === 'resume' ? 'resume' : 'portfolio';
-      const newFile: UploadedMaterial = { name: extracted.file_name, size: fileSize, type: materialType };
+      const newFile: UploadedMaterial = { name: file.name, size: fileSize, type: materialType };
       setUploadedFiles(prev => [...prev.filter(item => item.type !== materialType), newFile]);
-      setInputText(prev => upsertMaterialEvidence(prev, materialType, extracted.file_name, extracted.text));
+      const isImage = file.type.startsWith('image/') || ['.png', '.jpg', '.jpeg', '.webp'].includes(extension);
+      let extractedText = '';
+      let extractionNotice = '';
+      let detectedSignals: string[] = ['文字已读出', '等你确认', '还没有保存到档案'];
+      if (isImage) {
+        setParsingStep('正在定位图片中的项目行动与结果...');
+        const evidence = await extractProfileMultimodalEvidence(file);
+        extractedText = evidence.items.map(item => `[${item.source_ref}] ${item.quote}`).join('\n');
+        extractionNotice = `已用 ${evidence.model} 定位 ${evidence.items.length} 条候选证据，保留页码与区域引用。`;
+        detectedSignals = evidence.items.length > 0
+          ? [`${evidence.items.length} 条区域证据`, '等待你核对', '还没有保存到档案']
+          : ['未定位到可核对片段', '等待你补充', '还没有保存到档案'];
+      } else {
+        try {
+          const extracted = await extractProfileMaterial(file);
+          extractedText = extracted.text;
+          extractionNotice = `已提取 ${extracted.char_count} 字可复制文本${extracted.truncated ? '（内容较长，已截取前 12000 字）' : ''}。`;
+        } catch (cause) {
+          // Scanned PDFs have no text layer. Only this known case falls back
+          // to one Qwen-VL call; network and format errors are not retried.
+          const message = cause instanceof Error ? cause.message : '';
+          if (extension !== '.pdf' || !message.includes('没有可复制文本')) throw cause;
+          setParsingStep('未发现文字层，正在用 Qwen-VL 定位扫描页证据...');
+          const evidence = await extractProfileMultimodalEvidence(file);
+          extractedText = evidence.items.map(item => `[${item.source_ref}] ${item.quote}`).join('\n');
+          extractionNotice = `已用 ${evidence.model} 定位 ${evidence.items.length} 条扫描页候选证据，保留页码与区域引用。`;
+          detectedSignals = evidence.items.length > 0
+            ? [`${evidence.items.length} 条页面证据`, '等待你核对', '还没有保存到档案']
+            : ['未定位到可核对片段', '等待你补充', '还没有保存到档案'];
+        }
+      }
+      setInputText(prev => upsertMaterialEvidence(
+        prev,
+        materialType,
+        file.name,
+        extractedText || '材料中暂未定位到可引用文字，请补充说明。',
+      ));
       setMessages(prev => [...prev, {
         id: `user-upload-${Date.now()}`,
         role: 'user',
-        content: `【上传了${materialType === 'resume' ? '个人简历' : '项目补充材料'}】${extracted.file_name}`,
+        content: `【上传了${materialType === 'resume' ? '个人简历' : '项目补充材料'}】${file.name}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         attachedFile: newFile,
       }, {
         id: `ai-upload-${Date.now()}`,
         role: 'ai',
-        content: `已提取 ${extracted.char_count} 字可复制文本${extracted.truncated ? '（内容较长，已截取前 12000 字）' : ''}。材料内容目前仅作为候选证据，确认前不会进入职业推荐。`,
+        content: `${extractionNotice} 材料内容目前仅作为候选证据，确认前不会进入职业推荐。`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        detectedSignals: ['文字已读出', '等你确认', '还没有保存到档案'],
+        detectedSignals,
       }].slice(-30));
       setIsChatExpanded(true);
       setShowUploadModal(false);
@@ -1267,7 +1308,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     <input 
                       ref={fileInputRef}
                       type="file" 
-                      accept={uploadTab === 'resume' ? '.pdf' : '.pdf,.docx,.txt,.md'}
+                      accept={uploadTab === 'resume' ? '.pdf,.png,.jpg,.jpeg,.webp' : '.pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp'}
                       className="hidden" 
                       onChange={handleFileUpload}
                     />
@@ -1280,8 +1321,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                       </p>
                       <p className="text-[11px] text-stone-500 mt-0.5">
                         {uploadTab === 'resume'
-                          ? '仅支持包含可复制文本的 PDF 简历，扫描件暂不支持 OCR'
-                          : '支持 PDF、Word、Markdown 和 TXT，扫描件暂不支持 OCR'}
+                          ? '支持 PDF、PNG、JPG 和 WebP；扫描 PDF 会保留页码与区域证据'
+                          : '支持 PDF、Word、Markdown、TXT 及常见图片；扫描材料可定位候选证据'}
                       </p>
                     </div>
                   </div>
