@@ -389,7 +389,7 @@ export default function App() {
       <ExampleShowcaseModal
         isOpen={isExampleOpen}
         onClose={() => setIsExampleOpen(false)}
-        onTryExperience={() => {
+        onStartExample={() => {
           setIsExampleOpen(false);
           setCurrentScreen('input-experience');
         }}

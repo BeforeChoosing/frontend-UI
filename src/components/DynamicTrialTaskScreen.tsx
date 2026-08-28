@@ -45,6 +45,17 @@ function TrialEvaluationView({
   onBackToExplore,
   onEnterProfile,
 }: TrialEvaluationViewProps) {
+  const evidenceItems = observedEvidence.evidence_items || [];
+  const applications = evaluation.ability_applications || [];
+  const deliveryEvidence = evidenceItems.filter(item => (
+    item.kind === 'deliverable' || item.kind === 'observed' || item.kind === 'reference'
+  ));
+  const evidenceLabel = (ref: string) => evidenceItems.find(item => item.id === ref)?.label || ref;
+  const statusClassName: Record<NonNullable<ApiTrialEvaluation['ability_applications']>[number]['status'], string> = {
+    已应用: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    部分应用: 'border-amber-200 bg-amber-50 text-amber-800',
+    未形成证据: 'border-stone-200 bg-stone-100 text-stone-600',
+  };
   return (
     <div className="mx-auto min-h-[calc(100vh-64px)] max-w-6xl px-4 py-8 sm:px-6">
       <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
@@ -64,6 +75,77 @@ function TrialEvaluationView({
           <p className="text-xs font-bold text-stone-900">结果依据</p>
           <p className="mt-1.5 text-xs leading-relaxed text-stone-600">{evaluation.level_reason}</p>
         </div>
+        <section className="mt-6">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-stone-900">本次使用的能力</h2>
+              <p className="mt-1 text-[11px] text-stone-500">能力卡只作为任务前计划，是否真正应用以任务交付物中的证据为准。</p>
+            </div>
+            <span className="shrink-0 text-[10px] text-stone-400">{applications.length} 张能力卡</span>
+          </div>
+          {applications.length > 0 ? (
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              {applications.map((application, index) => (
+                <motion.div
+                  key={application.card_id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 340, damping: 30, mass: 0.75, delay: index * 0.04 }}
+                  className="rounded-2xl border border-stone-200 bg-white p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-stone-400">能力卡</p>
+                      <h3 className="mt-1 text-sm font-bold text-stone-900">{application.card_title}</h3>
+                    </div>
+                    <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-medium ${statusClassName[application.status]}`}>
+                      {application.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-stone-600">{application.basis}</p>
+                  {application.evidence_refs.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {application.evidence_refs.slice(0, 4).map(ref => (
+                        <span key={ref} className="rounded-full bg-stone-100 px-2 py-1 text-[10px] text-stone-500">
+                          {evidenceLabel(ref)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-3 border-t border-stone-100 pt-3 text-[11px] leading-relaxed text-stone-500">
+                    下一步：{application.next_step}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-4 py-3 text-xs text-stone-500">本次评价没有可核对的能力卡应用记录。</p>
+          )}
+        </section>
+        <section className="mt-6 rounded-2xl border border-stone-200 bg-stone-50/60 p-4">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-stone-900">本次交付证据</h2>
+              <p className="mt-1 text-[11px] text-stone-500">来源包括五步作答、事件处理和主动引用的任务材料。</p>
+            </div>
+            <span className="shrink-0 text-[10px] text-stone-400">{deliveryEvidence.length} 条</span>
+          </div>
+          {deliveryEvidence.length > 0 ? (
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+              {deliveryEvidence.slice(0, 10).map(item => (
+                <div key={item.id} className="rounded-xl border border-stone-200/80 bg-white px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <p className="text-[11px] font-bold text-stone-800">{item.label}</p>
+                  </div>
+                  <p className="mt-1.5 text-xs leading-relaxed text-stone-600">{item.content}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-stone-500">尚未形成可展示的交付物证据。</p>
+          )}
+        </section>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
           {evaluation.dimensions.map((item, index) => (
             <motion.div
@@ -78,8 +160,30 @@ function TrialEvaluationView({
                 <span className="font-mono text-sm font-bold text-amber-800">{item.score}</span>
               </div>
               <p className="mt-2 text-xs leading-relaxed text-stone-600">{item.evidence}</p>
+              {item.evidence_refs && item.evidence_refs.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5 border-t border-stone-100 pt-2.5">
+                  <span className="text-[10px] text-stone-400">评分依据</span>
+                  {item.evidence_refs.slice(0, 4).map(ref => (
+                    <span key={ref} className="rounded-full bg-amber-50 px-2 py-1 text-[10px] text-amber-800">{evidenceLabel(ref)}</span>
+                  ))}
+                </div>
+              )}
             </motion.div>
           ))}
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+            <p className="text-xs font-bold text-emerald-900">做得清楚的地方</p>
+            <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-emerald-900/80">
+              {evaluation.strengths.map(item => <li key={item}>· {item}</li>)}
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+            <p className="text-xs font-bold text-amber-900">仍需补足</p>
+            <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-amber-900/80">
+              {evaluation.gaps.map(item => <li key={item}>· {item}</li>)}
+            </ul>
+          </div>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
@@ -182,8 +286,12 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     return <div className="grid min-h-[calc(100vh-64px)] place-items-center text-sm text-stone-500">正在准备小任务…</div>;
   }
 
-  const evaluation = demoSubmitted ? createDemoTrialEvaluation(task) : session.evaluation;
-  const observedEvidence = demoSubmitted ? createDemoObservedEvidence(task) : session.observed_evidence;
+  const evaluation = demoSubmitted
+    ? createDemoTrialEvaluation(task, answer, confirmedCards)
+    : session.evaluation;
+  const observedEvidence = demoSubmitted
+    ? createDemoObservedEvidence(task, answer, confirmedCards)
+    : session.observed_evidence;
   const showEvaluation = (demoSubmitted || session.status === 'submitted') && Boolean(evaluation && observedEvidence);
 
   const handleCardPlayEvaluate = async () => {

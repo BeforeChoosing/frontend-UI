@@ -88,3 +88,8 @@ test('03 末步字段对齐，提交评价使用同步弹簧过渡', () => {
   assert.match(trialSource, /<AnimatePresence initial=\{false\} mode="sync">/);
   assert.match(trialSource, /key="evaluation"[\s\S]*?type: 'spring'/);
 });
+
+test('示例体验入口使用弹窗约定的启动回调', () => {
+  assert.match(appSource, /<ExampleShowcaseModal[\s\S]*?onStartExample=\{\(\) =>/);
+  assert.doesNotMatch(appSource, /<ExampleShowcaseModal[\s\S]*?onTryExperience=/);
+});
