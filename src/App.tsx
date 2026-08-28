@@ -37,12 +37,10 @@ function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard
 
 export default function App() {
   const [initialAppMode] = useState(loadAppMode);
-  const demoSelectedCards = DEMO_SKILL_CARDS.slice(0, 4);
   const [initialProgress] = useState(() => loadDemoProgress(
     initialAppMode,
     initialAppMode === 'demo'
       ? {
-          careerSelectedCardIds: demoSelectedCards.map(card => card.id),
           draftCards: DEMO_SKILL_CARDS.slice(0, 3),
         }
       : {},
@@ -111,7 +109,6 @@ export default function App() {
       nextMode,
       nextMode === 'demo'
         ? {
-            careerSelectedCardIds: demoSelectedCards.map(card => card.id),
             draftCards: DEMO_SKILL_CARDS.slice(0, 3),
           }
         : {},
@@ -131,7 +128,7 @@ export default function App() {
     setIsStageTwoFocusMode(false);
     setCurrentScreen('landing');
     setSelectedTrialTaskId('A-02');
-    setCareerSelectedCardIds(demoSelectedCards.map(card => card.id));
+    setCareerSelectedCardIds([]);
     setCareerRecommendation(null);
     setCareerRecommendationCardSignature(null);
     setUnlockedCards(persistedCards);

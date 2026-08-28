@@ -1,8 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useDynamicTrialTask } from '../hooks/useDynamicTrialTask';
 import type { SkillCard } from '../types';
-import type { ApiDynamicTrialAnswer, TrialTaskId } from '../types/api';
+import type {
+  ApiDynamicTrialAnswer,
+  ApiObservedEvidence,
+  ApiTrialEvaluation,
+  ApiTrialTaskDefinition,
+  TrialTaskId,
+} from '../types/api';
 import { TrialCardPlayScreen } from './TrialCardPlayScreen';
 import { TrialWorkbenchScreen } from './TrialWorkbenchScreen';
 import { trialStepKey } from '../services/demoProgress';
@@ -22,6 +28,78 @@ interface DynamicTrialTaskScreenProps {
   onTrialComplete?: () => Promise<unknown> | void;
   onFocusModeChange?: (focused: boolean) => void;
   demoMode?: boolean;
+}
+
+interface TrialEvaluationViewProps {
+  task: ApiTrialTaskDefinition;
+  evaluation: ApiTrialEvaluation;
+  observedEvidence: ApiObservedEvidence;
+  onBackToExplore: () => void;
+  onEnterProfile: () => void;
+}
+
+function TrialEvaluationView({
+  task,
+  evaluation,
+  observedEvidence,
+  onBackToExplore,
+  onEnterProfile,
+}: TrialEvaluationViewProps) {
+  return (
+    <div className="mx-auto min-h-[calc(100vh-64px)] max-w-6xl px-4 py-8 sm:px-6">
+      <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          <div>
+            <p className="font-mono text-[10px] font-bold text-emerald-700">本次任务 · {task.id}</p>
+            <h1 className="mt-1 font-serif text-2xl text-stone-900">本次任务表现</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-stone-600">{evaluation.summary}</p>
+          </div>
+          <div className="shrink-0 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <p className="text-[10px] text-emerald-700">主要观察 · {evaluation.primary_ability}</p>
+            <p className="mt-1 text-xl font-bold text-emerald-950">{evaluation.observed_level}</p>
+            <p className="mt-1 text-[10px] text-emerald-800">置信度 {evaluation.confidence} · {evaluation.coach_dependency}</p>
+          </div>
+        </div>
+        <div className="mt-6 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+          <p className="text-xs font-bold text-stone-900">结果依据</p>
+          <p className="mt-1.5 text-xs leading-relaxed text-stone-600">{evaluation.level_reason}</p>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+          {evaluation.dimensions.map((item, index) => (
+            <motion.div
+              key={item.dimension}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 30, mass: 0.75, delay: index * 0.04 }}
+              className="rounded-2xl border border-stone-200 bg-white p-4"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-bold text-stone-800">{item.dimension} <span className="font-normal text-stone-400">{item.weight}%</span></span>
+                <span className="font-mono text-sm font-bold text-amber-800">{item.score}</span>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-stone-600">{item.evidence}</p>
+            </motion.div>
+          ))}
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+            <p className="text-xs font-bold text-emerald-900">本次观察到的能力</p>
+            <p className="mt-1.5 text-xs leading-relaxed text-emerald-900/80">{observedEvidence.statement}</p>
+            <p className="mt-2 text-[10px] leading-relaxed text-emerald-800/70">{observedEvidence.caveats.join(' · ')}</p>
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+            <p className="text-xs font-bold text-stone-900">后续验证方向</p>
+            <p className="mt-1.5 text-xs leading-relaxed text-stone-600">{evaluation.next_step}</p>
+            <p className="mt-2 text-[10px] text-stone-400">单次任务只记录本次表现，不代表长期水平或岗位匹配度。</p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-col justify-between gap-3 border-t border-stone-100 pt-4 sm:flex-row">
+          <button onClick={onBackToExplore} className="craft-btn-secondary px-4 py-2 text-xs">返回方向建议</button>
+          <button onClick={onEnterProfile} className="craft-btn-black px-4 py-2 text-xs">查看个人档案</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
@@ -106,25 +184,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
 
   const evaluation = demoSubmitted ? createDemoTrialEvaluation(task) : session.evaluation;
   const observedEvidence = demoSubmitted ? createDemoObservedEvidence(task) : session.observed_evidence;
-
-  if ((demoSubmitted || session.status === 'submitted') && evaluation && observedEvidence) {
-    return (
-      <div className="mx-auto min-h-[calc(100vh-64px)] max-w-6xl px-4 py-8 sm:px-6">
-        <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-            <div><p className="font-mono text-[10px] font-bold text-emerald-700">本次任务 · {task.id}</p><h1 className="mt-1 font-serif text-2xl text-stone-900">本次任务表现</h1><p className="mt-2 max-w-3xl text-sm leading-relaxed text-stone-600">{evaluation.summary}</p></div>
-            <div className="shrink-0 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"><p className="text-[10px] text-emerald-700">主要观察 · {evaluation.primary_ability}</p><p className="mt-1 text-xl font-bold text-emerald-950">{evaluation.observed_level}</p><p className="mt-1 text-[10px] text-emerald-800">置信度 {evaluation.confidence} · {evaluation.coach_dependency}</p></div>
-          </div>
-          <div className="mt-6 rounded-2xl border border-stone-200 bg-stone-50/70 p-4"><p className="text-xs font-bold text-stone-900">结果依据</p><p className="mt-1.5 text-xs leading-relaxed text-stone-600">{evaluation.level_reason}</p></div>
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-            {evaluation.dimensions.map((item, index) => <motion.div key={item.dimension} initial={{ opacity: 0, transform: 'translateY(6px)' }} animate={{ opacity: 1, transform: 'translateY(0px)' }} transition={{ type: 'spring', bounce: 0, duration: 0.28, delay: index * 0.04 }} className="rounded-2xl border border-stone-200 bg-white p-4"><div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-stone-800">{item.dimension} <span className="font-normal text-stone-400">{item.weight}%</span></span><span className="font-mono text-sm font-bold text-amber-800">{item.score}</span></div><p className="mt-2 text-xs leading-relaxed text-stone-600">{item.evidence}</p></motion.div>)}
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2"><div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4"><p className="text-xs font-bold text-emerald-900">本次观察到的能力</p><p className="mt-1.5 text-xs leading-relaxed text-emerald-900/80">{observedEvidence.statement}</p><p className="mt-2 text-[10px] leading-relaxed text-emerald-800/70">{observedEvidence.caveats.join(' · ')}</p></div><div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4"><p className="text-xs font-bold text-stone-900">后续验证方向</p><p className="mt-1.5 text-xs leading-relaxed text-stone-600">{evaluation.next_step}</p><p className="mt-2 text-[10px] text-stone-400">单次任务只记录本次表现，不代表长期水平或岗位匹配度。</p></div></div>
-          <div className="mt-6 flex flex-col justify-between gap-3 border-t border-stone-100 pt-4 sm:flex-row"><button onClick={onBackToExplore} className="craft-btn-secondary px-4 py-2 text-xs">返回方向建议</button><button onClick={onEnterProfile} className="craft-btn-black px-4 py-2 text-xs">查看个人档案</button></div>
-        </div>
-      </div>
-    );
-  }
+  const showEvaluation = (demoSubmitted || session.status === 'submitted') && Boolean(evaluation && observedEvidence);
 
   const handleCardPlayEvaluate = async () => {
     const challenge = task.ability_challenges[answer.card_play_current_index];
@@ -165,10 +225,6 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     onFocusModeChange?.(false);
     setPhase('workbench');
   };
-
-  if (phase === 'card-play') {
-    return <TrialCardPlayScreen task={task} cards={confirmedCards} answer={answer} error={error} saving={!demoMode && status === 'saving'} onChange={setAnswer} onEvaluate={() => void handleCardPlayEvaluate()} onSelectChallenge={index => void handleSelectCardPlayChallenge(index)} onEnterWorkbench={handleEnterWorkbench} onBack={onBackToExplore} onOpenCardDetail={onOpenCardDetail} />;
-  }
 
   const currentStep = task.steps[stepIndex];
   const completedStepIds = demoMode ? demoCompletedStepIds : task.steps.filter(step => Boolean(answer.step_answers[step.id]?.trim())).map(step => step.id);
@@ -221,5 +277,80 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     onFocusModeChange?.(focused);
   };
 
-  return <TrialWorkbenchScreen task={task} answer={answer} stepIndex={stepIndex} completedStepIds={completedStepIds} active={workbenchActive} busy={isBusy} coachText={coachText} onActiveChange={changeFocusMode} onBackToExplore={onBackToExplore} onStepChange={setStepIndex} onStepAnswerChange={updateStepAnswer} onEventDecisionChange={decision => setAnswer(current => current ? ({ ...current, event_decision: decision || null }) : current)} onEventResponseChange={value => setAnswer(current => current ? ({ ...current, event_response: value }) : current)} onOpenMaterial={openMaterial} onToggleEvidence={toggleEvidence} onPrevious={() => setStepIndex(index => Math.max(0, index - 1))} onNext={() => void handleNext()} onSubmit={() => void handleSubmit()} onCoach={level => void handleCoach(level)} />;
+  return (
+    <AnimatePresence initial={false} mode="sync">
+      {showEvaluation && evaluation && observedEvidence ? (
+        <motion.div
+          key="evaluation"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ type: 'spring', stiffness: 280, damping: 30, mass: 0.8 }}
+          className="block"
+        >
+          <TrialEvaluationView
+            task={task}
+            evaluation={evaluation}
+            observedEvidence={observedEvidence}
+            onBackToExplore={onBackToExplore}
+            onEnterProfile={onEnterProfile}
+          />
+        </motion.div>
+      ) : phase === 'card-play' ? (
+        <motion.div
+          key="card-play"
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -10 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.75 }}
+          className="block"
+        >
+          <TrialCardPlayScreen
+            task={task}
+            cards={confirmedCards}
+            answer={answer}
+            error={error}
+            saving={!demoMode && status === 'saving'}
+            onChange={setAnswer}
+            onEvaluate={() => void handleCardPlayEvaluate()}
+            onSelectChallenge={index => void handleSelectCardPlayChallenge(index)}
+            onEnterWorkbench={handleEnterWorkbench}
+            onBack={onBackToExplore}
+            onOpenCardDetail={onOpenCardDetail}
+          />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="workbench"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.75 }}
+          className="block"
+        >
+          <TrialWorkbenchScreen
+            task={task}
+            answer={answer}
+            stepIndex={stepIndex}
+            completedStepIds={completedStepIds}
+            active={workbenchActive}
+            busy={isBusy}
+            coachText={coachText}
+            onActiveChange={changeFocusMode}
+            onBackToExplore={onBackToExplore}
+            onStepChange={setStepIndex}
+            onStepAnswerChange={updateStepAnswer}
+            onEventDecisionChange={decision => setAnswer(current => current ? ({ ...current, event_decision: decision || null }) : current)}
+            onEventResponseChange={value => setAnswer(current => current ? ({ ...current, event_response: value }) : current)}
+            onOpenMaterial={openMaterial}
+            onToggleEvidence={toggleEvidence}
+            onPrevious={() => setStepIndex(index => Math.max(0, index - 1))}
+            onNext={() => void handleNext()}
+            onSubmit={() => void handleSubmit()}
+            onCoach={level => void handleCoach(level)}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 };
