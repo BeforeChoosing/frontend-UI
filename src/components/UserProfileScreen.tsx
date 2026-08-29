@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { SkillCard, UserAuth, ScreenMode } from '../types';
 import type { ApiProfileEvidence, ProfileCardPatchRequest } from '../types/api';
+import { EvidenceChain } from './EvidenceChain';
 
 interface UserProfileScreenProps {
   persistedCards?: SkillCard[];
@@ -816,6 +817,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                           </div>
                         ))}
                       </div>
+
+                      {(() => {
+                        const record = profileEvidence.find(item => item.session_id === report.id);
+                        return record ? <EvidenceChain record={record} cards={persistedCards} /> : null;
+                      })()}
 
                       {/* Mentor comment */}
                       <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-100/80 text-xs text-purple-900 flex items-start gap-2">

@@ -28,6 +28,7 @@ import {
   DEMO_SKILL_CARDS,
 } from './data/demoMode';
 import { AnimatePresence, MotionConfig } from 'motion/react';
+import { auditEvent } from './api/client';
 
 function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
   const cardsById = new Map(existing.map(card => [card.id, card]));
@@ -90,6 +91,41 @@ export default function App() {
       draftExperience,
     }, appMode);
   }, [appMode, careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, draftCards, draftExperience, selectedTrialTaskId]);
+
+  useEffect(() => {
+    if (appMode !== 'use') return undefined;
+    const describe = (element: Element) => {
+      const target = element as HTMLElement;
+      const label = target.dataset.auditAction || target.getAttribute('aria-label') || target.textContent?.trim() || target.tagName;
+      return { label: label.slice(0, 120), target: target.id || target.getAttribute('name') || target.dataset.auditTarget || target.tagName.toLowerCase() };
+    };
+    const onClick = (event: Event) => {
+      const element = (event.target as Element | null)?.closest('button,a,[role="button"]');
+      if (!element) return;
+      const info = describe(element);
+      void auditEvent('ui_click', info.target, { label: info.label });
+    };
+    const onChange = (event: Event) => {
+      const element = (event.target as Element | null)?.closest('input,select,textarea');
+      if (!element) return;
+      const info = describe(element);
+      void auditEvent('ui_change', info.target, { label: info.label, control: element.tagName.toLowerCase() });
+    };
+    const onSubmit = (event: Event) => {
+      const form = (event.target as Element | null)?.closest('form');
+      if (!form) return;
+      const info = describe(form);
+      void auditEvent('ui_submit', info.target, { label: info.label });
+    };
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('change', onChange, true);
+    document.addEventListener('submit', onSubmit, true);
+    return () => {
+      document.removeEventListener('click', onClick, true);
+      document.removeEventListener('change', onChange, true);
+      document.removeEventListener('submit', onSubmit, true);
+    };
+  }, [appMode]);
 
   const handleAppModeChange = (nextMode: AppMode) => {
     if (nextMode === appMode) return;
