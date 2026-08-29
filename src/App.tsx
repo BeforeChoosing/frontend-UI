@@ -28,7 +28,9 @@ import {
   DEMO_SKILL_CARDS,
 } from './data/demoMode';
 import { AnimatePresence, MotionConfig } from 'motion/react';
-import { auditEvent } from './api/client';
+import { auditEvent, clearAccessToken, getAccessToken } from './api/client';
+import { getCurrentUser, logout as logoutAccount } from './api/auth';
+import type { AuthSession } from './api/auth';
 
 function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
   const cardsById = new Map(existing.map(card => [card.id, card]));
@@ -62,6 +64,10 @@ export default function App() {
   const [isExampleOpen, setIsExampleOpen] = useState(false);
   const [isFigmaGuideOpen, setIsFigmaGuideOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<SkillCard | null>(null);
+  const [auth, setAuth] = useState<UserAuth>({
+    isLoggedIn: false,
+  });
+  const [authChecking, setAuthChecking] = useState(initialAppMode === 'use');
   const {
     cards: persistedCards,
     version: profileVersion,
@@ -72,7 +78,7 @@ export default function App() {
     confirmCards,
     updateCard,
     removeCard,
-  } = useProfileCards();
+  } = useProfileCards(appMode !== 'use' || auth.isLoggedIn);
 
   useEffect(() => {
     if (persistedCards.length > 0) {
@@ -127,6 +133,64 @@ export default function App() {
     };
   }, [appMode]);
 
+  useEffect(() => {
+    if (appMode !== 'use') {
+      setAuthChecking(false);
+      setIsAuthOpen(false);
+      return;
+    }
+    let active = true;
+    setAuthChecking(true);
+    const token = getAccessToken();
+    if (!token) {
+      setAuth({ isLoggedIn: false });
+      setUnlockedCards([]);
+      setAuthChecking(false);
+      setIsAuthOpen(true);
+      return () => {
+        active = false;
+      };
+    }
+    void getCurrentUser()
+      .then((user) => {
+        if (!active) return;
+        setAuth({
+          isLoggedIn: true,
+          user: {
+            id: user.id,
+            name: user.display_name,
+            email: user.email,
+            unlockedCards: unlockedCards,
+          },
+        });
+        setIsAuthOpen(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        clearAccessToken();
+        setAuth({ isLoggedIn: false });
+        setUnlockedCards([]);
+        setIsAuthOpen(true);
+      })
+      .finally(() => {
+        if (active) setAuthChecking(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [appMode]);
+
+  useEffect(() => {
+    const onAuthRequired = () => {
+      if (appMode !== 'use') return;
+      setAuth({ isLoggedIn: false });
+      setUnlockedCards([]);
+      setIsAuthOpen(true);
+    };
+    window.addEventListener('before-choosing:auth-required', onAuthRequired);
+    return () => window.removeEventListener('before-choosing:auth-required', onAuthRequired);
+  }, [appMode]);
+
   const handleAppModeChange = (nextMode: AppMode) => {
     if (nextMode === appMode) return;
     saveDemoProgress({
@@ -140,6 +204,15 @@ export default function App() {
     }, appMode);
     saveAppMode(nextMode);
     setAppMode(nextMode);
+    if (nextMode === 'use' && !getAccessToken()) {
+      setAuth({ isLoggedIn: false });
+      setIsAuthOpen(true);
+      setAuthChecking(false);
+    }
+    if (nextMode === 'demo') {
+      setAuthChecking(false);
+      setIsAuthOpen(false);
+    }
     setIsStageTwoFocusMode(false);
     const progress = loadDemoProgress(
       nextMode,
@@ -191,21 +264,29 @@ export default function App() {
     await removeCard(cardId);
     setUnlockedCards(prev => prev.filter(card => card.id !== cardId));
   };
-  
-  const [auth, setAuth] = useState<UserAuth>({
-    isLoggedIn: false,
-  });
 
-
-  const handleLoginSuccess = (email: string) => {
+  const handleLoginSuccess = (session: AuthSession) => {
     setAuth({
       isLoggedIn: true,
       user: {
-        name: email.split('@')[0] || '探索者',
-        email: email,
+        id: session.user.id,
+        name: session.user.display_name,
+        email: session.user.email,
         unlockedCards: unlockedCards,
       },
     });
+    setAuthChecking(false);
+    setIsAuthOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutAccount();
+    } finally {
+      setAuth({ isLoggedIn: false });
+      setUnlockedCards([]);
+      if (appMode === 'use') setIsAuthOpen(true);
+    }
   };
 
   const [isStageTwoFocusMode, setIsStageTwoFocusMode] = useState<boolean>(false);
@@ -255,6 +336,7 @@ export default function App() {
             }
           }}
           onOpenAuth={() => setIsAuthOpen(true)}
+          onLogout={handleLogout}
           onOpenFigmaGuide={() => setIsFigmaGuideOpen(true)}
           isLoggedIn={auth.isLoggedIn}
           unlockedCardCount={activeCards.length}
@@ -408,9 +490,13 @@ export default function App() {
 
       {/* Modals & Overlays */}
       <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
+        isOpen={isAuthOpen || (appMode === 'use' && !authChecking && !auth.isLoggedIn)}
+        onClose={() => {
+          if (appMode !== 'use' || auth.isLoggedIn) setIsAuthOpen(false);
+        }}
         onLoginSuccess={handleLoginSuccess}
+        formalMode={appMode === 'use'}
+        required={appMode === 'use' && !auth.isLoggedIn}
       />
 
       <CareerWikiModal

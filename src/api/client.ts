@@ -5,6 +5,19 @@ const API_BASE_URL = (
 ).replace(/\/$/, '');
 
 const CLIENT_REQUEST_ID_KEY = 'before-choosing:client-request-id:v1';
+const ACCESS_TOKEN_KEY = 'before-choosing:auth-token:v1';
+
+export function getAccessToken(): string | null {
+  return window.localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
+export function setAccessToken(token: string): void {
+  window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
+}
+
+export function clearAccessToken(): void {
+  window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+}
 
 function clientRequestId(): string {
   const existing = window.sessionStorage.getItem(CLIENT_REQUEST_ID_KEY);
@@ -17,13 +30,21 @@ function clientRequestId(): string {
 }
 
 function requestHeaders(extra?: HeadersInit): HeadersInit {
-  return {
+  const headers = new Headers({
     Accept: 'application/json',
     'Content-Type': 'application/json',
     'X-App-Mode': loadAppMode(),
     'X-Client-Request-Id': clientRequestId(),
-    ...(extra || {}),
-  };
+  });
+  const token = getAccessToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  new Headers(extra).forEach((value, key) => headers.set(key, value));
+  return headers;
+}
+
+function notifyAuthRequired(): void {
+  clearAccessToken();
+  window.dispatchEvent(new CustomEvent('before-choosing:auth-required'));
 }
 
 export class ApiClientError extends Error {
@@ -51,6 +72,9 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     | { detail?: string }
     | null;
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/auth/')) {
+      notifyAuthRequired();
+    }
     throw new ApiClientError(
       payload?.detail || `后端请求失败（${response.status}）`,
       response.status,
@@ -68,6 +92,7 @@ export async function apiFormRequest<T>(path: string, form: FormData): Promise<T
         Accept: 'application/json',
         'X-App-Mode': loadAppMode(),
         'X-Client-Request-Id': clientRequestId(),
+        ...(getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}),
       },
       body: form,
     });
@@ -79,6 +104,9 @@ export async function apiFormRequest<T>(path: string, form: FormData): Promise<T
     | { detail?: string }
     | null;
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/auth/')) {
+      notifyAuthRequired();
+    }
     throw new ApiClientError(
       payload?.detail || `后端请求失败（${response.status}）`,
       response.status,
@@ -92,7 +120,7 @@ export async function auditEvent(
   target = '',
   metadata: Record<string, unknown> = {},
 ): Promise<void> {
-  if (loadAppMode() !== 'use') return;
+  if (loadAppMode() !== 'use' || !getAccessToken()) return;
   try {
     await apiRequest('/audit/events', {
       method: 'POST',

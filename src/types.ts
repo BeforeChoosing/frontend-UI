@@ -142,6 +142,7 @@ export interface SkillCard {
 export interface UserAuth {
   isLoggedIn: boolean;
   user?: {
+    id?: string;
     name: string;
     email: string;
     avatar?: string;
