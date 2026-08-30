@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useRef, useState } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { 
   User, 
   Award, 
@@ -34,7 +34,9 @@ import {
   MessageSquare,
   HelpCircle,
   RefreshCw,
-  Trash2
+  Trash2,
+  Settings,
+  X
 } from 'lucide-react';
 import { SkillCard, UserAuth, ScreenMode } from '../types';
 import type { ApiProfileEvidence, ProfileCardPatchRequest } from '../types/api';
@@ -67,8 +69,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   initialArchTab = 'insight',
   readOnly = false,
 }) => {
-  // Bottom Arch Navigation State (4 states from the Figma wireframe: 'insight' | 'cards' | 'paths' | 'reports')
-  const [activeArchTab, setActiveArchTab] = useState<'insight' | 'cards' | 'paths' | 'reports'>(initialArchTab);
+  const reduceMotion = useReducedMotion();
+  const [hoveredCard, setHoveredCard] = useState<'cards' | 'paths' | 'reports' | null>(
+    initialArchTab === 'insight' ? null : initialArchTab,
+  );
+  const [activeArchive, setActiveArchive] = useState<'cards' | 'reports' | null>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cards category filter
   const [selectedCardCategory, setSelectedCardCategory] = useState<string>('all');
@@ -218,742 +224,296 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     }
   };
 
+  const handleCardHover = (tab: 'cards' | 'paths' | 'reports' | null) => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setHoveredCard(tab);
+  };
+
+  const handleInteractiveAreaLeave = () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => setHoveredCard(null), 150);
+  };
+
+  const panelMotion = reduceMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+      }
+    : {
+        initial: { opacity: 0, transform: 'translateX(-16px) scale(0.95)' },
+        animate: { opacity: 1, transform: 'translateX(0) scale(1)' },
+        exit: { opacity: 0, transform: 'translateX(-16px) scale(0.95)' },
+      };
+
   return (
-    <div className="min-h-[calc(100vh-65px)] p-3 sm:p-6 lg:p-8 flex flex-col justify-between relative selection:bg-orange-100 text-stone-900 font-sans">
-      
-      {/* Background Subtle Ambience */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-orange-50/40 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-stone-100/60 blur-3xl" />
+    <div className="h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] overflow-hidden p-3 sm:p-4 lg:p-5 relative selection:bg-orange-100 text-stone-900 font-sans bg-[#FBFBFA]">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-orange-100/30 blur-3xl" />
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-amber-100/25 blur-3xl" />
       </div>
 
-      <div className="w-full max-w-6xl mx-auto space-y-5 sm:space-y-6 relative z-10 my-auto">
-        
-        {/* 
-          ========================================================================
-          1. TOP PROFILE HEADER (Header / Avatar / Intro)
-          Layout matching wireframe top bar:
-          [Avatar Circle]   Name | Background | Status description
-                            (Progress Intro)
-          ========================================================================
-        */}
-        <div className="craft-card bg-white/90 backdrop-blur-md rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-stone-200/70 shadow-xs transition-all">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-            
-            {/* Left Circular Avatar */}
-            <div className="relative shrink-0">
-              <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl sm:rounded-3xl bg-stone-100 text-stone-800 flex items-center justify-center font-normal text-xl sm:text-2xl border border-stone-200 shadow-2xs font-serif craft-serif">
+      <div className="w-full max-w-7xl h-full mx-auto min-h-0 flex flex-col justify-between gap-2.5 sm:gap-3 relative z-10">
+        <motion.section
+          initial={reduceMotion ? false : { opacity: 0, transform: 'translateY(-10px)' }}
+          animate={{ opacity: 1, transform: 'translateY(0)' }}
+          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          className="craft-card bg-white/95 backdrop-blur-md rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 border border-orange-200/50 shadow-2xs shrink-0"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-orange-100 to-amber-100 text-orange-950 flex items-center justify-center font-bold text-base sm:text-lg border border-orange-200/80 shadow-2xs font-serif craft-serif shrink-0">
                 {userName.slice(0, 1) || '林'}
               </div>
-              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white" title="状态正常" />
-            </div>
-
-            {/* Right: Info Lines */}
-            <div className="space-y-1.5 flex-1 min-w-0">
-              
-              {/* Top Line: 姓名 | 设计背景 | 状态描述 */}
-              <div className="flex flex-wrap items-center gap-2 text-stone-900">
-                <span className="font-normal text-lg sm:text-xl tracking-tight font-serif craft-serif">
-                  {userName}
-                </span>
-                <span className="text-stone-300 font-light">|</span>
-                <span className="text-xs sm:text-sm font-normal text-stone-600">
-                  {userBackground}
-                </span>
-                <span className="text-stone-300 font-light">|</span>
-                <span className="craft-chip-orange text-xs font-mono font-medium px-2.5 py-0.5 rounded-full">
-                  {userStatus}
-                </span>
-
-                <button
-                  onClick={() => setIsEditingProfile(true)}
-                  className="p-1 text-stone-400 hover:text-stone-700 transition cursor-pointer ml-1"
-                  title="编辑基本信息"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Bottom Line: (进度简介) 已积累 14 张能力卡片，探索 2 条职业路径，最近一次更新来自「AI 产品经理试路任务」 */}
-              <p className="text-xs sm:text-sm text-stone-500 leading-relaxed font-normal">
-                <span className="text-stone-400 font-mono">(进度简介) </span>
-                {persistedCards.length > 0 || profileEvidence.length > 0 ? profileProgressIntro : userProgressIntro}
-              </p>
-            </div>
-
-            {/* Quick Agent Consult Pill */}
-            <div className="shrink-0 pt-2 sm:pt-0">
-              <button
-                onClick={() => setActiveArchTab('reports')}
-                className="craft-btn-secondary px-3.5 py-1.5 text-xs flex items-center gap-1.5"
-              >
-                <FileText className="w-3.5 h-3.5 text-orange-600" />
-                <span>查看任务复盘</span>
-              </button>
-            </div>
-
-          </div>
-        </div>
-
-        {/* 
-          ========================================================================
-          2. TWO ACTION CARDS (SIDE BY SIDE)
-          Card 1 (Left): 更新我的能力画像
-          Card 2 (Right): 继续探索职业路径
-          ========================================================================
-        */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          
-          {/* 
-            CARD 1: 更新我的能力画像
-          */}
-          <div className="craft-card bg-white/90 backdrop-blur-md rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/70 shadow-xs flex flex-col justify-between gap-5 relative overflow-hidden group">
-            
-            {/* Header Content */}
-            <div className="space-y-1 relative z-10">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="craft-chip-green text-[10px] font-mono font-medium px-2 py-0.5 rounded-full">
-                  01 · 记录
-                </span>
-              </div>
-              <h2 className="text-base sm:text-lg font-normal text-stone-900 tracking-tight font-serif craft-serif">
-                记录新的经历
-              </h2>
-              <p className="text-xs sm:text-sm text-stone-500 leading-relaxed font-normal">
-                写下新的经历或想法，让个人档案更完整。
-              </p>
-            </div>
-
-            {/* Bottom Row: Action Buttons (Left) + Synthesis Graphic (Right) */}
-            <div className="flex items-center justify-between gap-4 pt-2 border-t border-stone-100">
-              
-              {/* Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onNavigate('input-experience')}
-                  className="craft-btn-black px-4 py-2 text-xs"
-                  id="btn-add-new-experience"
-                >
-                  添加新经历
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveArchTab('insight');
-                  }}
-                  className="craft-btn-secondary px-3.5 py-2 text-xs"
-                  id="btn-review-reflection"
-                >
-                  查看成长记录
-                </button>
-              </div>
-
-              {/* Graphic Illustration: Skill Card Synthesis [Card] [Card] ──> [★ Card] */}
-              <div className="hidden sm:flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity select-none">
-                <div className="w-7 h-10 rounded-lg bg-stone-100 border border-stone-200 flex flex-col justify-center items-center shadow-2xs">
-                  <span className="w-3.5 h-1 bg-stone-300 rounded-full mb-1" />
-                  <span className="w-2.5 h-0.5 bg-stone-200 rounded-full" />
-                </div>
-                <div className="w-7 h-10 rounded-lg bg-orange-50 border border-orange-200 flex flex-col justify-center items-center shadow-2xs -ml-3">
-                  <span className="w-3.5 h-1 bg-orange-300 rounded-full mb-1" />
-                  <span className="w-2.5 h-0.5 bg-orange-200 rounded-full" />
-                </div>
-                <span className="text-stone-300 font-bold text-xs px-0.5">➔</span>
-                <div className="w-8 h-11 rounded-lg bg-stone-900 text-orange-300 font-bold flex flex-col justify-center items-center shadow-xs scale-105">
-                  <Star className="w-3 h-3 fill-orange-300 text-orange-300" />
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* 
-            CARD 2: 继续探索职业路径
-          */}
-          <div className="craft-card bg-white/90 backdrop-blur-md rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/70 shadow-xs flex flex-col justify-between gap-5 relative overflow-hidden group">
-            
-            {/* Header Content with Right Status Text */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="craft-chip-orange text-[10px] font-mono font-medium px-2 py-0.5 rounded-full">
-                    04 · 路径
+              <div className="space-y-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 text-stone-900">
+                  <span className="font-bold text-sm sm:text-base tracking-tight font-serif craft-serif">{userName}</span>
+                  <span className="text-orange-300 text-xs">|</span>
+                  <span className="text-xs text-stone-700 truncate">{userBackground}</span>
+                  <span className="text-orange-300 text-xs">|</span>
+                  <span className="text-xs font-medium text-orange-950 bg-orange-50/80 px-2 py-0.5 rounded-full border border-orange-200/60">
+                    {userStatus}
                   </span>
                 </div>
-                <h2 className="text-base sm:text-lg font-normal text-stone-900 tracking-tight font-serif craft-serif">
-                  继续探索职业路径
-                </h2>
-                <p className="text-xs sm:text-sm text-stone-500 leading-relaxed font-normal">
-                  回到正在进行的职业方向，继续完成挑战或开启新的路径。
+                <p className="text-xs text-stone-600 truncate max-w-3xl">
+                  <span className="text-orange-700 font-semibold font-mono">（进度简介）</span>
+                  {persistedCards.length > 0 || profileEvidence.length > 0 ? profileProgressIntro : userProgressIntro}
                 </p>
               </div>
-
-              {/* Status Meta on top right */}
-              <div className="text-left sm:text-right shrink-0 bg-stone-50/80 sm:bg-transparent p-2 sm:p-0 rounded-2xl sm:rounded-none">
-                <div className="text-xs font-normal text-stone-800 font-serif craft-serif">当前探索: AI产品经理</div>
-                <div className="text-[11px] text-stone-500 font-mono">当前进度: 02-试炼任务交付</div>
-              </div>
             </div>
-
-            {/* Bottom Row: Action Buttons (Left) + Milestone Track (Right) */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-stone-100">
-              
-              {/* Buttons */}
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => onNavigate('stage2')}
-                  className="craft-btn-black px-4 py-2 text-xs"
-                  id="btn-continue-task"
-                >
-                  继续任务
-                </button>
-                <button
-                  onClick={() => onNavigate('career-explore')}
-                  className="craft-btn-secondary px-3.5 py-2 text-xs"
-                  id="btn-explore-new-path"
-                >
-                  探索新方向
-                </button>
-              </div>
-
-              {/* Milestone Progress Bar: [经历提取] ── [试路任务] ── [综合结算与报告] */}
-              <div className="flex items-center gap-1.5 text-[11px] font-mono text-stone-600 bg-stone-50/90 px-3 py-1.5 rounded-full border border-stone-200/50 overflow-x-auto">
-                <span className="flex items-center gap-1 text-emerald-700 font-normal whitespace-nowrap">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>经历提取</span>
-                </span>
-                <span className="text-stone-300">──</span>
-                <span className="flex items-center gap-1 text-orange-700 font-normal whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block" />
-                  <span>小任务</span>
-                </span>
-                <span className="text-stone-300">──</span>
-                <span className="flex items-center gap-1 text-stone-400 whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-stone-300 inline-block" />
-                  <span>综合结算与报告</span>
-                </span>
-              </div>
-
-            </div>
-
+            <button
+              type="button"
+              onClick={() => setIsEditingProfile(true)}
+              className="craft-btn-secondary px-3 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer hover:bg-orange-50/60 hover:border-orange-300 transition shrink-0"
+              aria-label="打开个人设置"
+            >
+              <Settings className="w-3.5 h-3.5 text-orange-700" />
+              <span className="hidden sm:inline">设置</span>
+            </button>
           </div>
+        </motion.section>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3 shrink-0">
+          <motion.section
+            initial={reduceMotion ? false : { opacity: 0, transform: 'translateY(10px)' }}
+            animate={{ opacity: 1, transform: 'translateY(0)' }}
+            transition={{ duration: 0.35, delay: 0.04, ease: [0.22, 1, 0.36, 1] }}
+            className="craft-card bg-white/95 backdrop-blur-md rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 border border-orange-200/60 hover:border-orange-300 shadow-2xs flex flex-col justify-between gap-2.5 group transition-colors"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-0.5">
+                <h2 className="text-sm sm:text-base font-bold text-stone-900 tracking-tight font-serif craft-serif flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-orange-500" />
+                  更新我的能力画像
+                </h2>
+                <p className="text-xs text-stone-600 leading-snug">分享新的经历或反思，让 Agent 继续完善对你的理解。</p>
+              </div>
+              <div className="flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity select-none shrink-0 pt-0.5" aria-hidden="true">
+                <div className="flex -space-x-2">
+                  <div className="w-5 h-7 rounded bg-orange-50 border border-orange-200 -rotate-6" />
+                  <div className="w-5 h-7 rounded bg-amber-50 border border-amber-200 rotate-3" />
+                </div>
+                <span className="text-orange-400 font-mono text-[10px]">⟶</span>
+                <div className="w-6 h-8 rounded-lg bg-orange-100/80 border border-orange-300 flex items-center justify-center shadow-xs">
+                  <Sparkles className="w-3 h-3 text-orange-600" />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1.5 border-t border-orange-100/70">
+              <button type="button" onClick={() => onNavigate('input-experience')} className="bg-black hover:bg-stone-900 text-white rounded-full px-4 py-1.5 text-xs font-bold shadow-xs transition cursor-pointer">
+                添加新经历
+              </button>
+              <button type="button" onClick={() => handleCardHover(null)} className="craft-btn-secondary px-3.5 py-1.5 text-xs text-stone-600 hover:text-orange-950 hover:bg-orange-50/60 hover:border-orange-300">
+                回顾引导
+              </button>
+            </div>
+          </motion.section>
+
+          <motion.section
+            initial={reduceMotion ? false : { opacity: 0, transform: 'translateY(10px)' }}
+            animate={{ opacity: 1, transform: 'translateY(0)' }}
+            transition={{ duration: 0.35, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+            className="craft-card bg-white/95 backdrop-blur-md rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 border border-orange-200/60 hover:border-orange-300 shadow-2xs flex flex-col justify-between gap-2.5 group transition-colors"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-0.5">
+                <h2 className="text-sm sm:text-base font-bold text-stone-900 tracking-tight font-serif craft-serif flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-orange-500" />
+                  继续探索职业路径
+                </h2>
+                <p className="text-xs text-stone-600 leading-snug">回到正在进行的职业方向，继续完成挑战或开启新的路径。</p>
+              </div>
+              <div className="text-right shrink-0 space-y-0.5 hidden sm:block">
+                <div className="text-[11px] text-stone-700">当前探索：<span className="font-bold text-orange-950 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200/60">{livePaths[0]?.title || '尚未形成'}</span></div>
+                <div className="text-[10px] text-orange-700/80 font-mono">当前进度：{livePaths[0]?.statusTag || '等待任务证据'}</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 pt-1.5 border-t border-orange-100/70">
+              <div className="flex items-center gap-2 shrink-0">
+                <button type="button" onClick={() => onNavigate('stage2')} className="bg-orange-950 hover:bg-black text-white rounded-full px-4 py-1.5 text-xs font-bold shadow-xs transition cursor-pointer">继续任务</button>
+                <button type="button" onClick={() => onNavigate('career-explore')} className="craft-btn-secondary px-3.5 py-1.5 text-xs text-stone-600 hover:text-orange-950 hover:bg-orange-50/60 hover:border-orange-300">探索新方向</button>
+              </div>
+              <div className="hidden lg:flex items-center gap-2 text-[10px] select-none shrink-0" aria-label="职业探索进度">
+                <ProfileMilestone state="done" label="经历提取" />
+                <span className="w-8 h-[2px] bg-orange-300 -mt-2" />
+                <ProfileMilestone state="active" label="试路任务" />
+                <span className="w-8 h-[1px] border-b border-dashed border-orange-200 -mt-2" />
+                <ProfileMilestone state="pending" label="综合报告" />
+              </div>
+            </div>
+          </motion.section>
         </div>
 
-        {/* 
-          ========================================================================
-          3. BOTTOM INTERACTIVE SECTION:
-             3 ARCH / TOMBSTONE BUTTONS + DYNAMIC EXPANDING CARD
-             States:
-             - State 0: Insight Overview（近期成长观察）
-             - State 1: Active on "能力卡库 (14)"
-             - State 2: Active on "职业路径 (2)"
-             - State 3: Active on "探索报告" (包含能力画像)
-          ========================================================================
-        */}
-        <div className="space-y-4 pt-2">
-          
-          {/* Quick Tab Header / Explanatory Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-stone-800 tracking-tight">我的记录与成长</span>
-              <span className="text-[11px] text-stone-400">点击下方卡牌即可快速切换视图</span>
-            </div>
-
-            {/* AI Insights Quick Toggle Button */}
-            <button
-              onClick={() => setActiveArchTab(activeArchTab === 'insight' ? 'cards' : 'insight')}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
-                activeArchTab === 'insight'
-                  ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                  : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>成长观察</span>
-            </button>
-          </div>
-
-          {/* 
-            DYNAMIC WIREFRAME LAYOUT WITH ARCH TABS 
-          */}
-          <div className="flex flex-col lg:flex-row items-stretch gap-4 sm:gap-5">
-            
-            {/* 
-              ARCH BUTTON 1: 能力卡库 (14)
-            */}
-            <button
-              onClick={() => setActiveArchTab(activeArchTab === 'cards' ? 'insight' : 'cards')}
-              className={`w-full lg:w-[176px] lg:min-w-[176px] lg:max-w-[176px] p-5 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer border shrink-0 ${
-                activeArchTab === 'cards'
-                  ? 'bg-stone-900 text-white border-stone-900 shadow-lg scale-[1.02]'
-                  : 'bg-white hover:bg-stone-50/90 text-stone-800 border-stone-200/90 shadow-xs'
-              }`}
-              id="arch-btn-cards"
-            >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition ${
-                activeArchTab === 'cards' ? 'bg-white/10 text-amber-300' : 'bg-amber-50 text-amber-700'
-              }`}>
-                <Layers className="w-6 h-6" />
-              </div>
-              <div className="text-2xl font-black tracking-tight">{allDisplayCards.length}</div>
-              <div className="text-xs font-bold">能力卡库</div>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                activeArchTab === 'cards' ? 'bg-white/20 text-stone-200' : 'bg-stone-100 text-stone-500'
-              }`}>
-                点击展开
-              </span>
-            </button>
-
-            {/* 
-              IF STATE 1: (Active on Cards) -> Render Cards Expansion Panel HERE
-            */}
-            {activeArchTab === 'cards' && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4"
-              >
-                {/* Panel Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                      {allDisplayCards.length > 0 ? `已确认 ${allDisplayCards.length} 张能力卡片` : '尚未确认能力卡片'}
-                    </h3>
-                    <p className="text-xs text-stone-500 mt-0.5">
-                      能力卡来自后端保存的用户确认结果，点击卡片查看详情
-                    </p>
-                    {profileVersion > 0 && (
-                      <p className="text-[10px] text-stone-400 font-mono mt-1">
-                        档案版本 v{profileVersion}{profileUpdatedAt ? ` · 最近更新 ${formatProfileUpdatedAt(profileUpdatedAt)}` : ''}
-                      </p>
-                    )}
+        <motion.section
+          layout={!reduceMotion}
+          className="flex-1 min-h-0 flex items-center gap-2.5 sm:gap-3 overflow-hidden select-none"
+          onMouseEnter={() => {
+            if (hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current);
+              hoverTimeoutRef.current = null;
+            }
+          }}
+          onMouseLeave={handleInteractiveAreaLeave}
+        >
+          <ArchCardItem
+            id="arch-card-skills"
+            icon={<Layers className="w-6 h-6 text-orange-800 stroke-[1.75]" />}
+            count={allDisplayCards.length}
+            title="能力卡库"
+            isTilted={hoveredCard === 'cards'}
+            reduceMotion={Boolean(reduceMotion)}
+            onMouseEnter={() => handleCardHover('cards')}
+            onClick={() => handleCardHover(hoveredCard === 'cards' ? null : 'cards')}
+          />
+          <AnimatePresence mode="popLayout">
+            {hoveredCard === 'cards' && (
+              <motion.div key="panel-skills" layout={!reduceMotion} {...panelMotion} transition={{ type: 'spring', stiffness: 340, damping: 28, mass: 0.7 }} className="profile-hover-panel">
+                <div>
+                  <h3 className="text-xs sm:text-sm text-stone-800 leading-snug">你已经确认 <strong className="text-orange-950 font-mono">{allDisplayCards.length}</strong> 张能力卡</h3>
+                  <div className="mt-2.5 space-y-2">
+                    {allDisplayCards.slice(0, 3).map((card) => (
+                      <div key={card.id} role="button" tabIndex={0} onClick={() => onOpenCardDetail(card)} className="flex items-start gap-2.5 group cursor-pointer p-1.5 -mx-1.5 rounded-xl hover:bg-orange-50/50 transition">
+                        <span className="w-6 h-6 rounded-full bg-orange-100 border border-orange-200/70 flex items-center justify-center shrink-0"><span className="w-2 h-2 rounded-full bg-orange-600" /></span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-xs text-stone-900 group-hover:text-orange-950 truncate">{card.title}</span>
+                            {!readOnly && <button type="button" onClick={(event) => { event.stopPropagation(); handleStartCardEdit(card); }} className="p-1 text-stone-400 hover:text-orange-900" aria-label={`编辑${card.title}`}><Edit3 className="w-3 h-3" /></button>}
+                          </div>
+                          <p className="text-[11px] text-stone-500 truncate mt-0.5">{card.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {allDisplayCards.length === 0 && <EmptyProfileState text="完成经历提取并确认后，能力卡会自动进入这里。" />}
                   </div>
+                </div>
+                <div className="flex justify-end pt-1.5 border-t border-orange-100/80">
+                  <button type="button" onClick={() => setActiveArchive('cards')} className="craft-btn-secondary px-3 py-1.5 text-xs text-orange-950 hover:bg-orange-50 hover:border-orange-300 font-bold">查看全部能力卡库 ➔</button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-                  {/* Category Filter Chips */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-                    {categories.map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => setSelectedCardCategory(cat)}
-                        className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition cursor-pointer whitespace-nowrap ${
-                          selectedCardCategory === cat
-                            ? 'bg-stone-900 text-white font-bold'
-                            : 'bg-stone-100 hover:bg-stone-200 text-stone-600'
-                        }`}
-                      >
-                        {cat === 'all' ? '全部' : cat}
+          <ArchCardItem
+            id="arch-card-paths"
+            icon={<Compass className="w-6 h-6 text-orange-800 stroke-[1.75]" />}
+            count={livePaths.length}
+            title="职业路径"
+            isTilted={hoveredCard === 'paths'}
+            reduceMotion={Boolean(reduceMotion)}
+            onMouseEnter={() => handleCardHover('paths')}
+            onClick={() => handleCardHover(hoveredCard === 'paths' ? null : 'paths')}
+          />
+          <AnimatePresence mode="popLayout">
+            {hoveredCard === 'paths' && (
+              <motion.div key="panel-paths" layout={!reduceMotion} {...panelMotion} transition={{ type: 'spring', stiffness: 340, damping: 28, mass: 0.7 }} className="profile-hover-panel">
+                <div>
+                  <h3 className="text-xs sm:text-sm text-stone-800 leading-snug">你已经形成 <strong className="text-orange-950 font-mono">{livePaths.length}</strong> 条有任务证据的职业路径</h3>
+                  <div className="mt-3 space-y-2.5">
+                    {livePaths.slice(0, 2).map((path) => (
+                      <button key={path.id} type="button" onClick={() => onNavigate('stage2')} className="w-full flex items-start gap-2.5 text-left p-1.5 -mx-1.5 rounded-xl hover:bg-orange-50/50 transition">
+                        <span className="w-7 h-7 rounded-full bg-orange-100 border border-orange-200/70 flex items-center justify-center shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-orange-600" /></span>
+                        <span className="min-w-0"><strong className="block text-xs text-stone-900">{path.title}</strong><span className="block text-[11px] text-stone-500 truncate">{path.description}</span><span className="block text-[10px] text-orange-800 font-mono mt-0.5">{path.statusTag}</span></span>
                       </button>
                     ))}
+                    {livePaths.length === 0 && <EmptyProfileState text="完成至少一个试路任务后，这里会形成真实方向记录。" />}
                   </div>
                 </div>
+                <div className="flex justify-end pt-1.5 border-t border-orange-100/80"><button type="button" onClick={() => onNavigate('career-explore')} className="craft-btn-secondary px-3 py-1.5 text-xs text-orange-950 hover:bg-orange-50 hover:border-orange-300 font-bold">查看全部职业路径 ➔</button></div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-                {/* Cards List matching wireframe bullet style */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
-                  {filteredDisplayCards.length > 0 ? filteredDisplayCards.map((card) => (
-                    <div
-                      key={card.id}
-                      onClick={() => onOpenCardDetail(card)}
-                      className="p-3.5 rounded-xl bg-stone-50/90 hover:bg-stone-100 border border-stone-200/60 transition cursor-pointer flex flex-col justify-between gap-1.5 group"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                          <h4 className="text-xs font-bold text-stone-900 group-hover:text-amber-800 transition">
-                            {card.title}
-                          </h4>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-white text-stone-600 border border-stone-200">
-                            {card.statusTag}
-                          </span>
-                          {persistedCardIds.has(card.id) && !readOnly && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleStartCardEdit(card);
-                                }}
-                                className="p-1 rounded-full text-stone-400 hover:text-stone-800 hover:bg-stone-200 transition cursor-pointer"
-                                title="编辑已确认能力卡"
-                                aria-label={`编辑${card.title}`}
-                              >
-                                <Edit3 className="w-3 h-3" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleDeleteCard(card);
-                                }}
-                                disabled={isSavingCard}
-                                className="p-1 rounded-full text-stone-400 hover:text-rose-700 hover:bg-rose-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-wait"
-                                title="删除已确认能力卡"
-                                aria-label={`删除${card.title}`}
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-[11px] text-stone-600 line-clamp-2 leading-relaxed">
-                        {card.description}
-                      </p>
-                    </div>
-                  )) : (
-                    <div className="md:col-span-2 rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
-                      完成经历提取并确认能力卡后，个人档案会在这里显示真实卡片。
-                    </div>
-                  )}
+          <ArchCardItem
+            id="arch-card-reports"
+            icon={<Award className="w-6 h-6 text-orange-800 stroke-[1.75]" />}
+            count={liveReports.length}
+            title="探索报告"
+            isTilted={hoveredCard === 'reports'}
+            reduceMotion={Boolean(reduceMotion)}
+            onMouseEnter={() => handleCardHover('reports')}
+            onClick={() => handleCardHover(hoveredCard === 'reports' ? null : 'reports')}
+          />
+          <AnimatePresence mode="popLayout">
+            {hoveredCard === 'reports' && (
+              <motion.div key="panel-reports" layout={!reduceMotion} {...panelMotion} transition={{ type: 'spring', stiffness: 340, damping: 28, mass: 0.7 }} className="profile-hover-panel">
+                <div>
+                  <h3 className="text-xs sm:text-sm text-stone-800 leading-snug">你已经积累 <strong className="text-orange-950 font-mono">{liveReports.length}</strong> 份可追溯任务复盘</h3>
+                  <div className="mt-2.5 space-y-2.5">
+                    {liveReports.slice(0, 2).map((report) => (
+                      <button key={report.id} type="button" onClick={() => setActiveArchive('reports')} className="w-full flex items-start gap-2.5 text-left p-1.5 -mx-1.5 rounded-xl hover:bg-orange-50/50 transition">
+                        <span className="w-7 h-7 rounded-full bg-orange-100 border border-orange-200/70 flex items-center justify-center shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-orange-600" /></span>
+                        <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><strong className="text-xs text-stone-900 truncate">{report.title}</strong><span className="text-[10px] font-mono text-orange-950 bg-orange-100 border border-orange-200 px-1.5 rounded">{report.observedLevel}</span></span><span className="block text-[11px] text-stone-500 truncate mt-0.5">{report.keyDiscovery}</span></span>
+                      </button>
+                    ))}
+                    {liveReports.length === 0 && <EmptyProfileState text="完成并提交试路任务后，复盘会自动保存在这里。" />}
+                  </div>
                 </div>
+                <div className="flex justify-end pt-1.5 border-t border-orange-100/80"><button type="button" onClick={() => setActiveArchive('reports')} className="craft-btn-secondary px-3 py-1.5 text-xs text-orange-950 hover:bg-orange-50 hover:border-orange-300 font-bold">查看全部探索报告 ➔</button></div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-                {cardActionError && (
-                  <p role="alert" className="text-xs text-rose-700">
-                    {cardActionError}
-                  </p>
-                )}
-
-                {/* Bottom Link Action */}
-                <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs">
-                  <span className="text-stone-400">已展示 {filteredDisplayCards.length} 张能力卡</span>
-                  <button
-                    onClick={() => onNavigate('input-experience')}
-                    className="text-amber-800 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>通过补充新经历提取更多能力卡 ↗</span>
-                  </button>
+          <AnimatePresence mode="popLayout">
+            {hoveredCard === null && (
+              <motion.div key="panel-default-insights" layout={!reduceMotion} {...panelMotion} transition={{ type: 'spring', stiffness: 340, damping: 28, mass: 0.7 }} className="profile-hover-panel min-w-0">
+                <div className="flex items-center justify-between pb-2 border-b border-orange-100 shrink-0">
+                  <button type="button" onClick={() => setActiveArchive('reports')} className="craft-btn-secondary px-3 py-1 text-xs text-stone-600 hover:text-orange-950 hover:bg-orange-50 hover:border-orange-300">查看更多洞察</button>
+                  <h3 className="text-xs sm:text-sm font-bold text-orange-950 font-serif craft-serif flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-orange-500" />AI 最近注意到……</h3>
+                </div>
+                <div className="flex-1 min-h-0 flex flex-col justify-around py-1 space-y-1.5">
+                  {liveObservations.map((obs) => <ObservationRow key={obs.id} quote={obs.quote} meta={`${obs.timestamp} · ${obs.context}`} />)}
+                  {liveObservations.length === 0 && <EmptyProfileState text="完成任务后，AI 会从真实评价中整理近期观察。" />}
                 </div>
               </motion.div>
             )}
-
-            {/* 
-              ARCH BUTTON 2: 职业路径 (2)
-            */}
-            <button
-              onClick={() => setActiveArchTab(activeArchTab === 'paths' ? 'insight' : 'paths')}
-              className={`w-full lg:w-[176px] lg:min-w-[176px] lg:max-w-[176px] p-5 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer border shrink-0 ${
-                activeArchTab === 'paths'
-                  ? 'bg-stone-900 text-white border-stone-900 shadow-lg scale-[1.02]'
-                  : 'bg-white hover:bg-stone-50/90 text-stone-800 border-stone-200/90 shadow-xs'
-              }`}
-              id="arch-btn-paths"
-            >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition ${
-                activeArchTab === 'paths' ? 'bg-white/10 text-purple-300' : 'bg-purple-50 text-purple-700'
-              }`}>
-                <Compass className="w-6 h-6" />
-              </div>
-              <div className="text-2xl font-black tracking-tight">{livePaths.length}</div>
-              <div className="text-xs font-bold">职业路径</div>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                activeArchTab === 'paths' ? 'bg-white/20 text-stone-200' : 'bg-stone-100 text-stone-500'
-              }`}>
-                点击展开
-              </span>
-            </button>
-
-            {/* 
-              IF STATE 2: (Active on Paths) -> Render Paths Expansion Panel HERE
-            */}
-            {activeArchTab === 'paths' && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4"
-              >
-                {/* Panel Header */}
-                <div className="border-b border-stone-100 pb-3">
-                  <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                    {livePaths.length > 0 ? `已记录 ${livePaths.length} 条职业路径` : '尚未形成职业路径记录'}
-                  </h3>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    这里只记录你确认过的卡和做过的任务，不会给出没有依据的岗位匹配分。
-                  </p>
-                </div>
-
-                {/* Paths List */}
-                <div className="space-y-3">
-                  {livePaths.length > 0 ? livePaths.map((path) => (
-                    <div
-                      key={path.id}
-                      className="p-4 rounded-2xl bg-stone-50/80 hover:bg-stone-100 border border-stone-200/70 transition space-y-2.5 group"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                          <h4 className="font-bold text-stone-900 text-sm">{path.title}</h4>
-                          <span className="text-xs text-stone-500 font-mono">({path.englishTitle})</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${path.statusColor}`}>
-                            {path.statusTag}
-                          </span>
-                        </div>
-                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                          已形成任务证据
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-stone-600 leading-relaxed">
-                        {path.description}
-                      </p>
-
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-stone-200/50 text-xs">
-                        <span className="text-stone-500 text-[11px]">{path.latestActivity}</span>
-                        <button
-                          onClick={() => {
-                            if (path.id === 'path-ai-pm') onNavigate('stage2');
-                            else onNavigate('stage2');
-                          }}
-                          className="text-stone-900 font-bold hover:text-amber-800 flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>去做一个相关任务 ➔</span>
-                        </button>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
-                      完成至少一个小任务后，这里会显示真实的方向进度与最近活动。
-                    </div>
-                  )}
-                </div>
-
-                {/* Bottom Link Action */}
-                <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs">
-                  <span className="text-stone-400">已记录 {livePaths.length} 条职业路径</span>
-                  <button
-                    onClick={() => onNavigate('career-explore')}
-                    className="text-amber-800 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>探索更多新职业路径 ↗</span>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* 
-              ARCH BUTTON 3: 探索报告（包含能力画像）
-            */}
-            <button
-              onClick={() => setActiveArchTab(activeArchTab === 'reports' ? 'insight' : 'reports')}
-              className={`w-full lg:w-[176px] lg:min-w-[176px] lg:max-w-[176px] p-5 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer border shrink-0 ${
-                activeArchTab === 'reports'
-                  ? 'bg-stone-900 text-white border-stone-900 shadow-lg scale-[1.02]'
-                  : 'bg-white hover:bg-stone-50/90 text-stone-800 border-stone-200/90 shadow-xs'
-              }`}
-              id="arch-btn-reports"
-            >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition ${
-                activeArchTab === 'reports' ? 'bg-white/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
-              }`}>
-                <Award className="w-6 h-6" />
-              </div>
-              <div className="text-2xl font-black tracking-tight">{liveReports.length}</div>
-              <div className="text-xs font-bold">任务记录</div>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                activeArchTab === 'reports' ? 'bg-white/20 text-stone-200' : 'bg-stone-100 text-stone-500'
-              }`}>
-                含成长回看
-              </span>
-            </button>
-
-            {/* 
-              IF STATE 3: (Active on Reports) -> Render Reports & Merged Potential Report HERE
-            */}
-            {activeArchTab === 'reports' && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-5"
-              >
-                {/* Panel Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                      {liveReports.length > 0 ? `已完成 ${liveReports.length} 次任务复盘` : '还没有完成任务复盘'}
-                    </h3>
-                    <p className="text-xs text-stone-500 mt-0.5">
-                      这里只记录你在任务里做过什么，不代表岗位认证或录用结论。
-                    </p>
-                  </div>
-
-                  <span className="text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 shrink-0">
-                    仅展示有来源的评价结果
-                  </span>
-                </div>
-
-                {/* Reports List */}
-                <div className="space-y-4">
-                  {liveReports.length > 0 ? liveReports.map((report) => (
-                    <div
-                      key={report.id}
-                      className="p-4 sm:p-5 rounded-2xl bg-stone-50/80 border border-stone-200/80 space-y-3 transition"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                          <h4 className="font-bold text-stone-900 text-sm sm:text-base">{report.title}</h4>
-                          <span className="text-xs text-stone-500 font-mono">{report.date}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="px-3 py-1 rounded-full bg-stone-900 text-white text-xs font-bold font-mono">
-                            {report.observedLevel} · 置信度 {report.confidence}
-                          </div>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-stone-700 leading-relaxed">
-                        <strong className="text-stone-900">核心发现：</strong> {report.keyDiscovery}
-                      </p>
-
-                      {/* Radar scores mini breakdown */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                        {report.radarScores.map((scoreItem) => (
-                          <div key={scoreItem.dimension} className="p-2 rounded-xl bg-white border border-stone-200/70 text-center">
-                            <div className="text-[10px] text-stone-500 truncate">{scoreItem.dimension}</div>
-                            <div className="text-sm font-black text-stone-900">{scoreItem.score}分</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {(() => {
-                        const record = profileEvidence.find(item => item.session_id === report.id);
-                        return record ? <EvidenceChain record={record} cards={persistedCards} /> : null;
-                      })()}
-
-                      {/* Mentor comment */}
-                      <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-100/80 text-xs text-purple-900 flex items-start gap-2">
-                        <Bot className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-bold">下一步建议：</span>
-                          <span>{report.mentorComment}</span>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center justify-between pt-2 border-t border-stone-200/50 text-xs">
-                        <span className="text-stone-500 text-[11px]">完成用时：{report.timeSpent}</span>
-                        <button
-                          onClick={() => onNavigate('stage2')}
-                          className="text-stone-900 font-bold hover:text-amber-800 flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>继续完成下一项任务 ➔</span>
-                        </button>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
-                      完成并提交小任务后，评价结果会自动显示在这里。
-                    </div>
-                  )}
-                </div>
-
-                {/* Merged Potential Report Summary Banner */}
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-400/10 to-emerald-500/10 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-                  <div className="space-y-0.5">
-                    <div className="font-bold text-stone-900">这次任务已经记入个人档案</div>
-                    <div className="text-stone-600">完成任务后，本次表现和改进建议会自动保存到本机。</div>
-                  </div>
-                  <button
-                    onClick={() => onNavigate('stage2')}
-                    className="craft-btn-black px-4 py-2 text-xs font-bold rounded-full cursor-pointer shrink-0"
-                  >
-                    再做一个小任务
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* 
-              DEFAULT STATE (State 0): 近期成长观察
-              When activeArchTab is 'insight'
-            */}
-            {activeArchTab === 'insight' && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4"
-              >
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
-                  <div className="space-y-0.5">
-                    <h3 className="text-sm sm:text-base font-bold text-stone-900 flex items-center gap-2">
-                      <span>近期成长观察</span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-bold">
-                        {liveObservations.length} 条记录
-                      </span>
-                    </h3>
-                    <p className="text-xs text-stone-500">
-                      根据你已经完成的任务整理
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => setActiveArchTab('reports')}
-                    className="text-xs font-semibold text-stone-700 hover:text-stone-950 px-3 py-1.5 rounded-full bg-stone-100 hover:bg-stone-200 transition cursor-pointer flex items-center gap-1"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-purple-600" />
-                    <span>查看任务复盘</span>
-                  </button>
-                </div>
-
-                {/* AI Observation Quotes List matching Figma Wireframe */}
-                <div className="space-y-3">
-                  {liveObservations.length > 0 ? liveObservations.map((obs) => (
-                    <div
-                      key={obs.id}
-                      className="p-4 rounded-2xl bg-stone-50/80 hover:bg-stone-100/90 border border-stone-200/70 transition space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2.5">
-                          <MessageSquare className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                          <p className="text-xs sm:text-sm font-semibold text-stone-800 leading-relaxed font-serif craft-serif">
-                            {obs.quote}
-                          </p>
-                        </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${obs.tagColor}`}>
-                          {obs.tag}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-500 pl-6 gap-2">
-                        <span>{obs.timestamp} · {obs.context}</span>
-                        <button
-                          onClick={() => setActiveArchTab('reports')}
-                          className="text-amber-800 font-bold hover:underline cursor-pointer"
-                        >
-                          查看任务评价 ➔
-                        </button>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50/70 p-5 text-sm text-stone-500">
-                      提交小任务后，这里会根据真实评价结果整理成长观察。
-                    </div>
-                  )}
-                </div>
-
-                {/* Bottom Guidance */}
-                <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs text-stone-400">
-                  <span>点击左侧卡片可查看能力卡、职业方向和任务复盘</span>
-                  <button
-                    onClick={() => setActiveArchTab('reports')}
-                    className="text-stone-700 font-bold hover:text-stone-950 flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>查看任务复盘 ↗</span>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-          </div>
-
-        </div>
-
+          </AnimatePresence>
+        </motion.section>
       </div>
+
+      <AnimatePresence>
+        {activeArchive && (
+          <ProfileArchiveModal
+            activeArchive={activeArchive}
+            cards={filteredDisplayCards}
+            reports={liveReports}
+            profileEvidence={profileEvidence}
+            persistedCards={persistedCards}
+            readOnly={readOnly}
+            isSavingCard={isSavingCard}
+            categories={categories}
+            selectedCategory={selectedCardCategory}
+            onSelectCategory={setSelectedCardCategory}
+            onClose={() => setActiveArchive(null)}
+            onOpenCard={onOpenCardDetail}
+            onEditCard={handleStartCardEdit}
+            onDeleteCard={handleDeleteCard}
+            onNavigate={onNavigate}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Profile Edit Modal */}
       {isEditingProfile && (
@@ -1108,3 +668,185 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     </div>
   );
 };
+
+interface ArchCardItemProps {
+  id: string;
+  icon: React.ReactNode;
+  count: number;
+  title: string;
+  isTilted: boolean;
+  reduceMotion: boolean;
+  onMouseEnter: () => void;
+  onClick: () => void;
+}
+
+const ArchCardItem: React.FC<ArchCardItemProps> = ({
+  id,
+  icon,
+  count,
+  title,
+  isTilted,
+  reduceMotion,
+  onMouseEnter,
+  onClick,
+}) => (
+  <motion.button
+    type="button"
+    layout={!reduceMotion}
+    id={id}
+    onMouseEnter={onMouseEnter}
+    onFocus={onMouseEnter}
+    onClick={onClick}
+    animate={reduceMotion ? undefined : {
+      transform: isTilted ? 'translateY(-8px) rotate(-3.5deg) scale(1.02)' : 'translateY(0) rotate(0deg) scale(1)',
+    }}
+    transition={{ type: 'spring', stiffness: 360, damping: 26, mass: 0.7 }}
+    className={`w-[145px] sm:w-[165px] lg:w-[180px] h-[210px] sm:h-[236px] lg:h-[256px] shrink-0 bg-[#FFFDF9] rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 border flex flex-col items-center justify-between cursor-pointer select-none relative transition-[border-color,box-shadow,background-color] duration-200 ${
+      isTilted
+        ? 'border-orange-400/90 ring-2 ring-orange-500/20 shadow-xl z-20 bg-white'
+        : 'border-orange-200/80 shadow-2xs hover:shadow-md hover:border-orange-300'
+    }`}
+    aria-pressed={isTilted}
+  >
+    <span className="absolute inset-1.5 rounded-xl sm:rounded-2xl border border-orange-100 pointer-events-none" />
+    <span className="w-full h-full rounded-t-[36px] sm:rounded-t-[44px] rounded-b-xl sm:rounded-b-2xl bg-orange-50/40 border border-orange-200/50 p-2.5 sm:p-3 flex flex-col items-center justify-between relative z-10">
+      <span className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white flex items-center justify-center shadow-2xs border border-orange-200/70 mt-1">{icon}</span>
+      <span className="text-3xl sm:text-4xl font-normal text-orange-950 tracking-tight font-serif craft-serif my-auto">{count}</span>
+      <span className="text-center pb-0.5">
+        <span className="text-xs sm:text-sm font-bold text-stone-900 tracking-tight block">{title}</span>
+        <span className="text-[9px] font-mono text-orange-700/60 block mt-0.5 font-medium">{isTilted ? '点击收起' : '悬停展开'}</span>
+      </span>
+    </span>
+  </motion.button>
+);
+
+const ProfileMilestone: React.FC<{ state: 'done' | 'active' | 'pending'; label: string }> = ({ state, label }) => (
+  <span className="flex flex-col items-center">
+    <span className={`w-5 h-5 rounded-full flex items-center justify-center border shadow-2xs ${
+      state === 'done'
+        ? 'bg-orange-100 text-orange-800 border-orange-300'
+        : state === 'active'
+          ? 'bg-orange-950 text-white border-orange-900'
+          : 'bg-stone-100 text-stone-400 border-stone-200'
+    }`}>
+      {state === 'done' ? <Check className="w-3 h-3 stroke-[2.5]" /> : <span className={`w-1.5 h-1.5 rounded-full ${state === 'active' ? 'bg-orange-300 animate-pulse' : 'bg-stone-300'}`} />}
+    </span>
+    <span className={`text-[9px] mt-0.5 scale-90 whitespace-nowrap ${state === 'active' ? 'font-bold text-orange-950' : state === 'done' ? 'text-orange-800' : 'text-stone-400'}`}>{label}</span>
+  </span>
+);
+
+const EmptyProfileState: React.FC<{ text: string }> = ({ text }) => (
+  <div className="rounded-xl border border-dashed border-orange-200 bg-orange-50/30 px-3 py-4 text-center text-[11px] text-stone-500">{text}</div>
+);
+
+const ObservationRow: React.FC<{ quote: string; meta: string }> = ({ quote, meta }) => (
+  <div className="flex items-start justify-between gap-3 text-right group">
+    <div className="flex-1 text-right space-y-0.5 min-w-0">
+      <p className="text-xs sm:text-[13px] font-medium text-stone-800 leading-snug group-hover:text-orange-950 transition-colors line-clamp-2">{quote}</p>
+      <p className="text-[10px] text-orange-700/75 font-mono truncate">{meta}</p>
+    </div>
+    <span className="w-4 h-4 rounded-full bg-orange-100 border border-orange-300 flex items-center justify-center shrink-0 mt-1 shadow-2xs"><span className="w-1.5 h-1.5 rounded-full bg-orange-500" /></span>
+  </div>
+);
+
+interface ProfileReportSummary {
+  id: string;
+  title: string;
+  date: string;
+  keyDiscovery: string;
+  mentorComment: string;
+  observedLevel: string;
+  confidence: string;
+  radarScores: Array<{ dimension: string; score: number }>;
+}
+
+interface ProfileArchiveModalProps {
+  activeArchive: 'cards' | 'reports';
+  cards: Array<SkillCard & { statusTag: string; addedDate: string }>;
+  reports: ProfileReportSummary[];
+  profileEvidence: ApiProfileEvidence[];
+  persistedCards: SkillCard[];
+  readOnly: boolean;
+  isSavingCard: boolean;
+  categories: string[];
+  selectedCategory: string;
+  onSelectCategory: (category: string) => void;
+  onClose: () => void;
+  onOpenCard: (card: SkillCard) => void;
+  onEditCard: (card: SkillCard & { statusTag: string; addedDate: string }) => void;
+  onDeleteCard: (card: SkillCard & { statusTag: string; addedDate: string }) => Promise<void>;
+  onNavigate: (screen: ScreenMode) => void;
+}
+
+const ProfileArchiveModal: React.FC<ProfileArchiveModalProps> = ({
+  activeArchive,
+  cards,
+  reports,
+  profileEvidence,
+  persistedCards,
+  readOnly,
+  isSavingCard,
+  categories,
+  selectedCategory,
+  onSelectCategory,
+  onClose,
+  onOpenCard,
+  onEditCard,
+  onDeleteCard,
+  onNavigate,
+}) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/35 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <motion.div
+      initial={{ opacity: 0, transform: 'translateY(12px) scale(0.98)' }}
+      animate={{ opacity: 1, transform: 'translateY(0) scale(1)' }}
+      exit={{ opacity: 0, transform: 'translateY(8px) scale(0.98)' }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      className="w-full max-w-4xl max-h-[82vh] bg-[#FFFEFC] rounded-3xl shadow-2xl border border-orange-200/80 overflow-hidden flex flex-col"
+    >
+      <header className="px-5 py-4 border-b border-orange-100 flex items-center justify-between gap-3 bg-white/90">
+        <div>
+          <h3 className="text-base font-bold text-stone-900 font-serif craft-serif">{activeArchive === 'cards' ? '能力卡库' : '探索报告'}</h3>
+          <p className="text-xs text-stone-500 mt-0.5">{activeArchive === 'cards' ? '只展示已经确认并保存的能力卡。' : '每条结论均可回到任务答案与证据目录。'}</p>
+        </div>
+        <button type="button" onClick={onClose} className="w-9 h-9 rounded-full border border-stone-200 bg-white flex items-center justify-center text-stone-500 hover:text-stone-900 hover:bg-stone-50 transition" aria-label="关闭"><X className="w-4 h-4" /></button>
+      </header>
+      <div className="p-5 overflow-y-auto min-h-0">
+        {activeArchive === 'cards' ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {categories.map((category) => <button key={category} type="button" onClick={() => onSelectCategory(category)} className={`text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap transition ${selectedCategory === category ? 'bg-orange-950 text-white' : 'bg-white border border-stone-200 text-stone-600 hover:border-orange-300'}`}>{category === 'all' ? '全部' : category}</button>)}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {cards.map((card) => (
+                <article key={card.id} onClick={() => onOpenCard(card)} className="rounded-2xl border border-orange-100 bg-white p-4 hover:border-orange-300 hover:shadow-sm transition cursor-pointer">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0"><span className="text-[10px] text-orange-800 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full">{card.category}</span><h4 className="text-sm font-bold text-stone-900 mt-2">{card.title}</h4><p className="text-xs text-stone-500 mt-1 line-clamp-2">{card.description}</p></div>
+                    {!readOnly && <div className="flex items-center gap-1 shrink-0"><button type="button" onClick={(event) => { event.stopPropagation(); onEditCard(card); }} className="p-2 rounded-full text-stone-400 hover:text-orange-900 hover:bg-orange-50" aria-label={`编辑${card.title}`}><Edit3 className="w-3.5 h-3.5" /></button><button type="button" disabled={isSavingCard} onClick={(event) => { event.stopPropagation(); void onDeleteCard(card); }} className="p-2 rounded-full text-stone-400 hover:text-rose-700 hover:bg-rose-50 disabled:opacity-40" aria-label={`删除${card.title}`}><Trash2 className="w-3.5 h-3.5" /></button></div>}
+                  </div>
+                </article>
+              ))}
+              {cards.length === 0 && <div className="md:col-span-2"><EmptyProfileState text="当前分类还没有已确认能力卡。" /></div>}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {reports.map((report) => {
+              const evidence = profileEvidence.find((item) => item.session_id === report.id);
+              return (
+                <article key={report.id} className="rounded-2xl border border-orange-100 bg-white p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2"><div><h4 className="text-sm font-bold text-stone-900">{report.title}</h4><p className="text-[11px] text-stone-500 mt-0.5">{report.date}</p></div><span className="text-[10px] font-mono text-orange-950 bg-orange-100 border border-orange-200 px-2 py-1 rounded-full">{report.observedLevel} · 置信度 {report.confidence}</span></div>
+                  <p className="text-xs text-stone-700 leading-relaxed"><strong>核心发现：</strong>{report.keyDiscovery}</p>
+                  {report.radarScores.length > 0 && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{report.radarScores.map((score) => <div key={score.dimension} className="rounded-xl border border-stone-100 bg-stone-50 p-2 text-center"><div className="text-[10px] text-stone-500 truncate">{score.dimension}</div><div className="text-sm font-bold text-stone-900">{score.score}分</div></div>)}</div>}
+                  {evidence && <EvidenceChain record={evidence} cards={persistedCards} />}
+                  <div className="rounded-xl bg-orange-50/70 border border-orange-100 px-3 py-2 text-xs text-orange-950"><strong>下一步：</strong>{report.mentorComment}</div>
+                </article>
+              );
+            })}
+            {reports.length === 0 && <EmptyProfileState text="完成并提交试路任务后，这里会生成可追溯报告。" />}
+            <div className="flex justify-end"><button type="button" onClick={() => onNavigate('stage2')} className="bg-orange-950 text-white rounded-full px-4 py-2 text-xs font-bold">继续试路任务</button></div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  </div>
+);
