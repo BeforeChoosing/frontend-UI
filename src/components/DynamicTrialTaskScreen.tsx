@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { ArrowRight } from 'lucide-react';
 import { useDynamicTrialTask } from '../hooks/useDynamicTrialTask';
 import { getDynamicTrialCatalog } from '../api/trial';
 import type { SkillCard } from '../types';
@@ -29,6 +30,7 @@ interface DynamicTrialTaskScreenProps {
   onOpenCardDetail: (card: SkillCard) => void;
   onTaskChange?: (taskId: TrialTaskId) => void;
   onTrialComplete?: () => Promise<unknown> | void;
+  onUpdateCardsFromTrial?: (cards: SkillCard[]) => Promise<unknown> | void;
   onFocusModeChange?: (focused: boolean) => void;
   demoMode?: boolean;
 }
@@ -39,6 +41,108 @@ interface TrialEvaluationViewProps {
   observedEvidence: ApiObservedEvidence;
   onBackToExplore: () => void;
   onEnterProfile: () => void;
+  onOpenAbilityUpdate: () => void;
+  abilityUpdatesConfirmed: boolean;
+}
+
+function deriveTrialUpdateCards(
+  task: ApiTrialTaskDefinition,
+  evaluation: ApiTrialEvaluation,
+  confirmedCards: SkillCard[],
+): SkillCard[] {
+  const applications = evaluation.ability_applications || [];
+  const cards = applications
+    .map(application => {
+      const card = confirmedCards.find(item => item.id === application.card_id);
+      if (!card) return null;
+      return {
+        ...card,
+        detail: `${card.detail}\n\n本轮 ${task.id} 证据：${application.basis}`,
+        matchReason: `${card.matchReason || '来自已确认能力卡'}；${task.id} ${application.status}`,
+        nextVerification: application.next_step,
+      };
+    })
+    .filter(Boolean) as SkillCard[];
+  return cards.length > 0 ? cards : confirmedCards.slice(0, 3);
+}
+
+function TrialAbilityUpdateView({
+  task,
+  evaluation,
+  confirmedCards,
+  onConfirm,
+  onBack,
+}: {
+  task: ApiTrialTaskDefinition;
+  evaluation: ApiTrialEvaluation;
+  confirmedCards: SkillCard[];
+  onConfirm: (cards: SkillCard[]) => Promise<unknown> | void;
+  onBack: () => void;
+}) {
+  const updateCards = deriveTrialUpdateCards(task, evaluation, confirmedCards);
+  const [selectedIds, setSelectedIds] = useState(() => updateCards.map(card => card.id));
+  const [isSaving, setIsSaving] = useState(false);
+  const selectedCards = updateCards.filter(card => selectedIds.includes(card.id));
+
+  const handleConfirm = async () => {
+    if (selectedCards.length === 0) return;
+    setIsSaving(true);
+    try {
+      await onConfirm(selectedCards);
+      onBack();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto min-h-[calc(100vh-64px)] max-w-6xl px-4 py-8 sm:px-6">
+      <div className="rounded-3xl border border-orange-200/70 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          <div>
+            <p className="font-mono text-[10px] font-bold text-orange-700">04 · 能力卡更新 · {task.id}</p>
+            <h1 className="mt-1 font-serif text-2xl text-stone-900">把这次实战证据写回能力卡</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">以下内容来自本次任务的作答、交付物和评价依据。请选择要更新的能力卡，确认后才会进入你的长期能力库。</p>
+          </div>
+          <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-900">本轮新增证据</span>
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {updateCards.map(card => {
+            const selected = selectedIds.includes(card.id);
+            const application = (evaluation.ability_applications || []).find(item => item.card_id === card.id);
+            return (
+              <button
+                key={card.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setSelectedIds(current => current.includes(card.id) ? current.filter(id => id !== card.id) : [...current, card.id])}
+                className={`min-h-[220px] rounded-2xl border p-4 text-left transition ${selected ? 'border-orange-300 bg-orange-50/60 shadow-sm' : 'border-stone-200 bg-white hover:border-orange-200'}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded-full bg-stone-100 px-2 py-1 text-[10px] text-stone-600">{card.category}</span>
+                  <span className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs ${selected ? 'border-orange-600 bg-orange-600 text-white' : 'border-stone-300 text-transparent'}`}>✓</span>
+                </div>
+                <h2 className="mt-5 font-serif text-base font-semibold text-stone-950">{card.title}</h2>
+                <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-stone-600">{application?.basis || card.description}</p>
+                <p className="mt-4 border-t border-stone-200/70 pt-3 text-[11px] leading-relaxed text-orange-900/80">下一步：{application?.next_step || card.nextVerification}</p>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 flex flex-col-reverse justify-between gap-3 border-t border-stone-100 pt-5 sm:flex-row sm:items-center">
+          <button type="button" onClick={onBack} className="craft-btn-secondary px-4 py-2 text-xs">返回评价</button>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-stone-500">已选择 {selectedCards.length} 张</span>
+            <button type="button" onClick={() => void handleConfirm()} disabled={isSaving || selectedCards.length === 0} className="craft-btn-black px-5 py-2.5 text-xs disabled:opacity-40">
+              {isSaving ? '同步中…' : '确认更新能力卡'} <ArrowRight className="ml-1 inline h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function TrialEvaluationView({
@@ -47,6 +151,8 @@ function TrialEvaluationView({
   observedEvidence,
   onBackToExplore,
   onEnterProfile,
+  onOpenAbilityUpdate,
+  abilityUpdatesConfirmed,
 }: TrialEvaluationViewProps) {
   const evidenceItems = observedEvidence.evidence_items || [];
   const applications = evaluation.ability_applications || [];
@@ -216,7 +322,14 @@ function TrialEvaluationView({
         </div>
         <div className="mt-6 flex flex-col justify-between gap-3 border-t border-stone-100 pt-4 sm:flex-row">
           <button onClick={onBackToExplore} className="craft-btn-secondary px-4 py-2 text-xs">返回方向建议</button>
-          <button onClick={onEnterProfile} className="craft-btn-black px-4 py-2 text-xs">查看个人档案</button>
+          <div className="flex flex-wrap justify-end gap-2">
+            {abilityUpdatesConfirmed ? (
+              <span className="flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs text-emerald-800">能力卡已更新</span>
+            ) : (
+              <button onClick={onOpenAbilityUpdate} className="rounded-full border border-orange-300 bg-orange-50 px-4 py-2 text-xs font-medium text-orange-900 transition hover:bg-orange-100">更新能力卡</button>
+            )}
+            <button onClick={onEnterProfile} className="craft-btn-black px-4 py-2 text-xs">查看个人档案</button>
+          </div>
         </div>
       </div>
     </div>
@@ -231,6 +344,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   onOpenCardDetail,
   onTaskChange,
   onTrialComplete,
+  onUpdateCardsFromTrial,
   onFocusModeChange,
   demoMode = false,
 }) => {
@@ -248,6 +362,8 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   });
   const [answer, setAnswer] = useState<ApiDynamicTrialAnswer | null>(null);
   const [coachText, setCoachText] = useState<string | null>(null);
+  const [showAbilityUpdate, setShowAbilityUpdate] = useState(false);
+  const [abilityUpdatesConfirmed, setAbilityUpdatesConfirmed] = useState(false);
   const [demoSubmitted, setDemoSubmitted] = useState(false);
   const [demoCompletedStepIds, setDemoCompletedStepIds] = useState<string[]>([]);
   const [workbenchActive, setWorkbenchActive] = useState(false);
@@ -479,13 +595,28 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
           transition={{ type: 'spring', stiffness: 280, damping: 30, mass: 0.8 }}
           className="block"
         >
-          <TrialEvaluationView
-            task={task}
-            evaluation={evaluation}
-            observedEvidence={observedEvidence}
-            onBackToExplore={onBackToExplore}
-            onEnterProfile={onEnterProfile}
-          />
+          {showAbilityUpdate ? (
+            <TrialAbilityUpdateView
+              task={task}
+              evaluation={evaluation}
+              confirmedCards={confirmedCards}
+              onConfirm={async cards => {
+                await onUpdateCardsFromTrial?.(cards);
+                setAbilityUpdatesConfirmed(true);
+              }}
+              onBack={() => setShowAbilityUpdate(false)}
+            />
+          ) : (
+            <TrialEvaluationView
+              task={task}
+              evaluation={evaluation}
+              observedEvidence={observedEvidence}
+              onBackToExplore={onBackToExplore}
+              onEnterProfile={onEnterProfile}
+              onOpenAbilityUpdate={() => setShowAbilityUpdate(true)}
+              abilityUpdatesConfirmed={abilityUpdatesConfirmed}
+            />
+          )}
         </motion.div>
       ) : phase === 'card-play' ? (
         <motion.div

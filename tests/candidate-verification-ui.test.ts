@@ -72,3 +72,11 @@ test('追问输入提示采用随心输入，保留既有回车提交处理', ()
   assert.match(source, /placeholder=\{demoMode && demoProbingActive\s*\? '随心输入'/);
   assert.match(source, /handleExperienceComposerKeyDown/);
 });
+
+test('03 评价后提供 Demo 同款能力卡更新环节', () => {
+  const source = readFileSync(new URL('../src/components/DynamicTrialTaskScreen.tsx', import.meta.url), 'utf8');
+  assert.match(source, /04 · 能力卡更新/);
+  assert.match(source, /确认更新能力卡/);
+  assert.match(source, /onUpdateCardsFromTrial/);
+  assert.match(source, /能力卡已更新/);
+});

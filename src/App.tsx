@@ -448,6 +448,14 @@ export default function App() {
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onTaskChange={setSelectedTrialTaskId}
                 onTrialComplete={refreshProfile}
+                onUpdateCardsFromTrial={async (cards) => {
+                  if (appMode === 'demo') {
+                    setDemoUnlockedCards(prev => mergeCardsById(prev, cards));
+                    return;
+                  }
+                  const storedCards = await confirmCards(cards);
+                  setUnlockedCards(prev => mergeCardsById(prev, storedCards));
+                }}
                 onFocusModeChange={setIsStageTwoFocusMode}
               />
             </StageTransition>
