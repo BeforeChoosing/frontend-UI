@@ -35,6 +35,7 @@ import { mapProfileProposalToSkillCards } from '../features/profile/profileAdapt
 import { useExperienceAnalysis } from '../hooks/useExperienceAnalysis';
 import { useProfileExploration } from '../hooks/useProfileExploration';
 import { extractProfileMaterial, extractProfileMultimodalEvidence } from '../api/profile';
+import { auditEvent } from '../api/client';
 import type { ApiExperienceSummary } from '../types/api';
 
 interface ExperienceInputScreenProps {
@@ -1049,6 +1050,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   };
 
   const executeQuickCommand = (command: ProfileQuickCommand) => {
+    const inputMethod = coachInput.trim().startsWith('/') ? 'typed' : 'menu';
+    void auditEvent('profile_quick_command', command, {
+      input_method: inputMethod,
+      target_state: targetCareerState,
+    });
     setShowCommandsMenu(false);
     setCommandNotice(null);
 

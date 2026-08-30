@@ -60,6 +60,7 @@ final result: passed
 ## Runtime checks
 
 - `/target` 执行后输入框清空，目标岗位编辑框获得焦点。
+- 正式模式执行指令时复用现有审计接口记录 `profile_quick_command` 事件；演示模式不落库。
 - 页面控制台无 error 日志。
 - TypeScript 检查、20 项状态回归与生产构建通过。
 

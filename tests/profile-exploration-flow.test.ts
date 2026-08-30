@@ -37,6 +37,7 @@ test('01 探索目标与英文斜杠指令接入现有分析链路', () => {
   assert.match(experienceSource, /command: '\/experience'/);
   assert.match(experienceSource, /command: '\/target'/);
   assert.match(experienceSource, /executeQuickCommand/);
+  assert.match(experienceSource, /auditEvent\('profile_quick_command'/);
   assert.match(experienceSource, /指令不作为对话发送/);
   assert.match(experienceSource, /coachInput\.trim\(\)\.startsWith\('\/'\)/);
 });
