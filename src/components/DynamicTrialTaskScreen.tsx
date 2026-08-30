@@ -409,6 +409,14 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     setPhase('workbench');
   };
 
+  const handleBackToTaskMap = () => {
+    setWorkbenchActive(false);
+    onFocusModeChange?.(false);
+    setPhase('card-play');
+    setShowTaskMap(true);
+    setSelectedMapTaskId(activeTaskId);
+  };
+
   const currentStep = task.steps[stepIndex];
   const completedStepIds = demoMode ? demoCompletedStepIds : task.steps.filter(step => Boolean(answer.step_answers[step.id]?.trim())).map(step => step.id);
   const updateStepAnswer = (value: string) => setAnswer(current => current ? ({ ...current, step_answers: { ...current.step_answers, [currentStep.id]: value }, step_revisions: { ...current.step_revisions, [currentStep.id]: (current.step_revisions[currentStep.id] || 0) + 1 } }) : current);
@@ -498,6 +506,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
             onEvaluate={() => void handleCardPlayEvaluate()}
             onSelectChallenge={index => void handleSelectCardPlayChallenge(index)}
             onEnterWorkbench={handleEnterWorkbench}
+            onBackToMap={handleBackToTaskMap}
             onBack={onBackToExplore}
             onOpenCardDetail={onOpenCardDetail}
           />
@@ -521,6 +530,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
             coachText={coachText}
             onActiveChange={changeFocusMode}
             onBackToExplore={onBackToExplore}
+            onBackToMap={handleBackToTaskMap}
             onStepChange={setStepIndex}
             onStepAnswerChange={updateStepAnswer}
             onEventDecisionChange={decision => setAnswer(current => current ? ({ ...current, event_decision: decision || null }) : current)}

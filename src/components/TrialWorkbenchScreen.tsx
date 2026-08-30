@@ -28,6 +28,7 @@ interface TrialWorkbenchScreenProps {
   coachText: string | null;
   onActiveChange: (active: boolean) => void;
   onBackToExplore: () => void;
+  onBackToMap?: () => void;
   onStepChange: (index: number) => void;
   onStepAnswerChange: (value: string) => void;
   onEventDecisionChange: (decision: '维持' | '调整' | '') => void;
@@ -58,6 +59,7 @@ export function TrialWorkbenchScreen({
   coachText,
   onActiveChange,
   onBackToExplore,
+  onBackToMap,
   onStepChange,
   onStepAnswerChange,
   onEventDecisionChange,
@@ -103,7 +105,7 @@ export function TrialWorkbenchScreen({
               <ShieldCheck className="h-4 w-4 text-stone-500" />阶段 03 · 真实工作台实战模拟
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={onBackToExplore} className="craft-btn-secondary flex items-center gap-1 px-3 py-2 text-xs"><ArrowLeft className="h-3.5 w-3.5" />返回探索</button>
+              <button onClick={onBackToMap || onBackToExplore} className="craft-btn-secondary flex items-center gap-1 px-3 py-2 text-xs"><ArrowLeft className="h-3.5 w-3.5" />{onBackToMap ? '返回任务地图' : '返回探索'}</button>
               <button onClick={() => onActiveChange(true)} className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs"><Sparkles className="h-3.5 w-3.5 text-amber-300" />进入工作台</button>
             </div>
           </div>
