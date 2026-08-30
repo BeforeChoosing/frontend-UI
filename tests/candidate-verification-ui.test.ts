@@ -67,6 +67,21 @@ test('成长陪伴显示为 Demo 风格浮动入口，并提供辅助对话面�
   assert.match(source, /profile-exploration.*evidence-v3/);
 });
 
+test('个人画像页采用 Demo 拱形卡、悬停详情与真实档案数量', () => {
+  const source = readFileSync(new URL('../src/components/UserProfileScreen.tsx', import.meta.url), 'utf8');
+  assert.match(source, /id="arch-card-skills"/);
+  assert.match(source, /id="arch-card-paths"/);
+  assert.match(source, /id="arch-card-reports"/);
+  assert.match(source, /count=\{allDisplayCards\.length\}/);
+  assert.match(source, /count=\{livePaths\.length\}/);
+  assert.match(source, /count=\{liveReports\.length\}/);
+  assert.match(source, /handleInteractiveAreaLeave/);
+  assert.match(source, /setTimeout\(\(\) => setHoveredCard\(null\), 150\)/);
+  assert.match(source, /useReducedMotion/);
+  assert.match(source, /AI 最近注意到……/);
+  assert.match(source, /ProfileArchiveModal/);
+});
+
 test('追问输入提示采用随心输入，保留既有回车提交处理', () => {
   const source = readFileSync(new URL('../src/components/ExperienceInputScreen.tsx', import.meta.url), 'utf8');
   assert.match(source, /placeholder=\{demoMode && demoProbingActive\s*\? '随心输入'/);
