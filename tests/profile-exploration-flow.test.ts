@@ -29,6 +29,18 @@ test('01 使用完整聊天记录、单一输入框和对话附件建立候选�
   assert.match(verificationSource, /onWithdrawConfirmedCard/);
 });
 
+test('01 探索目标与英文斜杠指令接入现有分析链路', () => {
+  assert.match(experienceSource, /我有目标职业/);
+  assert.match(experienceSource, /我还没有明确方向/);
+  assert.match(experienceSource, /target_role: targetCareerState === 'has_target'/);
+  assert.match(experienceSource, /command: '\/extract'/);
+  assert.match(experienceSource, /command: '\/experience'/);
+  assert.match(experienceSource, /command: '\/target'/);
+  assert.match(experienceSource, /executeQuickCommand/);
+  assert.match(experienceSource, /指令不作为对话发送/);
+  assert.match(experienceSource, /coachInput\.trim\(\)\.startsWith\('\/'\)/);
+});
+
 test('进入 03 时先恢复三轮挑战，再由用户进入任务简报', () => {
   assert.match(trialScreenSource, /useState<'card-play' \| 'workbench'>\('card-play'\)/);
   assert.match(trialScreenSource, /initializedSessionRef/);

@@ -24,6 +24,11 @@ import {
   FolderArchive,
   Award,
   ShieldCheck,
+  Briefcase,
+  Compass,
+  Target,
+  Zap,
+  BookOpen,
 } from 'lucide-react';
 import { SkillCard } from '../types';
 import { mapProfileProposalToSkillCards } from '../features/profile/profileAdapter';
@@ -77,6 +82,33 @@ type UploadedMaterial = {
   type: 'resume' | 'portfolio' | 'link';
 };
 
+type TargetCareerState = 'unselected' | 'has_target' | 'no_target';
+type ProfileQuickCommand = 'extract' | 'experience' | 'target';
+
+const DEFAULT_TARGET_ROLE = 'AI 产品经理';
+
+const PROFILE_QUICK_COMMANDS: Array<{
+  command: `/${ProfileQuickCommand}`;
+  title: string;
+  description: string;
+}> = [
+  {
+    command: '/extract',
+    title: '提炼能力卡',
+    description: '基于当前证据生成候选能力卡',
+  },
+  {
+    command: '/experience',
+    title: '引用项目经历',
+    description: '从附件补充简历或项目材料',
+  },
+  {
+    command: '/target',
+    title: '对齐目标岗位',
+    description: '设置或修改能力分析的目标岗位',
+  },
+];
+
 const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
   title: '校园二手书流转产品实践',
   actions: ['访谈学生并归纳信任成本与碰面效率问题', '推动集中交接点与评分机制上线'],
@@ -86,7 +118,7 @@ const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
 
 function explorationStorageKey(
   demoMode: boolean,
-  field: 'evidence' | 'messages' | 'materials' | 'consent',
+  field: 'evidence' | 'messages' | 'materials' | 'consent' | 'target-state' | 'target-role',
 ): string {
   const versionedField = field === 'messages'
     ? 'messages-v3'
@@ -96,6 +128,17 @@ function explorationStorageKey(
         ? 'attachments-v3'
         : field;
   return `before-choosing:profile-exploration:${demoMode ? 'demo' : 'use'}:${versionedField}`;
+}
+
+function loadTargetCareerState(demoMode: boolean): TargetCareerState {
+  const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'target-state'));
+  if (value === 'has_target' || value === 'no_target' || value === 'unselected') return value;
+  return demoMode ? 'has_target' : 'unselected';
+}
+
+function loadTargetRole(demoMode: boolean): string {
+  const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'target-role'))?.trim();
+  return value || (demoMode ? DEFAULT_TARGET_ROLE : '');
 }
 
 function loadExplorationMessages(demoMode: boolean): ChatMessage[] {
@@ -547,6 +590,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState('');
+  const [targetCareerState, setTargetCareerState] = useState<TargetCareerState>(() => (
+    loadTargetCareerState(demoMode)
+  ));
+  const [targetRole, setTargetRole] = useState(() => loadTargetRole(demoMode));
+  const [isEditingTargetRole, setIsEditingTargetRole] = useState(false);
+  const [showCommandsMenu, setShowCommandsMenu] = useState(false);
+  const [commandNotice, setCommandNotice] = useState<string | null>(null);
   
   // Real-time Chat Messages state
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode));
@@ -604,6 +654,20 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     );
   }, [demoMode, uploadedFiles]);
 
+  useEffect(() => {
+    window.localStorage.setItem(
+      explorationStorageKey(demoMode, 'target-state'),
+      targetCareerState,
+    );
+  }, [demoMode, targetCareerState]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      explorationStorageKey(demoMode, 'target-role'),
+      targetRole.trim(),
+    );
+  }, [demoMode, targetRole]);
+
   const handleRestartDemoConversation = () => {
     if (!demoMode || explorationStatus === 'loading') return;
     setInputText('');
@@ -615,6 +679,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setLinkInput('');
     setUploadError(null);
     setVoiceNotice(null);
+    setTargetCareerState('has_target');
+    setTargetRole(DEFAULT_TARGET_ROLE);
+    setIsEditingTargetRole(false);
+    setShowCommandsMenu(false);
+    setCommandNotice(null);
     setIsChatExpanded(true);
     resetExploration();
     textareaRef.current?.focus();
@@ -646,7 +715,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       const response = await exploreProfile({
         experience_text: nextEvidenceText,
         messages: conversation,
-        target_role: 'AI Native 产品经理',
+        target_role: targetCareerState === 'has_target'
+          ? (targetRole.trim() || DEFAULT_TARGET_ROLE)
+          : undefined,
         request_id: `profile-${Date.now()}`,
       });
       setMessages(prev => [...prev, {
@@ -917,9 +988,24 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
   // Trigger the real ProfileAgent flow. UI components only consume the domain result;
   // the API contract and backend DTO mapping live outside this screen.
-  const handleStartAnalysis = async () => {
-    const combinedContent = inputText.trim().slice(0, 12000);
+  const handleStartAnalysis = async (pendingEvidence = '') => {
+    const normalizedPendingEvidence = pendingEvidence.trim();
+    const combinedContent = [inputText.trim(), normalizedPendingEvidence]
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, 12000);
     if (!combinedContent || isAnalyzing) return;
+
+    if (normalizedPendingEvidence) {
+      setInputText(combinedContent);
+      setCoachInput('');
+      setMessages(prev => [...prev, {
+        id: `user-extract-${Date.now()}`,
+        role: 'user',
+        content: normalizedPendingEvidence,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }].slice(-30));
+    }
 
     setIsAnalyzing(true);
     setIsAiThinking(true);
@@ -939,7 +1025,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       }
       const proposal = await analyzeExperience({
         experience_text: combinedContent,
-        target_role: 'AI Native 产品经理',
+        target_role: targetCareerState === 'has_target'
+          ? (targetRole.trim() || DEFAULT_TARGET_ROLE)
+          : undefined,
       });
       const cards = mapProfileProposalToSkillCards(proposal);
       const aiMsg: ChatMessage = {
@@ -958,6 +1046,54 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       setIsAnalyzing(false);
       setIsAiThinking(false);
     }
+  };
+
+  const executeQuickCommand = (command: ProfileQuickCommand) => {
+    setShowCommandsMenu(false);
+    setCommandNotice(null);
+
+    if (command === 'experience') {
+      setUploadTab('portfolio');
+      setShowUploadModal(true);
+      if (coachInput.trim().startsWith('/')) setCoachInput('');
+      return;
+    }
+
+    if (command === 'target') {
+      setTargetCareerState('has_target');
+      setTargetRole(current => current.trim() || DEFAULT_TARGET_ROLE);
+      setIsEditingTargetRole(true);
+      if (coachInput.trim().startsWith('/')) setCoachInput('');
+      return;
+    }
+
+    const pendingEvidence = coachInput.trim().startsWith('/') ? '' : coachInput;
+    if (!inputText.trim() && !pendingEvidence.trim()) {
+      setCommandNotice('请先提供一段经历或引用项目材料。');
+      if (coachInput.trim().startsWith('/')) setCoachInput('');
+      return;
+    }
+    void handleStartAnalysis(pendingEvidence);
+  };
+
+  const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter' || event.shiftKey) return;
+
+    const commandText = coachInput.trim().toLowerCase();
+    if (commandText.startsWith('/')) {
+      event.preventDefault();
+      const command = PROFILE_QUICK_COMMANDS.find(item => item.command === commandText);
+      if (command) {
+        executeQuickCommand(command.command.slice(1) as ProfileQuickCommand);
+      } else {
+        setShowCommandsMenu(true);
+        setCommandNotice('请从列表中选择有效指令。');
+      }
+      return;
+    }
+
+    event.preventDefault();
+    void handleSendCoachMessage();
   };
 
   const latestAiMessage = [...messages].reverse().find(m => m.role === 'ai') || messages[0];
@@ -1092,6 +1228,87 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3 text-xs">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-stone-600">
+              <Target className="h-3.5 w-3.5" />
+              探索目标：
+            </span>
+
+            <div className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-100 p-1 shadow-inner">
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetCareerState('has_target');
+                  setTargetRole(current => current.trim() || DEFAULT_TARGET_ROLE);
+                  setCommandNotice(null);
+                }}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                  targetCareerState === 'has_target'
+                    ? 'bg-stone-900 text-white shadow-sm'
+                    : 'text-stone-600 hover:bg-white hover:text-stone-900'
+                }`}
+                aria-pressed={targetCareerState === 'has_target'}
+              >
+                <Briefcase className="h-3.5 w-3.5" />
+                我有目标职业
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetCareerState('no_target');
+                  setIsEditingTargetRole(false);
+                  setCommandNotice(null);
+                }}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                  targetCareerState === 'no_target'
+                    ? 'bg-stone-900 text-white shadow-sm'
+                    : 'text-stone-600 hover:bg-white hover:text-stone-900'
+                }`}
+                aria-pressed={targetCareerState === 'no_target'}
+              >
+                <Compass className="h-3.5 w-3.5" />
+                我还没有明确方向
+              </button>
+            </div>
+
+            {targetCareerState === 'has_target' && (
+              <div className="flex min-h-8 items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 text-[11px] text-stone-600">
+                <span>目标岗位：</span>
+                {isEditingTargetRole ? (
+                  <input
+                    type="text"
+                    value={targetRole}
+                    onChange={event => setTargetRole(event.target.value)}
+                    onBlur={() => {
+                      setTargetRole(current => current.trim() || DEFAULT_TARGET_ROLE);
+                      setIsEditingTargetRole(false);
+                    }}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        setTargetRole(current => current.trim() || DEFAULT_TARGET_ROLE);
+                        setIsEditingTargetRole(false);
+                      }
+                    }}
+                    maxLength={40}
+                    autoFocus
+                    aria-label="目标岗位"
+                    className="w-32 border-b border-emerald-500 bg-transparent py-0.5 font-semibold text-stone-900 outline-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingTargetRole(true)}
+                    className="flex items-center gap-1 font-semibold text-stone-900 hover:text-emerald-800"
+                  >
+                    <span>{targetRole.trim() || DEFAULT_TARGET_ROLE}</span>
+                    <span className="font-normal text-stone-400">修改</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Quick upload guide prompt bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-stone-100 text-[11px] text-stone-600">
             <div className="flex items-center gap-1.5">
@@ -1119,8 +1336,65 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           transition={{ duration: 0.35, delay: 0.05 }}
           className="space-y-3"
         >
-          <div className="craft-card flex min-h-[220px] w-full items-stretch gap-3.5 rounded-3xl border border-stone-200/50 bg-white/90 p-4 backdrop-blur-xl sm:p-5">
-            <div className="flex shrink-0 flex-col items-center gap-2 border-r border-stone-100 pr-3.5 pt-0.5">
+          <div className="craft-card relative flex min-h-[220px] w-full flex-col gap-3 rounded-3xl border border-stone-200/50 bg-white/90 p-4 backdrop-blur-xl sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-2">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCommandsMenu(current => !current);
+                    setCommandNotice(null);
+                  }}
+                  className="flex items-center gap-1.5 rounded-full bg-stone-900 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-black"
+                  aria-expanded={showCommandsMenu}
+                  aria-controls="profile-quick-command-menu"
+                >
+                  <Zap className="h-3.5 w-3.5 text-emerald-300" />
+                  快捷指令
+                  <ChevronDown className={`h-3 w-3 transition-transform ${showCommandsMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {showCommandsMenu && (
+                    <motion.div
+                      id="profile-quick-command-menu"
+                      initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                      transition={{ duration: 0.16 }}
+                      className="absolute bottom-full left-0 z-40 mb-2 w-72 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl"
+                    >
+                      <p className="px-2 py-1 text-[10px] font-semibold tracking-wide text-stone-500">职业能力分析快捷指令</p>
+                      {PROFILE_QUICK_COMMANDS.map(item => {
+                        const Icon = item.command === '/extract'
+                          ? Sparkles
+                          : item.command === '/experience'
+                            ? BookOpen
+                            : Briefcase;
+                        return (
+                          <button
+                            key={item.command}
+                            type="button"
+                            onClick={() => executeQuickCommand(item.command.slice(1) as ProfileQuickCommand)}
+                            className="flex w-full items-start gap-2 rounded-xl p-2 text-left transition hover:bg-stone-50"
+                          >
+                            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-stone-600" />
+                            <span className="min-w-0">
+                              <span className="block font-mono text-[11px] font-semibold text-stone-900">{item.command}</span>
+                              <span className="block text-[10px] text-stone-500">{item.title}·{item.description}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <span className="text-[10px] text-stone-400">输入 / 调用已定义指令，指令不作为对话发送</span>
+            </div>
+
+            <div className="flex min-h-0 flex-1 items-stretch gap-3.5">
+              <div className="flex shrink-0 flex-col items-center gap-2 border-r border-stone-100 pr-3.5 pt-0.5">
               <button
                 type="button"
                 onClick={handleTriggerUpload}
@@ -1138,44 +1412,44 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               >
                 {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </button>
-            </div>
-
-            <div className="flex min-w-0 flex-1 flex-col">
-              {voiceNotice && <p className="mb-2 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs text-emerald-900">{voiceNotice}</p>}
-              <textarea
-                ref={textareaRef}
-                value={coachInput}
-                onChange={event => {
-                  setCoachInput(event.target.value);
-                  if (selectedPresetId) setSelectedPresetId(null);
-                }}
-                onKeyDown={event => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    void handleSendCoachMessage();
-                  }
-                }}
-                rows={6}
-                maxLength={3000}
-                placeholder={'分享一次印象深刻的经历。\n可以写项目、实习、比赛或长期兴趣。\nEnter 发送，Shift+Enter 换行。'}
-                className="min-h-[150px] w-full flex-1 resize-none bg-transparent px-1 text-sm leading-6 text-stone-900 outline-none placeholder:text-stone-400"
-              />
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3 text-[10px] text-stone-400">
-                <span>{uploadedFiles.length > 0 ? `本轮对话已附加 ${uploadedFiles.length} 份材料` : '附件和文字都会进入当前对话记录'}</span>
-                <div className="flex items-center gap-2">
-                  <span>Enter 发送</span>
-                  <button
-                    type="button"
-                    onClick={() => void handleSendCoachMessage()}
-                    disabled={!coachInput.trim() || explorationStatus === 'loading'}
-                    className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {explorationStatus === 'loading' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                    发送交流
-                  </button>
-                </div>
               </div>
-              {explorationError && <p role="alert" className="mt-2 text-[10px] text-rose-700">{explorationError}</p>}
+
+              <div className="flex min-w-0 flex-1 flex-col">
+                {voiceNotice && <p className="mb-2 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs text-emerald-900">{voiceNotice}</p>}
+                {commandNotice && <p className="mb-2 rounded-lg bg-amber-50 px-2.5 py-1 text-xs text-amber-900">{commandNotice}</p>}
+                <textarea
+                  ref={textareaRef}
+                  value={coachInput}
+                  onChange={event => {
+                    const value = event.target.value;
+                    setCoachInput(value);
+                    setShowCommandsMenu(value.trimStart().startsWith('/'));
+                    setCommandNotice(null);
+                    if (selectedPresetId) setSelectedPresetId(null);
+                  }}
+                  onKeyDown={handleComposerKeyDown}
+                  rows={6}
+                  maxLength={3000}
+                  placeholder={'分享一次印象深刻的经历。\n可以写项目、实习、比赛或长期兴趣。\n输入 / 使用快捷指令。'}
+                  className="min-h-[150px] w-full flex-1 resize-none bg-transparent px-1 text-sm leading-6 text-stone-900 outline-none placeholder:text-stone-400"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3 text-[10px] text-stone-400">
+                  <span>{uploadedFiles.length > 0 ? `本轮对话已附加 ${uploadedFiles.length} 份材料` : '附件和文字都会进入当前对话记录'}</span>
+                  <div className="flex items-center gap-2">
+                    <span>Enter 发送·Shift+Enter 换行</span>
+                    <button
+                      type="button"
+                      onClick={() => void handleSendCoachMessage()}
+                      disabled={!coachInput.trim() || coachInput.trim().startsWith('/') || explorationStatus === 'loading'}
+                      className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {explorationStatus === 'loading' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      发送交流
+                    </button>
+                  </div>
+                </div>
+                {explorationError && <p role="alert" className="mt-2 text-[10px] text-rose-700">{explorationError}</p>}
+              </div>
             </div>
           </div>
 
@@ -1212,7 +1486,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         className="pt-6 pb-2 flex flex-col items-center justify-center gap-3 relative z-10"
       >
         <button
-          onClick={handleStartAnalysis}
+          onClick={() => void handleStartAnalysis()}
           disabled={!inputText.trim() || isAnalyzing}
           className={`w-full sm:w-64 py-3.5 px-8 rounded-full font-medium text-sm sm:text-base transition-all duration-200 cursor-pointer shadow-sm flex items-center justify-center gap-2 ${
             inputText.trim() && !isAnalyzing
