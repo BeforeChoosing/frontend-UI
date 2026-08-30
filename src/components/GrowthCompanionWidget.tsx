@@ -65,6 +65,14 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
   const transcript = useMemo(() => messages.map(message => ({ role: message.role, content: message.content })), [messages]);
 
   useEffect(() => {
+    const openCompanion = (event: Event) => {
+      if ((event as CustomEvent<{ agentId?: string }>).detail?.agentId === 'growth_companion') setOpen(true);
+    };
+    window.addEventListener('open-agent-chat', openCompanion);
+    return () => window.removeEventListener('open-agent-chat', openCompanion);
+  }, []);
+
+  useEffect(() => {
     window.localStorage.setItem(storageKey(demoMode), JSON.stringify(messages.slice(-20)));
     if (open) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [demoMode, messages, open]);

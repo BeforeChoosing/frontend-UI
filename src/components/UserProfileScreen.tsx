@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { 
   User, 
@@ -75,6 +75,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   );
   const [activeArchive, setActiveArchive] = useState<'cards' | 'reports' | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interactiveAreaRef = useRef<HTMLElement>(null);
+
+  useEffect(() => () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+  }, []);
 
   // Cards category filter
   const [selectedCardCategory, setSelectedCardCategory] = useState<string>('all');
@@ -233,6 +238,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   };
 
   const handleInteractiveAreaLeave = () => {
+    if (interactiveAreaRef.current?.contains(document.activeElement)) return;
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = setTimeout(() => setHoveredCard(null), 150);
   };
@@ -250,13 +256,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       };
 
   return (
-    <div className="h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] overflow-hidden p-3 sm:p-4 lg:p-5 relative selection:bg-orange-100 text-stone-900 font-sans bg-[#FBFBFA]">
+    <div className="profile-dashboard h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] overflow-hidden p-3 sm:p-4 lg:p-5 relative selection:bg-orange-100 text-stone-900 font-sans bg-[#FBFBFA]">
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-orange-100/30 blur-3xl" />
         <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-amber-100/25 blur-3xl" />
       </div>
 
-      <div className="w-full max-w-7xl h-full mx-auto min-h-0 flex flex-col justify-between gap-2.5 sm:gap-3 relative z-10">
+      <div className="profile-dashboard-content w-full max-w-7xl h-full mx-auto min-h-0 flex flex-col justify-between gap-2.5 sm:gap-3 relative z-10">
         <motion.section
           initial={reduceMotion ? false : { opacity: 0, transform: 'translateY(-10px)' }}
           animate={{ opacity: 1, transform: 'translateY(0)' }}
@@ -326,7 +332,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <button type="button" onClick={() => onNavigate('input-experience')} className="bg-black hover:bg-stone-900 text-white rounded-full px-4 py-1.5 text-xs font-bold shadow-xs transition cursor-pointer">
                 添加新经历
               </button>
-              <button type="button" onClick={() => handleCardHover(null)} className="craft-btn-secondary px-3.5 py-1.5 text-xs text-stone-600 hover:text-orange-950 hover:bg-orange-50/60 hover:border-orange-300">
+              <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('open-agent-chat', { detail: { agentId: 'growth_companion' } }))} className="craft-btn-secondary px-3.5 py-1.5 text-xs text-stone-600 hover:text-orange-950 hover:bg-orange-50/60 hover:border-orange-300">
                 回顾引导
               </button>
             </div>
@@ -368,8 +374,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         </div>
 
         <motion.section
+          ref={interactiveAreaRef}
           layout={!reduceMotion}
-          className="flex-1 min-h-0 flex items-center gap-2.5 sm:gap-3 overflow-hidden select-none"
+          className="profile-interactive flex-1 min-h-0 flex items-center gap-2.5 sm:gap-3 select-none"
           onMouseEnter={() => {
             if (hoverTimeoutRef.current) {
               clearTimeout(hoverTimeoutRef.current);
@@ -395,11 +402,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <h3 className="text-xs sm:text-sm text-stone-800 leading-snug">你已经确认 <strong className="text-orange-950 font-mono">{allDisplayCards.length}</strong> 张能力卡</h3>
                   <div className="mt-2.5 space-y-2">
                     {allDisplayCards.slice(0, 3).map((card) => (
-                      <div key={card.id} role="button" tabIndex={0} onClick={() => onOpenCardDetail(card)} className="flex items-start gap-2.5 group cursor-pointer p-1.5 -mx-1.5 rounded-xl hover:bg-orange-50/50 transition">
+                      <div key={card.id} className="flex items-start gap-2.5 group p-1.5 -mx-1.5 rounded-xl hover:bg-orange-50/50 transition">
                         <span className="w-6 h-6 rounded-full bg-orange-100 border border-orange-200/70 flex items-center justify-center shrink-0"><span className="w-2 h-2 rounded-full bg-orange-600" /></span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-xs text-stone-900 group-hover:text-orange-950 truncate">{card.title}</span>
+                            <button type="button" onClick={() => onOpenCardDetail(card)} className="font-bold text-xs text-left text-stone-900 group-hover:text-orange-950 truncate">{card.title}</button>
                             {!readOnly && <button type="button" onClick={(event) => { event.stopPropagation(); handleStartCardEdit(card); }} className="p-1 text-stone-400 hover:text-orange-900" aria-label={`编辑${card.title}`}><Edit3 className="w-3 h-3" /></button>}
                           </div>
                           <p className="text-[11px] text-stone-500 truncate mt-0.5">{card.description}</p>
@@ -493,7 +500,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         </motion.section>
       </div>
 
-      <AnimatePresence>
         {activeArchive && (
           <ProfileArchiveModal
             activeArchive={activeArchive}
@@ -503,17 +509,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             persistedCards={persistedCards}
             readOnly={readOnly}
             isSavingCard={isSavingCard}
+            error={cardActionError}
+            profileMeta={`档案版本 ${profileVersion}${profileUpdatedAt ? ` · 更新于 ${formatProfileUpdatedAt(profileUpdatedAt)}` : ''}`}
             categories={categories}
             selectedCategory={selectedCardCategory}
             onSelectCategory={setSelectedCardCategory}
             onClose={() => setActiveArchive(null)}
-            onOpenCard={onOpenCardDetail}
-            onEditCard={handleStartCardEdit}
+            onOpenCard={(card) => { setActiveArchive(null); onOpenCardDetail(card); }}
+            onEditCard={(card) => { setActiveArchive(null); handleStartCardEdit(card); }}
             onDeleteCard={handleDeleteCard}
             onNavigate={onNavigate}
           />
         )}
-      </AnimatePresence>
 
       {/* Profile Edit Modal */}
       {isEditingProfile && (
@@ -694,14 +701,15 @@ const ArchCardItem: React.FC<ArchCardItemProps> = ({
     type="button"
     layout={!reduceMotion}
     id={id}
-    onMouseEnter={onMouseEnter}
-    onFocus={onMouseEnter}
+    onMouseEnter={() => {
+      if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) onMouseEnter();
+    }}
     onClick={onClick}
-    animate={reduceMotion ? undefined : {
+    animate={reduceMotion ? { transform: 'none' } : {
       transform: isTilted ? 'translateY(-8px) rotate(-3.5deg) scale(1.02)' : 'translateY(0) rotate(0deg) scale(1)',
     }}
     transition={{ type: 'spring', stiffness: 360, damping: 26, mass: 0.7 }}
-    className={`w-[145px] sm:w-[165px] lg:w-[180px] h-[210px] sm:h-[236px] lg:h-[256px] shrink-0 bg-[#FFFDF9] rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 border flex flex-col items-center justify-between cursor-pointer select-none relative transition-[border-color,box-shadow,background-color] duration-200 ${
+    className={`profile-arch-card w-[145px] sm:w-[165px] lg:w-[180px] h-[210px] sm:h-[236px] lg:h-[256px] shrink-0 bg-[#FFFDF9] rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 border flex flex-col items-center justify-between cursor-pointer select-none relative transition-[border-color,box-shadow,background-color] duration-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600 ${
       isTilted
         ? 'border-orange-400/90 ring-2 ring-orange-500/20 shadow-xl z-20 bg-white'
         : 'border-orange-200/80 shadow-2xs hover:shadow-md hover:border-orange-300'
@@ -729,7 +737,7 @@ const ProfileMilestone: React.FC<{ state: 'done' | 'active' | 'pending'; label: 
           ? 'bg-orange-950 text-white border-orange-900'
           : 'bg-stone-100 text-stone-400 border-stone-200'
     }`}>
-      {state === 'done' ? <Check className="w-3 h-3 stroke-[2.5]" /> : <span className={`w-1.5 h-1.5 rounded-full ${state === 'active' ? 'bg-orange-300 animate-pulse' : 'bg-stone-300'}`} />}
+      {state === 'done' ? <Check className="w-3 h-3 stroke-[2.5]" /> : <span className={`w-1.5 h-1.5 rounded-full ${state === 'active' ? 'bg-orange-300 animate-pulse motion-reduce:animate-none' : 'bg-stone-300'}`} />}
     </span>
     <span className={`text-[9px] mt-0.5 scale-90 whitespace-nowrap ${state === 'active' ? 'font-bold text-orange-950' : state === 'done' ? 'text-orange-800' : 'text-stone-400'}`}>{label}</span>
   </span>
@@ -768,6 +776,8 @@ interface ProfileArchiveModalProps {
   persistedCards: SkillCard[];
   readOnly: boolean;
   isSavingCard: boolean;
+  error: string | null;
+  profileMeta: string;
   categories: string[];
   selectedCategory: string;
   onSelectCategory: (category: string) => void;
@@ -786,6 +796,8 @@ const ProfileArchiveModal: React.FC<ProfileArchiveModalProps> = ({
   persistedCards,
   readOnly,
   isSavingCard,
+  error,
+  profileMeta,
   categories,
   selectedCategory,
   onSelectCategory,
@@ -794,10 +806,25 @@ const ProfileArchiveModal: React.FC<ProfileArchiveModalProps> = ({
   onEditCard,
   onDeleteCard,
   onNavigate,
-}) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/35 backdrop-blur-sm" role="dialog" aria-modal="true">
+}) => {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const reduceMotion = useReducedMotion();
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+  return (
+  <dialog ref={dialogRef} aria-labelledby="profile-archive-title"
+    className="profile-archive-dialog fixed inset-0 m-auto w-[calc(100%_-_2rem)] max-w-4xl max-h-[82vh] p-0 border-0 rounded-3xl bg-transparent"
+    onCancel={(event) => { event.preventDefault(); onClose(); }}
+    onKeyDown={(event) => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); }
+    }}
+    onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+  >
     <motion.div
-      initial={{ opacity: 0, transform: 'translateY(12px) scale(0.98)' }}
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'translateY(12px) scale(0.98)' }}
       animate={{ opacity: 1, transform: 'translateY(0) scale(1)' }}
       exit={{ opacity: 0, transform: 'translateY(8px) scale(0.98)' }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
@@ -805,12 +832,14 @@ const ProfileArchiveModal: React.FC<ProfileArchiveModalProps> = ({
     >
       <header className="px-5 py-4 border-b border-orange-100 flex items-center justify-between gap-3 bg-white/90">
         <div>
-          <h3 className="text-base font-bold text-stone-900 font-serif craft-serif">{activeArchive === 'cards' ? '能力卡库' : '探索报告'}</h3>
+          <h3 id="profile-archive-title" className="text-base font-bold text-stone-900 font-serif craft-serif">{activeArchive === 'cards' ? '能力卡库' : '探索报告'}</h3>
           <p className="text-xs text-stone-500 mt-0.5">{activeArchive === 'cards' ? '只展示已经确认并保存的能力卡。' : '每条结论均可回到任务答案与证据目录。'}</p>
+          <p className="text-[11px] text-stone-500 mt-1">{profileMeta}</p>
         </div>
         <button type="button" onClick={onClose} className="w-9 h-9 rounded-full border border-stone-200 bg-white flex items-center justify-center text-stone-500 hover:text-stone-900 hover:bg-stone-50 transition" aria-label="关闭"><X className="w-4 h-4" /></button>
       </header>
       <div className="p-5 overflow-y-auto min-h-0">
+        {error && <p role="alert" className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
         {activeArchive === 'cards' ? (
           <div className="space-y-4">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
@@ -818,9 +847,9 @@ const ProfileArchiveModal: React.FC<ProfileArchiveModalProps> = ({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {cards.map((card) => (
-                <article key={card.id} onClick={() => onOpenCard(card)} className="rounded-2xl border border-orange-100 bg-white p-4 hover:border-orange-300 hover:shadow-sm transition cursor-pointer">
+                <article key={card.id} className="rounded-2xl border border-orange-100 bg-white p-4 hover:border-orange-300 hover:shadow-sm transition">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0"><span className="text-[10px] text-orange-800 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full">{card.category}</span><h4 className="text-sm font-bold text-stone-900 mt-2">{card.title}</h4><p className="text-xs text-stone-500 mt-1 line-clamp-2">{card.description}</p></div>
+                    <button type="button" onClick={() => onOpenCard(card)} className="min-w-0 flex-1 text-left"><span className="text-[10px] text-orange-800 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full">{card.category}</span><span className="block text-sm font-bold text-stone-900 mt-2">{card.title}</span><span className="block text-xs text-stone-500 mt-1 line-clamp-2">{card.description}</span></button>
                     {!readOnly && <div className="flex items-center gap-1 shrink-0"><button type="button" onClick={(event) => { event.stopPropagation(); onEditCard(card); }} className="p-2 rounded-full text-stone-400 hover:text-orange-900 hover:bg-orange-50" aria-label={`编辑${card.title}`}><Edit3 className="w-3.5 h-3.5" /></button><button type="button" disabled={isSavingCard} onClick={(event) => { event.stopPropagation(); void onDeleteCard(card); }} className="p-2 rounded-full text-stone-400 hover:text-rose-700 hover:bg-rose-50 disabled:opacity-40" aria-label={`删除${card.title}`}><Trash2 className="w-3.5 h-3.5" /></button></div>}
                   </div>
                 </article>
@@ -848,5 +877,6 @@ const ProfileArchiveModal: React.FC<ProfileArchiveModalProps> = ({
         )}
       </div>
     </motion.div>
-  </div>
+  </dialog>
 );
+};

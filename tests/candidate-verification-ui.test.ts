@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { CandidateAbilityCard, getCandidateEvidenceLabel } from '../src/components/CandidateAbilityCard';
 import { AbilityCardVerificationScreen } from '../src/components/AbilityCardVerificationScreen';
 import { GrowthCompanionWidget } from '../src/components/GrowthCompanionWidget';
+import { UserProfileScreen } from '../src/components/UserProfileScreen';
 import { DEMO_SKILL_CARDS } from '../src/data/demoMode';
 
 const noop = () => {};
@@ -80,6 +81,30 @@ test('个人画像页采用 Demo 拱形卡、悬停详情与真实档案数量',
   assert.match(source, /useReducedMotion/);
   assert.match(source, /AI 最近注意到……/);
   assert.match(source, /ProfileArchiveModal/);
+});
+
+test('成长档案空态不展示 Demo 数字，卡库统计随输入变化', () => {
+  const props = { auth: { isLoggedIn: false }, onNavigate: noop, onOpenCardDetail: noop };
+  const emptyHtml = renderToStaticMarkup(React.createElement(UserProfileScreen, props));
+  assert.match(emptyHtml, /完成经历提取并确认能力卡后/);
+  assert.match(emptyHtml, /完成任务后，AI 会从真实评价中整理近期观察/);
+  assert.doesNotMatch(emptyHtml, /林曦|已累积 14/);
+  const populatedHtml = renderToStaticMarkup(React.createElement(UserProfileScreen, { ...props, persistedCards: DEMO_SKILL_CARDS.slice(0, 2) }));
+  assert.match(populatedHtml, /已确认 2 张能力卡，完成 0 个小任务/);
+});
+
+test('档案入口接通陪伴，并保留键盘关闭及小屏详情布局', () => {
+  const profile = readFileSync(new URL('../src/components/UserProfileScreen.tsx', import.meta.url), 'utf8');
+  const companion = readFileSync(new URL('../src/components/GrowthCompanionWidget.tsx', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
+  assert.match(profile, /CustomEvent\('open-agent-chat', \{ detail: \{ agentId: 'growth_companion'/);
+  assert.match(companion, /addEventListener\('open-agent-chat', openCompanion\)/);
+  assert.match(companion, /removeEventListener\('open-agent-chat', openCompanion\)/);
+  assert.match(profile, /dialog\?\.showModal\(\)/);
+  assert.match(profile, /onCancel=\{\(event\) => \{ event.preventDefault\(\); onClose\(\); \}\}/);
+  assert.match(profile, /setActiveArchive\(null\); onOpenCardDetail\(card\)/);
+  assert.match(profile, /\(hover: hover\) and \(pointer: fine\)/);
+  assert.match(css, /\.profile-interactive \.profile-hover-panel \{\s*grid-column: 1 \/ -1/);
 });
 
 test('追问输入提示采用随心输入，保留既有回车提交处理', () => {

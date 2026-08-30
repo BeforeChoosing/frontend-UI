@@ -118,6 +118,42 @@
   box-shadow: 0 12px 28px -14px rgba(124, 45, 18, 0.2);
 }
 
+.profile-archive-dialog::backdrop {
+  background: rgba(12, 10, 9, 0.35);
+  backdrop-filter: blur(4px);
+}
+
+/* Preserve the Demo's expanding row on desktop; keep every panel reachable on touch screens. */
+@media (max-width: 1023px), (max-height: 650px) {
+  .profile-dashboard {
+    height: auto;
+    max-height: none;
+    min-height: calc(100dvh - 64px);
+    overflow: visible;
+  }
+
+  .profile-dashboard-content { height: auto; }
+
+  .profile-interactive {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    margin-top: 1.5rem;
+    padding-block: 0.75rem;
+  }
+
+  .profile-interactive .profile-arch-card { width: 100%; order: 0; }
+
+  .profile-interactive .profile-hover-panel {
+    grid-column: 1 / -1;
+    order: 1;
+    min-width: 0;
+    min-height: 240px;
+    height: auto;
+    gap: 1rem;
+  }
+}
+
 @media (min-width: 640px) {
   .profile-hover-panel {
     height: 236px;
