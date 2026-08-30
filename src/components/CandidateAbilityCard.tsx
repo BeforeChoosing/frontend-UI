@@ -42,46 +42,45 @@ export const CandidateAbilityCard: React.FC<CandidateAbilityCardProps> = ({ card
       aria-label={`候选能力卡：${card.title}`}
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 360, damping: 30, delay: index * 0.04 }}
-      className="candidate-ability-card w-[210px] shrink-0 space-y-2"
+      className="candidate-ability-card w-[270px] max-w-full shrink-0 space-y-3"
     >
-      <div className="h-[284px] [perspective:1000px]">
+      <div className="h-[360px] [perspective:1000px]">
         <div className={`candidate-card-turn relative h-full w-full [transform-style:preserve-3d] ${flipped ? '[transform:rotateY(180deg)]' : ''}`}>
-          <div aria-hidden={flipped} inert={flipped} className={`absolute inset-0 flex flex-col rounded-2xl border p-3 shadow-sm [backface-visibility:hidden] ${selected ? 'border-stone-400 bg-[#FCFAF6] ring-2 ring-stone-900/10' : 'border-stone-200 bg-stone-50'}`}>
-            <div className="pointer-events-none absolute inset-1 rounded-xl border border-stone-200/70" />
-            <div className="relative flex items-center justify-between border-b border-stone-200 pb-2">
-              <span className="rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] text-stone-700">{card.category}</span>
+          <div aria-hidden={flipped} inert={flipped} data-selected={selected} className="candidate-card-face absolute inset-0 flex flex-col rounded-[24px] border p-5 [backface-visibility:hidden]">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-xs font-medium text-stone-600"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/80 text-[#25765c]"><Icon className="h-4 w-4" /></span>{card.category}</span>
               <button type="button" aria-label={`收录${card.title}`} aria-pressed={selected} onClick={() => onStatus(selected ? 'unsure' : 'confirmed')}
-                className={`flex h-5 w-5 items-center justify-center rounded-full border ${selected ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-300 bg-white text-transparent'}`}>
-                <Check className="h-3 w-3" />
+                className="candidate-selection flex h-9 w-9 items-center justify-center rounded-full">
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full border ${selected ? 'border-[#25765c] bg-[#25765c] text-white' : 'border-stone-300 bg-white text-transparent'}`}><Check className="h-3.5 w-3.5" strokeWidth={2.5} /></span>
               </button>
             </div>
             {editing ? (
-              <div className="relative flex flex-1 flex-col gap-2 py-3">
-                <label className="text-[10px] text-stone-600">能力名称<input autoFocus aria-label="能力名称" value={editTitle} onChange={e => onEditTitle(e.target.value)} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-xs text-stone-900" /></label>
-                <label className="text-[10px] text-stone-600">一句话描述<textarea aria-label="能力一句话描述" value={editDesc} onChange={e => onEditDesc(e.target.value)} rows={3} className="mt-1 w-full resize-none rounded-lg border border-stone-300 bg-white p-2 text-xs leading-5 text-stone-900" /></label>
+              <div className="relative flex min-h-0 flex-1 flex-col gap-3 pt-4">
+                <label className="text-xs text-stone-600">能力名称<input autoFocus aria-label="能力名称" value={editTitle} onChange={e => onEditTitle(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900" /></label>
+                <label className="text-xs text-stone-600">一句话描述<textarea aria-label="能力一句话描述" value={editDesc} onChange={e => onEditDesc(e.target.value)} rows={3} className="mt-1 w-full resize-none rounded-xl border border-stone-300 bg-white p-3 text-sm leading-5 text-stone-900" /></label>
                 <div className="mt-auto flex justify-end gap-2 text-xs">
                   <button type="button" onClick={onCancel} className="rounded-full border border-stone-200 bg-white px-3 py-1.5">取消</button>
-                  <button type="button" onClick={onSave} disabled={!editTitle.trim()} className="rounded-full bg-stone-900 px-3 py-1.5 text-white disabled:opacity-40">保存</button>
+                  <button type="button" onClick={onSave} disabled={!editTitle.trim()} className="rounded-full bg-[#25765c] px-4 py-2 text-white disabled:opacity-40">保存</button>
                 </div>
               </div>
             ) : <>
-              <div className="relative my-auto flex flex-col items-center py-2 text-center">
-                <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-stone-100"><Icon className="h-4 w-4 text-stone-700" /></div>
-                <h3 title={card.title} className="line-clamp-2 font-serif text-sm font-semibold leading-snug text-stone-950">{card.title}</h3>
-                <p className="mt-1 line-clamp-3 text-[11px] leading-4 text-stone-600">{card.description}</p>
+              <div className="flex-1 pt-5 text-left">
+                <h3 title={card.title} className="line-clamp-2 text-[18px] font-semibold leading-[1.45] tracking-tight text-stone-950">{card.title}</h3>
+                <p className="mt-2 line-clamp-3 text-[13px] leading-[1.7] text-stone-600">{card.description}</p>
               </div>
-              <div className="relative rounded-lg border border-stone-200 bg-stone-50 p-2 text-[10px] leading-4 text-stone-600">
-                <p className="line-clamp-2"><span className="text-stone-500">应用：</span>{card.workplaceApplication || card.detail || '尚待补充应用场景'}</p>
+              <div className="rounded-xl bg-white/75 px-3 py-2.5 text-xs leading-5 text-stone-600">
+                <p className="mb-1 text-[11px] font-medium text-[#25765c]">可以用在哪里</p>
+                <p className="line-clamp-2">{card.workplaceApplication || card.detail || '尚待补充应用场景'}</p>
               </div>
-              <div className="relative mt-2 flex gap-1 border-t border-stone-200 pt-2">
-                <button type="button" onClick={onFlip} className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-stone-200 bg-stone-100 py-1.5 text-[10px] text-stone-700"><RotateCw className="h-3 w-3" />翻转查证据</button>
-                <button type="button" onClick={onEdit} aria-label={`编辑${card.title}`} className="rounded-lg border border-stone-200 bg-white p-1.5 text-stone-600"><Edit3 className="h-3 w-3" /></button>
+              <div className="mt-3 flex items-center justify-between border-t border-stone-200/70 pt-2">
+                <button type="button" onClick={onFlip} className="flex min-h-9 items-center gap-1.5 rounded-lg text-xs font-medium text-[#25765c]"><RotateCw className="h-3.5 w-3.5" />翻转查证据</button>
+                <button type="button" onClick={onEdit} aria-label={`编辑${card.title}`} className="flex h-9 w-9 items-center justify-center rounded-full text-stone-500 hover:bg-black/5"><Edit3 className="h-4 w-4" /></button>
               </div>
             </>}
           </div>
-          <div aria-hidden={!flipped} inert={!flipped} className="absolute inset-0 flex flex-col rounded-2xl border border-stone-800 bg-stone-900 p-3 text-stone-100 shadow-lg [backface-visibility:hidden] [transform:rotateY(180deg)]">
+          <div aria-hidden={!flipped} inert={!flipped} className="absolute inset-0 flex flex-col rounded-[24px] border border-[#285448] bg-[#183d32] p-5 text-stone-100 shadow-lg [backface-visibility:hidden] [transform:rotateY(180deg)]">
             <div className="mb-2 flex items-center justify-between border-b border-stone-700 pb-2 text-[10px]"><span className="flex items-center gap-1"><Sparkles className="h-3 w-3 text-emerald-400" />能力线索与证据</span><span className="text-stone-400">{String(index + 1).padStart(2, '0')}</span></div>
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 text-[11px] leading-5">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 text-xs leading-5">
               <h4 className="font-serif text-sm font-semibold">{card.title}</h4>
               <span className="inline-block rounded-md border border-stone-600 px-1.5 text-[9px] text-stone-300">{evidenceLabel}</span>
               <p>{card.matchReason || card.detail || '暂未提供详细证据，请补充经历后再确认。'}</p>
@@ -94,12 +93,12 @@ export const CandidateAbilityCard: React.FC<CandidateAbilityCardProps> = ({ card
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-1">
+      <div className="grid grid-cols-3 gap-1 rounded-full bg-stone-100/90 p-1">
         {([{ value: 'confirmed', label: '这像我', icon: Check }, { value: 'unsure', label: '待确认', icon: HelpCircle }, { value: 'rejected', label: '不像我', icon: X }] as const).map(item => (
-          <button key={item.value} type="button" onClick={() => onStatus(item.value)} aria-pressed={status === item.value} className={`flex items-center justify-center gap-0.5 rounded-full border py-1.5 text-[10px] ${status === item.value ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 bg-white text-stone-600'}`}><item.icon className="h-3 w-3" />{item.label}</button>
+          <button key={item.value} type="button" onClick={() => onStatus(item.value)} aria-pressed={status === item.value} className={`flex min-h-9 items-center justify-center gap-1 rounded-full text-[11px] font-medium ${status === item.value ? item.value === 'confirmed' ? 'bg-[#25765c] text-white shadow-sm' : 'bg-white text-stone-900 shadow-sm' : 'text-stone-600 hover:bg-white/60'}`}><item.icon className="h-3 w-3" />{item.label}</button>
         ))}
       </div>
-      <button type="button" onClick={onMerge} disabled={status === 'rejected'} aria-pressed={mergeSelected} className={`w-full text-center text-[10px] underline underline-offset-2 disabled:opacity-30 ${mergeSelected ? 'text-emerald-800' : 'text-stone-500'}`}>{mergeSelected ? '已选择合并' : '选择合并'}</button>
+      <button type="button" onClick={onMerge} disabled={status === 'rejected'} aria-pressed={mergeSelected} className={`min-h-9 w-full rounded-xl text-center text-xs disabled:opacity-40 ${mergeSelected ? 'bg-emerald-50 font-medium text-emerald-800' : 'text-stone-500 hover:bg-stone-100'}`}>{mergeSelected ? '已选择合并' : '选择合并'}</button>
     </motion.article>
   );
 };

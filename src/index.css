@@ -363,6 +363,23 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   transition: transform 280ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+.candidate-card-face {
+  background: #fff;
+  border-color: #dededb;
+  box-shadow: 0 4px 16px rgb(25 40 32 / 4%);
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.candidate-card-face[data-selected="true"] {
+  background: #f2f9f5;
+  border-color: #83b69f;
+  box-shadow: 0 6px 20px rgb(37 118 92 / 7%);
+}
+.candidate-ability-card button:active { transform: scale(.97); }
+@media (pointer: coarse) {
+  .candidate-ability-card button { min-height: 44px; }
+  .candidate-selection { min-width: 44px; }
+}
+
 .candidate-verification button:focus-visible,
 .growth-companion-widget button:focus-visible {
   outline: 2px solid #059669;

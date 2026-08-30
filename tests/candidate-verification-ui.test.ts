@@ -54,12 +54,17 @@ test('空候选列表不虚构卡片，也不能收录', () => {
   assert.doesNotMatch(html, /<article/);
 });
 
-test('成长陪伴显示为浮动入口，不添加第二个聊天输入框', () => {
-  const html = renderToStaticMarkup(React.createElement(GrowthCompanionWidget, { inConversation: true, onContinue: noop }));
+test('成长陪伴显示为 Demo 风格浮动入口，并提供辅助对话面板', () => {
+  const html = renderToStaticMarkup(React.createElement(GrowthCompanionWidget, { demoMode: true, currentScreen: 'input-experience', onContinue: noop }));
   assert.match(html, /fixed/);
   assert.match(html, /aria-label="成长陪伴 Agent" aria-expanded="false"/);
   assert.ok(html.includes('陪伴'));
-  assert.doesNotMatch(html, /<(textarea|input)/);
+  assert.ok(html.includes('growth-companion-panel'));
+  const source = readFileSync(new URL('../src/components/GrowthCompanionWidget.tsx', import.meta.url), 'utf8');
+  assert.match(source, /DEMO_REPLIES/);
+  assert.match(source, /demoTypingTimerRef/);
+  assert.match(source, /createProfileExplorationMessage/);
+  assert.match(source, /profile-exploration.*evidence-v3/);
 });
 
 test('追问输入提示采用随心输入，保留既有回车提交处理', () => {

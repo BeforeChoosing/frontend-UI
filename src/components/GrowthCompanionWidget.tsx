@@ -1,62 +1,171 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { ArrowRight, Sprout, X } from 'lucide-react';
-import { AGENT_REGISTRY } from '../types';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useDragControls } from 'motion/react';
+import { ArrowRight, Loader2, Send, Sparkles, Sprout, X } from 'lucide-react';
+import { AGENT_REGISTRY, type ScreenMode } from '../types';
 
 interface GrowthCompanionWidgetProps {
-  inConversation: boolean;
+  demoMode: boolean;
+  currentScreen: ScreenMode;
+  existingCardTitles?: string[];
   onContinue: () => void;
 }
 
-// This is an entry to ProfileAgent's existing conversation, not a second chat.
-export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ inConversation, onContinue }) => {
+interface CompanionMessage {
+  id: string;
+  role: 'assistant' | 'user';
+  content: string;
+  signals?: string[];
+}
+
+const INITIAL_MESSAGE: CompanionMessage = {
+  id: 'companion-initial', role: 'assistant',
+  content: '你好，我是成长陪伴 Agent。我会基于你已经提供的经历，继续帮你核对事实、判断和能力线索。',
+  signals: ['事实优先', '由你确认'],
+};
+
+const QUICK_PROMPTS = ['帮我区分这段经历里的事实与推断', '我还缺少哪些可核验的证据？'];
+const SCREEN_LABELS: Record<ScreenMode, string> = {
+  landing: '开始认识自己', auth: '建立个人档案', 'input-experience': '阶段 01 · 经历解构',
+  'verify-cards': '阶段 01 · 能力确认', 'career-explore': '阶段 02 · 方向探索',
+  stage2: '阶段 03 · 试路验证', report: '阶段 04 · 回看成长', profile: '长期能力画像',
+};
+const DEMO_REPLIES = [
+  '从现有经历看，能够确认的是：你进行了用户访谈、推动方案上线，并记录了结果。至于“洞察力强”仍属于能力推断，需要由你确认，或补充更具体的判断依据。',
+  '当前证据已经覆盖行动和结果。若要让能力卡更可信，可以再补充一个关键取舍：当时有哪些方案，你为什么放弃其中一些，并最终选择现在的做法？',
+];
+
+function storageKey(demoMode: boolean) {
+  return `before-choosing:growth-companion:${demoMode ? 'demo' : 'use'}:messages-v1`;
+}
+
+function loadMessages(demoMode: boolean): CompanionMessage[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(storageKey(demoMode)) || '[]') as CompanionMessage[];
+    return Array.isArray(parsed) && parsed.length ? parsed.slice(-20) : [INITIAL_MESSAGE];
+  } catch { return [INITIAL_MESSAGE]; }
+}
+
+function loadProfileEvidence(demoMode: boolean): string {
+  return window.localStorage.getItem(`before-choosing:profile-exploration:${demoMode ? 'demo' : 'use'}:evidence-v3`)?.trim() || '';
+}
+
+export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ demoMode, currentScreen, existingCardTitles = [], onContinue }) => {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<CompanionMessage[]>(() => loadMessages(demoMode));
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const demoReplyTimerRef = useRef<number | null>(null);
+  const demoTypingTimerRef = useRef<number | null>(null);
+  const dragControls = useDragControls();
   const companion = AGENT_REGISTRY.growth_companion;
+  const stageLabel = SCREEN_LABELS[currentScreen];
+  const transcript = useMemo(() => messages.map(message => ({ role: message.role, content: message.content })), [messages]);
+
   useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
+    window.localStorage.setItem(storageKey(demoMode), JSON.stringify(messages.slice(-20)));
+    if (open) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [demoMode, messages, open]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
+      if (event.key !== 'Escape' || !open) return;
+      setOpen(false); triggerRef.current?.focus();
     };
-    document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
+  useEffect(() => () => {
+    if (demoReplyTimerRef.current !== null) window.clearTimeout(demoReplyTimerRef.current);
+    if (demoTypingTimerRef.current !== null) window.clearInterval(demoTypingTimerRef.current);
+  }, []);
+
+  const send = async (preset?: string) => {
+    const content = (preset ?? input).trim();
+    if (!content || loading) return;
+    const userMessage: CompanionMessage = { id: `companion-user-${Date.now()}`, role: 'user', content };
+    const nextMessages = [...messages, userMessage].slice(-20);
+    setMessages(nextMessages); setInput(''); setError(null); setLoading(true);
+    if (demoMode) {
+      demoReplyTimerRef.current = window.setTimeout(() => {
+        const reply = DEMO_REPLIES[(nextMessages.filter(message => message.role === 'user').length - 1) % DEMO_REPLIES.length];
+        const replyId = `companion-demo-${Date.now()}`;
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        setMessages(current => [...current, { id: replyId, role: 'assistant', content: reduceMotion ? reply : '' }].slice(-20));
+        if (reduceMotion) { setLoading(false); return; }
+        let visible = 0;
+        demoTypingTimerRef.current = window.setInterval(() => {
+          visible = Math.min(visible + 2, reply.length);
+          const complete = visible >= reply.length;
+          setMessages(current => current.map(message => message.id === replyId ? {
+            ...message, content: reply.slice(0, visible), signals: complete ? ['证据边界', '下一步补充'] : undefined,
+          } : message));
+          if (!complete) return;
+          if (demoTypingTimerRef.current !== null) window.clearInterval(demoTypingTimerRef.current);
+          demoTypingTimerRef.current = null;
+          setLoading(false);
+        }, 22);
+      }, 280);
+      return;
+    }
+    try {
+      const { createProfileExplorationMessage } = await import('../api/profile');
+      const profileEvidence = loadProfileEvidence(demoMode);
+      const response = await createProfileExplorationMessage({
+        experience_text: [profileEvidence, ...transcript.filter(message => message.role === 'user').map(message => message.content), content]
+          .filter(Boolean).join('\n\n').slice(-12000),
+        messages: [...transcript.slice(-9), { role: 'user', content }], existing_card_titles: existingCardTitles,
+        request_id: `companion-${Date.now()}`,
+      });
+      setMessages(current => [...current, {
+        id: `companion-${response.trace_id}`, role: 'assistant', content: response.reply,
+        signals: [response.evidence_found[0], response.evidence_gap].filter(Boolean).slice(0, 2),
+      }].slice(-20));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '这次回复没有完成，请稍后再试。');
+    } finally { setLoading(false); }
+  };
+
   return (
-    <div ref={rootRef} className="growth-companion-widget fixed bottom-20 right-3 z-40 sm:right-6 xl:bottom-auto xl:top-[82px]">
-      <button ref={triggerRef} type="button" aria-label="成长陪伴 Agent" aria-expanded={open} aria-controls="growth-companion-panel" onClick={() => setOpen(value => !value)} title={companion.name}
-        className="ml-auto flex items-center gap-2 rounded-full border border-stone-600 bg-stone-900 px-4 py-2.5 text-xs text-stone-100 shadow-md transition-colors hover:bg-stone-800 active:scale-[0.98]">
-        <Sprout className="h-4 w-4 text-emerald-400" /><span>{companion.shortName}</span><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.section id="growth-companion-panel" aria-label={companion.name}
-            initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
-            transition={{ type: 'spring', stiffness: 440, damping: 34 }}
-            className="absolute bottom-full right-0 mb-3 w-[min(330px,calc(100vw-24px))] origin-bottom-right rounded-3xl border border-stone-200 bg-white p-5 text-stone-800 shadow-xl xl:bottom-auto xl:top-full xl:mb-0 xl:mt-3 xl:origin-top-right">
-            <div className="flex items-center justify-between gap-2 border-b border-stone-100 pb-3">
-              <h2 className="font-serif text-base font-semibold">{companion.name}</h2>
-              <button type="button" aria-label="收起成长陪伴" onClick={() => { setOpen(false); triggerRef.current?.focus(); }} className="rounded-full p-1 text-stone-500 hover:bg-stone-100"><X className="h-4 w-4" /></button>
-            </div>
-            <p className="mt-3 text-sm leading-6">我会沿着你分享的经历，陪你梳理行动、判断和结果，找到值得继续验证的能力线索。</p>
-            <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs leading-5 text-emerald-900">对话与附件保留在同一段经历记录中。能力卡是否收录，由你确认。</p>
-            <button type="button" onClick={() => { setOpen(false); onContinue(); }} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-stone-900 px-4 py-2.5 text-sm text-white hover:bg-black">
-              {inConversation ? '继续当前对话' : '回到经历对话'}<ArrowRight className="h-4 w-4" />
-            </button>
-          </motion.section>
-        )}
-      </AnimatePresence>
+    <div className="growth-companion-widget pointer-events-none fixed right-3 top-[78px] z-50 sm:right-6">
+      <motion.div drag dragListener={false} dragControls={dragControls} dragMomentum={false} dragElastic={0.06} className="pointer-events-auto select-none">
+        <AnimatePresence mode="wait" initial={false}>
+          {!open ? (
+            <motion.button key="companion-collapsed" ref={triggerRef} type="button" aria-label="成长陪伴 Agent" aria-expanded="false" aria-controls="growth-companion-panel"
+              initial={{ opacity: 0, transform: 'scale(.96)' }} animate={{ opacity: 1, transform: 'scale(1)' }} exit={{ opacity: 0, transform: 'scale(.96)' }}
+              transition={{ type: 'spring', duration: .32, bounce: .08 }} onClick={() => setOpen(true)}
+              onPointerDown={event => dragControls.start(event)}
+              className="flex h-11 cursor-grab items-center gap-2 rounded-full border border-stone-700/70 bg-stone-900/95 px-3.5 text-xs text-white shadow-lg backdrop-blur-xl active:cursor-grabbing active:scale-[.97]">
+              <span className="relative flex h-6 w-6 items-center justify-center rounded-full bg-stone-800"><Sprout className="h-4 w-4 text-emerald-400" /><span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-stone-900 bg-emerald-400" /></span>
+              <span className="font-medium">{companion.shortName}</span><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            </motion.button>
+          ) : (
+            <motion.section key="companion-panel" id="growth-companion-panel" aria-label="成长陪伴 Agent 对话"
+              initial={{ opacity: 0, transform: 'scale(.96) translateY(4px)' }} animate={{ opacity: 1, transform: 'scale(1) translateY(0)' }} exit={{ opacity: 0, transform: 'scale(.96) translateY(4px)' }}
+              transition={{ type: 'spring', duration: .36, bounce: .08 }}
+              className="flex h-[510px] max-h-[calc(100vh-92px)] w-[292px] max-w-[calc(100vw-24px)] origin-top-right flex-col overflow-hidden rounded-[22px] border border-white/70 bg-[#f8f7f3]/95 text-stone-900 shadow-[0_24px_64px_rgba(28,35,31,.18)] backdrop-blur-2xl">
+              <header onPointerDown={event => dragControls.start(event)} className="flex cursor-grab items-center justify-between border-b border-stone-200/70 bg-white/85 px-3 py-2.5 active:cursor-grabbing">
+                <div className="flex min-w-0 items-center gap-2"><span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-stone-900"><Sprout className="h-4 w-4 text-emerald-400" /><span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white bg-emerald-400" /></span><span className="min-w-0"><strong className="block truncate text-xs">成长陪伴 Agent</strong><span className="block truncate text-[10px] text-stone-500">{stageLabel}</span></span></div>
+                <button type="button" aria-label="收起成长陪伴" onPointerDown={event => event.stopPropagation()} onClick={() => setOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 active:scale-[.96]"><X className="h-4 w-4" /></button>
+              </header>
+              <div className="flex items-center gap-2 border-b border-stone-200/60 bg-emerald-50/70 px-3 py-2 text-[10px] text-emerald-900"><Sparkles className="h-3 w-3" /><span>沿用你的经历与已确认能力，不编造证据</span></div>
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3" aria-live="polite">
+                {messages.map(message => <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] text-stone-400">{message.role === 'user' ? '你' : '成长陪伴'}</span><div className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[11px] leading-[1.65] ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-white' : 'rounded-tl-md border border-stone-200 bg-white text-stone-800 shadow-sm'}`}>{message.content}</div>{message.signals?.length ? <div className="mt-1.5 flex max-w-[92%] flex-wrap gap-1">{message.signals.map(signal => <span key={signal} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] text-emerald-800">{signal}</span>)}</div> : null}</div>)}
+                {loading && <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-2.5 text-[10px] text-stone-500"><Loader2 className="h-3 w-3 animate-spin" />正在整理证据边界…</div>}<div ref={endRef} />
+              </div>
+              <div className="border-t border-stone-200/70 bg-white/90 p-2.5">
+                <div className="mb-2 space-y-1">{QUICK_PROMPTS.map(prompt => <button key={prompt} type="button" disabled={loading} onClick={() => void send(prompt)} className="flex min-h-8 w-full items-center justify-between rounded-lg bg-stone-50 px-2.5 text-left text-[10px] text-stone-700 hover:bg-stone-100 disabled:opacity-50"><span className="truncate">{prompt}</span><ArrowRight className="h-3 w-3 shrink-0" /></button>)}</div>
+                <div className="flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-50 p-1 focus-within:border-emerald-500 focus-within:bg-white"><input aria-label="向成长陪伴提问" value={input} disabled={loading} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') void send(); }} placeholder="向陪伴提问…" className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[11px] outline-none placeholder:text-stone-400" /><button type="button" aria-label="发送陪伴消息" onClick={() => void send()} disabled={!input.trim() || loading} className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#25765c] text-white disabled:bg-stone-200 disabled:text-stone-400"><Send className="h-3.5 w-3.5" /></button></div>
+                {error && <p role="alert" className="mt-1.5 text-[9px] text-rose-700">{error}</p>}
+                <button type="button" onClick={onContinue} className="mt-2 flex min-h-8 w-full items-center justify-center gap-1 text-[10px] font-medium text-stone-600 hover:text-stone-900">回到完整经历对话<ArrowRight className="h-3 w-3" /></button>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 };

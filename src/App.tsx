@@ -495,7 +495,9 @@ export default function App() {
       {!isStageTwoFocusMode && (appMode === 'demo' || auth.isLoggedIn) && (
         <GrowthCompanionWidget
           key={`growth-companion-${appMode}-${currentScreen}`}
-          inConversation={currentScreen === 'input-experience'}
+          demoMode={appMode === 'demo'}
+          currentScreen={currentScreen}
+          existingCardTitles={activeCards.map(card => card.title)}
           onContinue={() => {
             setCurrentScreen('input-experience');
             setProfileFocusRequest(value => value + 1);
