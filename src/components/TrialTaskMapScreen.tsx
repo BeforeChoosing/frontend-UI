@@ -32,6 +32,7 @@ const SEMANTIC_THEME: Record<string, { label: string; description: string; accen
 };
 
 const DEFAULT_TASK_IDS: TrialTaskId[] = ['F-01', 'A-02', 'A-01'];
+const WORKFLOW_STEPS = ['识别问题', '核对证据', '形成方案', '验证结果', '复盘调整'];
 
 function taskTheme(task: ApiTrialTaskDefinition, index: number) {
   return SEMANTIC_THEME[task.id] || {
@@ -107,7 +108,27 @@ export function TrialTaskMapScreen({
           {error && <p role="alert" className="mx-5 mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800 sm:mx-7">{error}</p>}
 
           <div className="relative px-5 py-7 sm:px-7 sm:py-9">
-            <div aria-hidden="true" className="pointer-events-none absolute left-[12%] right-[12%] top-1/2 hidden h-px bg-gradient-to-r from-emerald-200 via-amber-200 to-sky-200 lg:block" />
+            <div className="relative mx-auto mb-8 max-w-4xl px-2 sm:px-6">
+              <svg aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-4 hidden h-16 w-full sm:block" viewBox="0 0 800 80" fill="none" preserveAspectRatio="none">
+                <path d="M70 18 H650 C720 18 720 62 650 62 H150" stroke="#e7e5e4" strokeWidth="2" strokeDasharray="5 4" />
+                <path d="M152 56 L140 62 L152 68" stroke="#d6d3d1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <div className="relative grid grid-cols-5 gap-1">
+                {WORKFLOW_STEPS.map((step, index) => (
+                  <div key={step} className="flex flex-col items-center gap-2 text-center">
+                    <motion.span
+                      initial={{ opacity: 0, transform: 'scale(0.86)' }}
+                      animate={{ opacity: 1, transform: 'scale(1)' }}
+                      transition={{ type: 'spring', stiffness: 380, damping: 30, delay: index * 0.04 }}
+                      className={`flex h-8 w-8 items-center justify-center rounded-xl border text-[10px] font-mono shadow-2xs ${index === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : index === 1 ? 'border-amber-200 bg-amber-50 text-amber-800' : index === 2 ? 'border-sky-200 bg-sky-50 text-sky-800' : index === 3 ? 'border-purple-200 bg-purple-50 text-purple-800' : 'border-stone-200 bg-stone-50 text-stone-700'}`}
+                    >
+                      {String(index + 1).padStart(2, '0')}
+                    </motion.span>
+                    <span className="text-[10px] font-medium text-stone-600 sm:text-[11px]">{step}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
             {loading ? (
               <div className="grid min-h-64 place-items-center text-xs text-stone-500">正在读取挑战目录…</div>
             ) : mapTasks.length === 0 ? (
