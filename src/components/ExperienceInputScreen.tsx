@@ -1300,7 +1300,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             <div className="min-w-0 flex-1 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight flex items-center gap-2">
-                  <span>{demoMode && demoProbingActive ? '成长陪伴 Agent · 经历深度挖掘' : '潜能挖掘助手'}</span>
+                  <span>成长陪伴 Agent · 经历深度挖掘</span>
                   <span className="craft-chip-green text-[10px] font-medium px-2 py-0.5 rounded-full font-mono">
                     01 · 认识自己
                   </span>
