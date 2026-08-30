@@ -41,8 +41,6 @@ interface TrialEvaluationViewProps {
   observedEvidence: ApiObservedEvidence;
   onBackToExplore: () => void;
   onEnterProfile: () => void;
-  onOpenAbilityUpdate: () => void;
-  abilityUpdatesConfirmed: boolean;
 }
 
 function deriveTrialUpdateCards(
@@ -66,14 +64,60 @@ function deriveTrialUpdateCards(
   return cards.length > 0 ? cards : confirmedCards.slice(0, 3);
 }
 
+function AutomaticTrialAbilityUpdate({
+  task,
+  evaluation,
+  confirmedCards,
+  onUpdateCards,
+  onEnterProfile,
+  onContinueExplore,
+}: {
+  task: ApiTrialTaskDefinition;
+  evaluation: ApiTrialEvaluation;
+  confirmedCards: SkillCard[];
+  onUpdateCards?: (cards: SkillCard[]) => Promise<unknown> | void;
+  onEnterProfile: () => void;
+  onContinueExplore: () => void;
+}) {
+  const [updatedCards] = useState(() => deriveTrialUpdateCards(task, evaluation, confirmedCards));
+  const [syncStatus, setSyncStatus] = useState<'syncing' | 'ready' | 'error'>('syncing');
+  const syncStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (syncStartedRef.current) return;
+    syncStartedRef.current = true;
+    void Promise.resolve(onUpdateCards?.(updatedCards))
+      .then(() => setSyncStatus('ready'))
+      .catch(() => setSyncStatus('error'));
+  }, [onUpdateCards, updatedCards]);
+
+  if (syncStatus !== 'ready') {
+    return (
+      <div className="grid min-h-[calc(100vh-64px)] place-items-center px-6 text-center">
+        <div>
+          <p className="font-serif text-lg text-stone-900">{syncStatus === 'syncing' ? '正在同步本轮能力卡…' : '能力卡同步失败'}</p>
+          <p className="mt-2 text-xs text-stone-500">{syncStatus === 'syncing' ? '任务已完成，正在把实战证据写入能力库。' : '本次任务结果已保留，请稍后重新进入。'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <TrialExperienceEndScreen
+      updatedCards={updatedCards}
+      allAccumulatedCards={confirmedCards}
+      onEnterProfile={onEnterProfile}
+      onContinueExplore={onContinueExplore}
+    />
+  );
+}
+
 function TrialEvaluationView({
   task,
   evaluation,
   observedEvidence,
   onBackToExplore,
   onEnterProfile,
-  onOpenAbilityUpdate,
-  abilityUpdatesConfirmed,
 }: TrialEvaluationViewProps) {
   const evidenceItems = observedEvidence.evidence_items || [];
   const applications = evaluation.ability_applications || [];
@@ -243,14 +287,7 @@ function TrialEvaluationView({
         </div>
         <div className="mt-6 flex flex-col justify-between gap-3 border-t border-stone-100 pt-4 sm:flex-row">
           <button onClick={onBackToExplore} className="craft-btn-secondary px-4 py-2 text-xs">返回方向建议</button>
-          <div className="flex flex-wrap justify-end gap-2">
-            {abilityUpdatesConfirmed ? (
-              <span className="flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs text-emerald-800">能力卡已更新</span>
-            ) : (
-              <button onClick={onOpenAbilityUpdate} className="rounded-full border border-orange-300 bg-orange-50 px-4 py-2 text-xs font-medium text-orange-900 transition hover:bg-orange-100">更新能力卡</button>
-            )}
-            <button onClick={onEnterProfile} className="craft-btn-black px-4 py-2 text-xs">查看个人档案</button>
-          </div>
+          <button onClick={onEnterProfile} className="craft-btn-black px-4 py-2 text-xs">查看个人档案</button>
         </div>
       </div>
     </div>
@@ -283,8 +320,6 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   });
   const [answer, setAnswer] = useState<ApiDynamicTrialAnswer | null>(null);
   const [coachText, setCoachText] = useState<string | null>(null);
-  const [showAbilityUpdate, setShowAbilityUpdate] = useState(false);
-  const [abilityUpdatesConfirmed, setAbilityUpdatesConfirmed] = useState(false);
   const [demoSubmitted, setDemoSubmitted] = useState(false);
   const [demoCompletedStepIds, setDemoCompletedStepIds] = useState<string[]>([]);
   const [workbenchActive, setWorkbenchActive] = useState(false);
@@ -516,29 +551,14 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
           transition={{ type: 'spring', stiffness: 280, damping: 30, mass: 0.8 }}
           className="block"
         >
-          {showAbilityUpdate ? (
-            <TrialExperienceEndScreen
-              initialCards={deriveTrialUpdateCards(task, evaluation, confirmedCards)}
-              allAccumulatedCards={confirmedCards}
-              onUpdateDeckSuccess={async cards => {
-                await onUpdateCardsFromTrial?.(cards);
-                setAbilityUpdatesConfirmed(true);
-              }}
-              onAddExperience={onBackToExplore}
-              onContinueExplore={onBackToExplore}
-              onEnterProfile={onEnterProfile}
-            />
-          ) : (
-            <TrialEvaluationView
-              task={task}
-              evaluation={evaluation}
-              observedEvidence={observedEvidence}
-              onBackToExplore={onBackToExplore}
-              onEnterProfile={onEnterProfile}
-              onOpenAbilityUpdate={() => setShowAbilityUpdate(true)}
-              abilityUpdatesConfirmed={abilityUpdatesConfirmed}
-            />
-          )}
+          <AutomaticTrialAbilityUpdate
+            task={task}
+            evaluation={evaluation}
+            confirmedCards={confirmedCards}
+            onUpdateCards={onUpdateCardsFromTrial}
+            onEnterProfile={onEnterProfile}
+            onContinueExplore={onBackToExplore}
+          />
         </motion.div>
       ) : phase === 'card-play' ? (
         <motion.div

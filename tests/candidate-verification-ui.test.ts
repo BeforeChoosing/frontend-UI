@@ -73,23 +73,12 @@ test('追问输入提示采用随心输入，保留既有回车提交处理', ()
   assert.match(source, /handleExperienceComposerKeyDown/);
 });
 
-test('03 评价后提供 Demo 同款能力卡更新环节', () => {
+test('完成 03 后自动更新能力卡并直接进入 Demo 卡池结果页', () => {
   const dynamicSource = readFileSync(new URL('../src/components/DynamicTrialTaskScreen.tsx', import.meta.url), 'utf8');
   const endSource = readFileSync(new URL('../src/components/TrialExperienceEndScreen.tsx', import.meta.url), 'utf8');
-  assert.match(dynamicSource, /TrialExperienceEndScreen/);
-  assert.match(dynamicSource, /onUpdateCardsFromTrial/);
-  for (const label of [
-    '04 · 实战复盘认证',
-    '本轮实战提取能力卡片',
-    '认可',
-    '待定',
-    '排除',
-    '补充经历',
-    '重新分析',
-    '更新能力库',
-    '进入我的档案',
-    '继续探索其他职业',
-  ]) assert.ok(endSource.includes(label));
-  assert.match(endSource, /viewMode.*added_pool/);
-  assert.match(endSource, /onUpdateDeckSuccess/);
+  assert.match(dynamicSource, /AutomaticTrialAbilityUpdate/);
+  assert.match(dynamicSource, /Promise\.resolve\(onUpdateCards\?\.\(updatedCards\)\)/);
+  assert.match(dynamicSource, /onUpdateCards=\{onUpdateCardsFromTrial\}/);
+  for (const label of ['能力库已成功同步更新', '进入我的档案', '继续探索其他职业']) assert.ok(endSource.includes(label));
+  assert.doesNotMatch(endSource, /更新能力库|认可|待定|排除/);
 });
