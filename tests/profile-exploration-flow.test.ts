@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const experienceSource = readFileSync(new URL('../src/components/ExperienceInputScreen.tsx', import.meta.url), 'utf8');
+const profileSkillsSource = readFileSync(new URL('../src/features/profile/profileSkills.ts', import.meta.url), 'utf8');
 const explorationHookSource = readFileSync(new URL('../src/hooks/useProfileExploration.ts', import.meta.url), 'utf8');
 const profileApiSource = readFileSync(new URL('../src/api/profile.ts', import.meta.url), 'utf8');
 const trialScreenSource = readFileSync(new URL('../src/components/DynamicTrialTaskScreen.tsx', import.meta.url), 'utf8');
@@ -12,7 +13,7 @@ const verificationSource = readFileSync(new URL('../src/components/AbilityCardVe
 test('01 使用完整聊天记录、单一输入框和对话附件建立候选证据', () => {
   assert.match(experienceSource, /const \[coachInput, setCoachInput\]/);
   assert.equal(experienceSource.match(/<textarea/g)?.length, 1);
-  assert.match(experienceSource, /Enter 发送/);
+  assert.match(experienceSource, /Enter \{demoMode && demoProbingActive \? '提交' : '发送'\}/);
   assert.match(experienceSource, /Shift\+Enter 换行/);
   assert.doesNotMatch(experienceSource, /handleSendMessage/);
   assert.match(experienceSource, /整段用户对话和附件正文/);
@@ -29,17 +30,31 @@ test('01 使用完整聊天记录、单一输入框和对话附件建立候选�
   assert.match(verificationSource, /onWithdrawConfirmedCard/);
 });
 
-test('01 探索目标与英文斜杠指令接入现有分析链路', () => {
+test('01 探索目标与英文斜杠 Skills 接入现有分析链路', () => {
   assert.match(experienceSource, /我有目标职业/);
   assert.match(experienceSource, /我还没有明确方向/);
   assert.match(experienceSource, /target_role: targetCareerState === 'has_target'/);
-  assert.match(experienceSource, /command: '\/extract'/);
-  assert.match(experienceSource, /command: '\/experience'/);
-  assert.match(experienceSource, /command: '\/target'/);
-  assert.match(experienceSource, /executeQuickCommand/);
-  assert.match(experienceSource, /auditEvent\('profile_quick_command'/);
-  assert.match(experienceSource, /指令不作为对话发送/);
+  assert.match(profileSkillsSource, /command: '\/extract'/);
+  assert.match(profileSkillsSource, /command: '\/experience'/);
+  assert.match(profileSkillsSource, /command: '\/target'/);
+  assert.match(profileSkillsSource, /requiresEvidence/);
+  assert.match(profileSkillsSource, /outcome: 'candidate-cards'/);
+  assert.match(experienceSource, /executeProfileSkill/);
+  assert.match(experienceSource, /auditEvent\('profile_skill_invoked'/);
+  assert.match(experienceSource, /Skill 不作为对话发送/);
   assert.match(experienceSource, /coachInput\.trim\(\)\.startsWith\('\/'\)/);
+});
+
+test('演示模式固定回复后进入四轮成长陪伴追问且不调用模型', () => {
+  assert.match(experienceSource, /const DEMO_PROBING_REPLY/);
+  assert.match(experienceSource, /const DEMO_PROBING_ROUNDS/);
+  assert.match(experienceSource, /window\.setInterval/);
+  assert.match(experienceSource, /prefers-reduced-motion/);
+  assert.match(experienceSource, /if \(demoMode\) \{/);
+  assert.match(experienceSource, /setDemoProbingActive\(true\)/);
+  assert.match(experienceSource, /成长陪伴 Agent · 经历深度挖掘/);
+  assert.match(experienceSource, /第 \{demoProbingRoundIndex \+ 1\}\/4 轮追问/);
+  assert.ok(experienceSource.indexOf('if (demoMode) {') < experienceSource.indexOf('const response = await exploreProfile'));
 });
 
 test('进入 03 时先恢复三轮挑战，再由用户进入任务简报', () => {

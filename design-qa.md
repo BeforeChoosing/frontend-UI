@@ -44,24 +44,28 @@ final result: passed
 
 ---
 
-# Design QA: 01 探索目标与快捷指令
+# Design QA: 01 探索目标、Profile Skills 与成长陪伴追问
 
-- Source visual truth: `codex-clipboard-7ac9b57a-297a-48a0-be76-5e4cd5b6308d.png`, `codex-clipboard-5c77d0b8-d4e3-4aeb-a88d-0950483a73bb.png`, `codex-clipboard-247249f1-bc8a-4643-abea-97e3619c4367.png`
+- Source visual truth: `codex-clipboard-7ac9b57a-297a-48a0-be76-5e4cd5b6308d.png`, `codex-clipboard-5c77d0b8-d4e3-4aeb-a88d-0950483a73bb.png`, `codex-clipboard-247249f1-bc8a-4643-abea-97e3619c4367.png`, `codex-clipboard-e95c7941-367e-4150-a517-6bfea38f8a88.png`, `codex-clipboard-cff09ac4-7aa8-436d-b141-fef93c1e7bcf.png`, `codex-clipboard-8a051c75-7c78-44ed-bba5-d3e29222d6bc.png`, `codex-clipboard-6ccdd29a-85d9-4018-b5c3-ec53c0745910.png`
 - State: 演示模式·01 认识自己·已预填「AI 产品经理」。
 - Viewports: 默认桌面视口与 390 × 844 窄屏视口。
 
 ## Required fidelity surfaces
 
 - 探索目标保留双选项胶囊，已选状态使用深色填充；有目标时展示可编辑岗位。
-- 快捷指令使用独立弹层，命令统一为 `/extract`、`/experience`、`/target`。
-- 输入框输入 `/` 时打开指令菜单；完整命令按 Enter 后执行对应操作，不会追加为聊天消息。
-- 390 px 宽度下，双选项、岗位标签、快捷指令与发送区域均可见，无横向溢出。
+- 目标岗位编辑态采用完整胶囊容器、显式确认和取消操作，不再显示浏览器原生矩形输入框。
+- Profile Skills 使用独立弹层，Skill 统一为 `/extract`、`/experience`、`/target`，并声明前置条件与输出边界。
+- 输入框输入 `/` 时打开 Skill 菜单；完整 Skill 按 Enter 后执行对应操作，不会追加为聊天消息。
+- 演示模式发送预填经历后先显示固定打字机回复，再进入四轮成长陪伴追问；四轮均由用户实际选择或填写。
+- 390 px 宽度下，目标选项、岗位标签、四轮追问卡与输入区域均可见，无横向溢出（`scrollWidth === clientWidth`）。
 
 ## Runtime checks
 
-- `/target` 执行后输入框清空，目标岗位编辑框获得焦点。
-- 正式模式执行指令时复用现有审计接口记录 `profile_quick_command` 事件；演示模式不落库。
+- `/target` 执行后输入框清空，目标岗位编辑框获得焦点；Enter 确认，Escape 取消。
+- 正式模式执行 Skill 时复用现有审计接口记录 `profile_skill_invoked` 事件；演示模式不落库。
+- 演示固定回复在进入 `exploreProfile` 前完成分流，不产生 Qwen 调用；系统减少动态效果时直接展示完整回复。
+- 四轮追问全部完成后进入候选能力卡确认页。
 - 页面控制台无 error 日志。
-- TypeScript 检查、20 项状态回归与生产构建通过。
+- TypeScript 检查、21 项状态回归与生产构建通过。
 
 final result: passed
