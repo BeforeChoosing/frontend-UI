@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useDynamicTrialTask } from '../hooks/useDynamicTrialTask';
+import { getDynamicTrialCatalog } from '../api/trial';
 import type { SkillCard } from '../types';
 import type {
   ApiDynamicTrialAnswer,
@@ -11,6 +12,7 @@ import type {
 } from '../types/api';
 import { TrialCardPlayScreen } from './TrialCardPlayScreen';
 import { TrialWorkbenchScreen } from './TrialWorkbenchScreen';
+import { TrialTaskMapScreen } from './TrialTaskMapScreen';
 import { trialStepKey } from '../services/demoProgress';
 import {
   createDemoObservedEvidence,
@@ -231,9 +233,15 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   demoMode = false,
 }) => {
   const progressMode = demoMode ? 'demo' : 'use';
-  const { task, session, status, error, save, revealEvent, requestCoach, submit } = useDynamicTrialTask(taskId, progressMode);
+  const [activeTaskId, setActiveTaskId] = useState<TrialTaskId>(taskId);
+  const [selectedMapTaskId, setSelectedMapTaskId] = useState<TrialTaskId>(taskId);
+  const [showTaskMap, setShowTaskMap] = useState(true);
+  const [taskCatalog, setTaskCatalog] = useState<ApiTrialTaskDefinition[]>([]);
+  const [taskCatalogStatus, setTaskCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [taskCatalogError, setTaskCatalogError] = useState<string | null>(null);
+  const { task, session, status, error, save, revealEvent, requestCoach, submit } = useDynamicTrialTask(activeTaskId, progressMode);
   const [stepIndex, setStepIndex] = useState(() => {
-    const saved = Number(window.localStorage.getItem(trialStepKey(taskId, progressMode)));
+    const saved = Number(window.localStorage.getItem(trialStepKey(activeTaskId, progressMode)));
     return Number.isInteger(saved) && saved >= 0 && saved < 5 ? saved : 0;
   });
   const [answer, setAnswer] = useState<ApiDynamicTrialAnswer | null>(null);
@@ -244,6 +252,31 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const [phase, setPhase] = useState<'card-play' | 'workbench'>('card-play');
   const initializedSessionRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    setActiveTaskId(taskId);
+    setSelectedMapTaskId(taskId);
+    setShowTaskMap(true);
+    initializedSessionRef.current = null;
+  }, [progressMode, taskId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTaskCatalogStatus('loading');
+    setTaskCatalogError(null);
+    void getDynamicTrialCatalog()
+      .then(tasks => {
+        if (cancelled) return;
+        setTaskCatalog(tasks);
+        setTaskCatalogStatus('ready');
+      })
+      .catch(cause => {
+        if (cancelled) return;
+        setTaskCatalogStatus('error');
+        setTaskCatalogError(cause instanceof Error ? cause.message : '试路任务目录加载失败。');
+      });
+    return () => { cancelled = true; };
+  }, [progressMode]);
+
   const demoAnswer = useMemo(() => demoMode && task ? createDemoTrialAnswer(task) : null, [demoMode, task]);
 
   useEffect(() => {
@@ -253,7 +286,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
 
   useEffect(() => {
     if (!session || !task) return;
-    const initializationKey = `${progressMode}:${session.id}:${taskId}`;
+    const initializationKey = `${progressMode}:${session.id}:${activeTaskId}`;
     if (initializedSessionRef.current === initializationKey) return;
     initializedSessionRef.current = initializationKey;
 
@@ -266,20 +299,20 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
       setDemoCompletedStepIds([]);
       setPhase('card-play');
       setStepIndex(0);
-      window.localStorage.setItem(trialStepKey(taskId, progressMode), '0');
+      window.localStorage.setItem(trialStepKey(activeTaskId, progressMode), '0');
       return;
     }
     // Entering 03 always returns to the three-challenge overview. Completed
     // rounds stay visible and the user explicitly continues to the briefing.
     setPhase('card-play');
-    const savedStep = Number(window.localStorage.getItem(trialStepKey(taskId, progressMode)));
+    const savedStep = Number(window.localStorage.getItem(trialStepKey(activeTaskId, progressMode)));
     if (Number.isInteger(savedStep) && savedStep >= 0 && savedStep < task.steps.length) {
       setStepIndex(savedStep);
     } else {
       const firstIncomplete = task.steps.findIndex(step => !nextAnswer.step_answers[step.id]?.trim());
       setStepIndex(firstIncomplete === -1 ? task.steps.length - 1 : firstIncomplete);
     }
-  }, [demoAnswer, demoMode, onFocusModeChange, progressMode, session, task, taskId]);
+  }, [activeTaskId, demoAnswer, demoMode, onFocusModeChange, progressMode, session, task]);
 
   useEffect(() => {
     if (phase === 'card-play') {
@@ -289,14 +322,38 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   }, [onFocusModeChange, phase]);
 
   useEffect(() => {
-    window.localStorage.setItem(trialStepKey(taskId, progressMode), String(stepIndex));
-  }, [progressMode, stepIndex, taskId]);
+    window.localStorage.setItem(trialStepKey(activeTaskId, progressMode), String(stepIndex));
+  }, [activeTaskId, progressMode, stepIndex]);
 
   useEffect(() => () => onFocusModeChange?.(false), [onFocusModeChange]);
 
   const isBusy = status === 'saving' || status === 'submitting';
 
-  if (!task || !session || !answer || status === 'loading') {
+  const mapTasks = useMemo(() => {
+    const byId = new Map(taskCatalog.map(item => [item.id, item]));
+    if (task && !byId.has(task.id)) byId.set(task.id, task);
+    return Array.from(byId.values());
+  }, [task, taskCatalog]);
+
+  if (showTaskMap) {
+    return (
+      <TrialTaskMapScreen
+        tasks={mapTasks}
+        selectedTaskId={selectedMapTaskId}
+        loading={taskCatalogStatus === 'loading' && mapTasks.length === 0}
+        error={taskCatalogStatus === 'error' ? taskCatalogError : null}
+        onSelect={setSelectedMapTaskId}
+        onContinue={() => {
+          setActiveTaskId(selectedMapTaskId);
+          initializedSessionRef.current = null;
+          setShowTaskMap(false);
+        }}
+        onBack={onBackToExplore}
+      />
+    );
+  }
+
+  if (!task || task.id !== activeTaskId || !session || session.task_id !== activeTaskId || !answer || status === 'loading') {
     return <div className="grid min-h-[calc(100vh-64px)] place-items-center text-sm text-stone-500">正在准备小任务…</div>;
   }
 
