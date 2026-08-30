@@ -27,6 +27,7 @@ interface DynamicTrialTaskScreenProps {
   onBackToExplore: () => void;
   onEnterProfile: () => void;
   onOpenCardDetail: (card: SkillCard) => void;
+  onTaskChange?: (taskId: TrialTaskId) => void;
   onTrialComplete?: () => Promise<unknown> | void;
   onFocusModeChange?: (focused: boolean) => void;
   demoMode?: boolean;
@@ -228,6 +229,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   onBackToExplore,
   onEnterProfile,
   onOpenCardDetail,
+  onTaskChange,
   onTrialComplete,
   onFocusModeChange,
   demoMode = false,
@@ -253,11 +255,12 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const initializedSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (taskId === activeTaskId) return;
     setActiveTaskId(taskId);
     setSelectedMapTaskId(taskId);
     setShowTaskMap(true);
     initializedSessionRef.current = null;
-  }, [progressMode, taskId]);
+  }, [activeTaskId, progressMode, taskId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -346,6 +349,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
         onContinue={() => {
           setActiveTaskId(selectedMapTaskId);
           initializedSessionRef.current = null;
+          onTaskChange?.(selectedMapTaskId);
           setShowTaskMap(false);
         }}
         onBack={onBackToExplore}

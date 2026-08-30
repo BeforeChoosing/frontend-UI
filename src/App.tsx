@@ -443,6 +443,7 @@ export default function App() {
                 onBackToExplore={() => setCurrentScreen('career-explore')}
                 onEnterProfile={() => setCurrentScreen('profile')}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
+                onTaskChange={setSelectedTrialTaskId}
                 onTrialComplete={refreshProfile}
                 onFocusModeChange={setIsStageTwoFocusMode}
               />
