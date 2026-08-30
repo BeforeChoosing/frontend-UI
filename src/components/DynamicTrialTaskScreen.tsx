@@ -345,11 +345,11 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
         selectedTaskId={selectedMapTaskId}
         loading={taskCatalogStatus === 'loading' && mapTasks.length === 0}
         error={taskCatalogStatus === 'error' ? taskCatalogError : null}
-        onSelect={setSelectedMapTaskId}
-        onContinue={() => {
-          setActiveTaskId(selectedMapTaskId);
+        onStart={(taskId) => {
+          setSelectedMapTaskId(taskId);
+          setActiveTaskId(taskId);
           initializedSessionRef.current = null;
-          onTaskChange?.(selectedMapTaskId);
+          onTaskChange?.(taskId);
           setShowTaskMap(false);
         }}
         onBack={onBackToExplore}

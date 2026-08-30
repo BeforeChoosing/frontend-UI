@@ -256,7 +256,120 @@ select:focus-visible {
   }
 }
 
+/* The first submitted experience opens a single viewport-bound conversation.
+   The existing navigation remains unchanged; only the transcript scrolls. */
+#root > div:has(.experience-screen[data-focused="true"]) {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#root > div:has(.experience-screen[data-focused="true"]) > header {
+  flex-shrink: 0;
+}
+
+main:has(.experience-screen[data-focused="true"]),
+main > div:has(> .experience-screen[data-focused="true"]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.experience-screen[data-focused="true"] {
+  flex: 1 1 0%;
+  min-height: 0;
+  width: 100%;
+  max-width: 1152px;
+  padding-top: 20px;
+  padding-bottom: 64px;
+}
+
+.experience-screen[data-focused="true"] .experience-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.experience-screen[data-focused="true"] .experience-layout > * {
+  margin-block: 0;
+}
+
+.experience-screen[data-focused="true"] .profile-chat-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 2px 8px 16px 2px;
+}
+
+.experience-screen[data-focused="true"] .profile-intro {
+  margin-bottom: 20px;
+}
+
+.experience-screen[data-focused="true"] .profile-composer {
+  position: relative;
+  z-index: 20;
+  flex: 0 0 auto;
+  border: 1px solid #e7e5e4;
+  border-radius: 24px;
+  padding: 12px 16px;
+  background: #fff;
+  box-shadow: 0 -4px 24px rgba(28, 26, 24, .04), 0 8px 20px rgba(28, 26, 24, .07);
+}
+
+.experience-screen[data-focused="true"] .profile-composer-card {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: none;
+}
+
+.experience-screen[data-focused="true"] .profile-intro:hover {
+  transform: none;
+}
+
+.experience-screen[data-focused="true"] .profile-composer-input {
+  height: 64px;
+  min-height: 64px;
+  flex: none;
+}
+
+.profile-composer-input:focus-visible {
+  outline: 2px solid #a7d8bf;
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.experience-screen[data-focused="true"] .profile-composer-note {
+  display: none;
+}
+
+.experience-screen[data-focused="true"] .profile-composer-footer {
+  margin-top: 8px;
+}
+
+@media (min-width: 1280px) {
+  .experience-screen[data-focused="true"] { padding-bottom: 16px; }
+}
+
 /* Custom smooth scrollbar */
+.trial-map-screen { min-height: calc(100dvh - 64px); }
+
+@media (min-width: 768px) {
+  .trial-map-screen {
+    height: calc(100dvh - 64px);
+    min-height: 640px;
+    max-height: 880px;
+  }
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
