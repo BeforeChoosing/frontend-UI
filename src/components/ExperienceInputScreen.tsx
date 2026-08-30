@@ -49,6 +49,7 @@ interface ExperienceInputScreenProps {
   demoMode?: boolean;
   demoCards?: SkillCard[];
   demoExperienceText?: string;
+  focusRequest?: number;
 }
 
 export interface ChatMessage {
@@ -613,6 +614,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   demoMode = false,
   demoCards = [],
   demoExperienceText = '',
+  focusRequest = 0,
 }) => {
   const [inputText, setInputText] = useState(() => (
     window.localStorage.getItem(explorationStorageKey(demoMode, 'evidence')) || ''
@@ -675,6 +677,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const demoTypingTimerRef = useRef<number | null>(null);
   const demoTransitionTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!focusRequest) return;
+    const frame = window.requestAnimationFrame(() => textareaRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequest]);
 
   const focusedConversationActive = messages.some(message => message.role === 'user');
 
@@ -1762,7 +1770,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   rows={6}
                   maxLength={3000}
                   placeholder={demoMode && demoProbingActive
-                    ? `输入你的回答（第 ${demoProbingRoundIndex + 1}/4 轮，按 Enter 提交）…`
+                    ? '随心输入'
                     : '分享一次印象深刻的经历。\n可以写项目、实习、比赛或长期兴趣。\n输入 / 使用 Skills。'}
                   aria-label="经历对话输入"
                   className="profile-composer-input min-h-[150px] w-full flex-1 resize-none bg-transparent px-1 text-sm leading-6 text-stone-900 outline-none placeholder:text-stone-400"

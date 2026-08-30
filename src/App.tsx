@@ -14,6 +14,7 @@ import { FigmaGuideModal } from './components/FigmaGuideModal';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { StageTransition } from './components/StageTransition';
 import { AppModeSwitcher } from './components/AppModeSwitcher';
+import { GrowthCompanionWidget } from './components/GrowthCompanionWidget';
 import { useProfileCards } from './hooks/useProfileCards';
 import type { ApiCareerRecommendation, ApiExperienceSummary, ProfileCardPatchRequest, TrialTaskId } from './types/api';
 import { loadDemoProgress, saveDemoProgress } from './services/demoProgress';
@@ -59,6 +60,7 @@ export default function App() {
   const [draftCards, setDraftCards] = useState<SkillCard[]>(initialProgress.draftCards);
   const [draftExperience, setDraftExperience] = useState<ApiExperienceSummary | null>(initialProgress.draftExperience);
   const [demoReplayId, setDemoReplayId] = useState(0);
+  const [profileFocusRequest, setProfileFocusRequest] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
@@ -372,6 +374,7 @@ export default function App() {
                 demoMode={appMode === 'demo'}
                 demoCards={DEMO_SKILL_CARDS.slice(0, 3)}
                 demoExperienceText={DEMO_EXPERIENCE_TEXT}
+                focusRequest={profileFocusRequest}
               />
             </StageTransition>
           )}
@@ -488,6 +491,17 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {!isStageTwoFocusMode && (appMode === 'demo' || auth.isLoggedIn) && (
+        <GrowthCompanionWidget
+          key={`growth-companion-${appMode}-${currentScreen}`}
+          inConversation={currentScreen === 'input-experience'}
+          onContinue={() => {
+            setCurrentScreen('input-experience');
+            setProfileFocusRequest(value => value + 1);
+          }}
+        />
+      )}
 
       {/* Modals & Overlays */}
       <AuthModal
