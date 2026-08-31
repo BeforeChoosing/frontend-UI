@@ -8,6 +8,12 @@ const experienceSource = readFileSync(new URL('../src/components/ExperienceInput
 const trialSource = readFileSync(new URL('../src/components/DynamicTrialTaskScreen.tsx', import.meta.url), 'utf8');
 const workbenchSource = readFileSync(new URL('../src/components/TrialWorkbenchScreen.tsx', import.meta.url), 'utf8');
 const landingSource = readFileSync(new URL('../src/components/LandingHero.tsx', import.meta.url), 'utf8');
+const apiClientSource = readFileSync(new URL('../src/api/client.ts', import.meta.url), 'utf8');
+
+test('生产默认使用同源 API，不会请求访问者电脑的 localhost', () => {
+  assert.match(apiClientSource, /VITE_API_BASE_URL \|\| '\/api\/v1'/);
+  assert.doesNotMatch(apiClientSource, /localhost:8000/);
+});
 
 test('运行模式显示为演示和正式', () => {
   assert.match(switcherSource, /'演示'\s*:\s*'正式'/);
