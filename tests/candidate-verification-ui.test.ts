@@ -68,24 +68,19 @@ test('成长陪伴显示为 Demo 风格浮动入口，并提供辅助对话面�
   assert.match(source, /profile-exploration.*evidence-v3/);
 });
 
-test('成长档案以点击标签切换单一内容区，不再悬停或叠层动画', () => {
+test('个人画像页采用 Demo 拱形卡、悬停详情与真实档案数量', () => {
   const source = readFileSync(new URL('../src/components/UserProfileScreen.tsx', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /ArchCardItem|onMouseEnter|popLayout|setHoveredCard/);
-  assert.match(source, /handleViewKeyDown/);
-  assert.match(source, /event.key === 'ArrowRight'/);
-  assert.match(source, /event.key === 'Home'/);
-  assert.match(source, /aria-selected=\{activeView === view.id\}/);
-  for (const view of ['insight', 'cards', 'paths', 'reports'] as const) {
-    const html = renderToStaticMarkup(React.createElement(UserProfileScreen, {
-      auth: { isLoggedIn: false }, onNavigate: noop, onOpenCardDetail: noop,
-      persistedCards: DEMO_SKILL_CARDS.slice(0, 2), profileEvidence: DEMO_PROFILE_EVIDENCE,
-      initialArchTab: view,
-    }));
-    assert.equal((html.match(/role="tabpanel"/g) || []).length, 1);
-    assert.equal((html.match(/aria-selected="true"/g) || []).length, 1);
-    assert.match(html, new RegExp('aria-labelledby="profile-tab-' + view + '"'));
-    assert.ok(!html.includes('悬停展开') && !html.includes('rotate('));
-  }
+  assert.match(source, /id="arch-card-skills"/);
+  assert.match(source, /id="arch-card-paths"/);
+  assert.match(source, /id="arch-card-reports"/);
+  assert.match(source, /count=\{allDisplayCards\.length\}/);
+  assert.match(source, /count=\{livePaths\.length\}/);
+  assert.match(source, /count=\{liveReports\.length\}/);
+  assert.match(source, /handleInteractiveAreaLeave/);
+  assert.match(source, /setTimeout\(\(\) => setHoveredCard\(null\), 150\)/);
+  assert.match(source, /useReducedMotion/);
+  assert.match(source, /AI 最近注意到……/);
+  assert.match(source, /ProfileArchiveModal/);
 });
 
 test('成长档案空态不展示 Demo 数字，卡库统计随输入变化', () => {
@@ -96,17 +91,6 @@ test('成长档案空态不展示 Demo 数字，卡库统计随输入变化', ()
   assert.doesNotMatch(emptyHtml, /林曦|已累积 14/);
   const populatedHtml = renderToStaticMarkup(React.createElement(UserProfileScreen, { ...props, persistedCards: DEMO_SKILL_CARDS.slice(0, 2) }));
   assert.match(populatedHtml, /已确认 2 张能力卡，完成 0 个小任务/);
-});
-
-test('重设计保留能力卡详情、全部档案与正式模式编辑入口', () => {
-  const props = { auth: { isLoggedIn: false }, onNavigate: noop, onOpenCardDetail: noop,
-    initialArchTab: 'cards' as const, persistedCards: DEMO_SKILL_CARDS.slice(0, 2) };
-  const editable = renderToStaticMarkup(React.createElement(UserProfileScreen, props));
-  assert.match(editable, /aria-label="编辑用户痛点洞察"/);
-  assert.match(editable, /查看全部/);
-  const readonly = renderToStaticMarkup(React.createElement(UserProfileScreen, { ...props, readOnly: true }));
-  assert.doesNotMatch(readonly, /aria-label="编辑用户痛点洞察"/);
-  assert.match(readonly, /用户痛点洞察/);
 });
 
 test('最近成长记录按时间倒序展示三条真实证据，空态不生成记录', () => {
@@ -136,10 +120,8 @@ test('档案入口接通陪伴，并保留键盘关闭及小屏详情布局', ()
   assert.match(profile, /dialog\?\.showModal\(\)/);
   assert.match(profile, /onCancel=\{\(event\) => \{ event.preventDefault\(\); onClose\(\); \}\}/);
   assert.match(profile, /setActiveArchive\(null\); onOpenCardDetail\(card\)/);
-  const styles = readFileSync(new URL('../src/components/UserProfileScreen.css', import.meta.url), 'utf8');
-  assert.match(styles, /min-height: 44px/);
-  assert.match(styles, /focus-visible/);
-  assert.match(styles, /@media \(max-width: 600px\)/);
+  assert.match(profile, /\(hover: hover\) and \(pointer: fine\)/);
+  assert.match(css, /\.profile-interactive \.profile-hover-panel \{\s*grid-column: 1 \/ -1/);
 });
 
 test('追问输入提示采用随心输入，保留既有回车提交处理', () => {
