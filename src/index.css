@@ -373,7 +373,13 @@ main > div:has(> .experience-screen[data-focused="true"]) {
 /* Keep the profile screen width identical before and after the first message. */
 .experience-screen {
   width: 100%;
-  max-width: 1152px;
+  max-width: 1024px;
+}
+
+.experience-screen .experience-layout {
+  width: 100%;
+  max-width: 1024px;
+  margin-inline: auto;
 }
 
 .experience-screen[data-focused="true"] {

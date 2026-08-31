@@ -1661,7 +1661,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         >
           <div className="profile-composer-card relative flex w-full flex-col gap-2 rounded-2xl border border-stone-200/90 bg-white p-2.5 shadow-lg sm:rounded-3xl sm:p-3.5">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-2">
-              <div className="relative">
+              <div className="flex min-w-0 flex-wrap items-center gap-1 sm:gap-1.5">
+                <div className="relative">
                 <button
                   type="button"
                   onClick={() => {
@@ -1712,6 +1713,24 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     </motion.div>
                   )}
                 </AnimatePresence>
+                </div>
+                <div className="flex min-w-0 items-center gap-1 overflow-x-auto pb-0.5 sm:overflow-visible">
+                  {PRESET_EXPERIENCES.map(preset => {
+                    const isSelected = selectedPresetId === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleSelectPreset(preset)}
+                        className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] transition ${isSelected
+                          ? 'border-stone-900 bg-stone-900 font-medium text-white'
+                          : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'}`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="flex items-center gap-1.5">
                 <button type="button" onClick={handleTriggerUpload} className="relative flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-2 py-1 text-[11px] font-medium text-stone-700 transition hover:bg-stone-50" title="引用简历或项目材料">
