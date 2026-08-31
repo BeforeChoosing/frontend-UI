@@ -68,9 +68,9 @@ export interface ChatMessage {
 const INITIAL_CHAT_MESSAGE: ChatMessage = {
   id: 'msg-init',
   role: 'ai',
-  content: '我们可以从一段对你有意义的经历开始。你也可以附上简历或项目材料，我会根据你提供的事实，和你一起把其中的行动与能力线索理清。',
+  content: '你好！分享一段过往经历（一次校园项目、一段长期热爱、一次重要选择或突发协调）。你可以直接在下方控制台输入或使用快捷指令，我会陪你下钻追问并提炼能力卡。',
   timestamp: '刚刚',
-  detectedSignals: ['等待你的真实故事', '支持连续对话', '可以附加材料'],
+  detectedSignals: [],
 };
 
 const EXPLORATION_FOCUS_LABELS = {
@@ -669,6 +669,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     explore: exploreProfile,
     status: explorationStatus,
     error: explorationError,
+    queueStatus,
+    cancel: cancelExploration,
     reset: resetExploration,
   } = useProfileExploration();
 
@@ -744,8 +746,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     );
   }, [demoMode, targetRole]);
 
-  const handleRestartDemoConversation = () => {
-    if (!demoMode || explorationStatus === 'loading') return;
+  const handleNewBlankConversation = async () => {
+    if (explorationStatus === 'loading') await cancelExploration();
     setInputText('');
     setCoachInput(demoExperienceText);
     setSelectedPresetId(null);
@@ -770,6 +772,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     if (demoTransitionTimerRef.current !== null) window.clearTimeout(demoTransitionTimerRef.current);
     setIsChatExpanded(true);
     resetExploration();
+    if (!demoMode) void auditEvent('profile.conversation.new', 'profile-exploration');
     textareaRef.current?.focus();
   };
 
@@ -1402,7 +1405,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   );
 
   return (
-    <div className="experience-screen min-h-[calc(100vh-64px)] flex flex-col justify-between max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 relative" data-focused={focusedConversationActive}>
+    <div className="experience-screen h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] flex flex-col justify-between max-w-4xl mx-auto px-3 sm:px-6 py-2 sm:py-3.5 relative overflow-hidden" data-focused={focusedConversationActive}>
       
       {/* Background Soft Glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -1410,43 +1413,42 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-stone-100/60 blur-3xl" />
       </div>
 
-      <div className="experience-layout space-y-4 sm:space-y-6 relative z-10">
-        <div ref={chatScrollRef} className="profile-chat-scroll" tabIndex={focusedConversationActive ? 0 : undefined} aria-label="经历对话滚动区域">
+      <div className="experience-layout flex min-h-0 flex-1 flex-col justify-between gap-3 relative z-10">
+        <div ref={chatScrollRef} className="profile-chat-scroll min-h-0 flex-1 overflow-y-auto space-y-3.5 pr-1.5 pb-3 custom-scrollbar" tabIndex={focusedConversationActive ? 0 : undefined} aria-label="经历对话滚动区域">
         
         {/* Profile assistant conversation */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="profile-intro craft-card relative flex w-full flex-col gap-4 rounded-2xl border border-stone-200/50 bg-white/88 p-4 backdrop-blur-xl sm:rounded-3xl sm:p-6"
+          className="profile-intro relative flex w-full flex-col"
         >
           {/* Main Top Header Line */}
-          <div className="flex items-start gap-3.5 sm:gap-5">
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-stone-100 text-stone-700 flex items-center justify-center shrink-0 border border-stone-200/60">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-stone-900 text-emerald-300 flex items-center justify-center shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-300" />
-              </div>
+          <div className="flex w-full items-start gap-3">
+            <div className="relative mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-800 bg-stone-900 text-white shadow-sm">
+              <Sparkles className="h-4 w-4 text-emerald-400" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 ring-1 ring-emerald-500/20" />
             </div>
 
-            <div className="min-w-0 flex-1 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1 space-y-2.5 rounded-2xl border border-stone-200/80 bg-white p-3.5 shadow-sm sm:rounded-3xl sm:p-4">
+              <div className="flex items-center justify-between gap-2 border-b border-stone-100 pb-2">
                 <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight flex items-center gap-2">
                   <span>成长陪伴 Agent · 经历深度挖掘</span>
-                  <span className="craft-chip-green text-[10px] font-medium px-2 py-0.5 rounded-full font-mono">
-                    01 · 认识自己
+                  <span className="rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 font-mono text-[9.5px] font-semibold text-stone-700">
+                    <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />对话探索
                   </span>
                 </h2>
                 
                 <div className="flex items-center gap-3">
-                  {demoMode && (
+                  {!focusedConversationActive && <span className="text-[10px] text-stone-500">还原真实决策与隐性胜任力</span>}
+                  {focusedConversationActive && (
                     <button
                       type="button"
-                      onClick={handleRestartDemoConversation}
-                      disabled={explorationStatus === 'loading'}
-                      className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-stone-500 transition hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => void handleNewBlankConversation()}
+                      className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-stone-500 transition hover:text-stone-800"
                     >
-                      <RotateCcw className="h-3 w-3" />
-                      <span>重新开始对话</span>
+                      <FilePlus className="h-3 w-3" />
+                      <span>新建空白对话</span>
                     </button>
                   )}
                   {!focusedConversationActive && messages.length > 2 && (
@@ -1531,9 +1533,6 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   )}
                 </div>
               )}
-
-            </div>
-          </div>
 
           <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3 text-xs">
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-stone-600">
@@ -1638,24 +1637,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               )
             )}
           </div>
-
-          {/* Quick upload guide prompt bar */}
-          {!focusedConversationActive && <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-stone-100 text-[11px] text-stone-600">
-            <div className="flex items-center gap-1.5">
-              <span className="text-stone-400">💡 提示：</span>
-              <span>可以在下方连续交流，也可以通过附件补充简历或项目材料。</span>
             </div>
-            <button
-              onClick={() => {
-                setUploadTab('resume');
-                handleTriggerUpload();
-              }}
-              className="text-stone-800 hover:text-stone-950 font-medium underline underline-offset-2 flex items-center gap-1 cursor-pointer"
-            >
-              <span>引导上传简历 / 项目材料</span>
-              <ExternalLink className="w-3 h-3" />
-            </button>
-          </div>}
+          </div>
 
         </motion.div>
 
@@ -1667,9 +1650,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.05 }}
-          className="profile-composer space-y-3"
+          className="profile-composer shrink-0"
         >
-          <div className="profile-composer-card craft-card relative flex min-h-[220px] w-full flex-col gap-3 rounded-3xl border border-stone-200/50 bg-white/90 p-4 backdrop-blur-xl sm:p-5">
+          <div className="profile-composer-card relative flex w-full flex-col gap-2 rounded-2xl border border-stone-200/90 bg-white p-2.5 shadow-lg sm:rounded-3xl sm:p-3.5">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-2">
               <div className="relative">
                 <button
@@ -1683,7 +1666,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   aria-controls="profile-skill-menu"
                 >
                   <Zap className="h-3.5 w-3.5 text-emerald-300" />
-                  Skills
+                  快捷指令
                   <ChevronDown className={`h-3 w-3 transition-transform ${showCommandsMenu ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -1697,7 +1680,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                       transition={{ duration: 0.16 }}
                       className="absolute bottom-full left-0 z-40 mb-2 w-72 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl"
                     >
-                      <p className="px-2 py-1 text-[10px] font-semibold tracking-wide text-stone-500">成长陪伴 Agent · Profile Skills</p>
+                      <p className="px-2 py-1 text-[10px] font-semibold tracking-wide text-stone-500">职业能力分析快捷指令</p>
                       {PROFILE_SKILLS.map(skill => {
                         const Icon = skill.command === '/extract'
                           ? Sparkles
@@ -1723,30 +1706,18 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   )}
                 </AnimatePresence>
               </div>
-              <span className="text-[10px] text-stone-400">输入 / 调用已定义 Skill，Skill 不作为对话发送</span>
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={handleTriggerUpload} className="relative flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-2 py-1 text-[11px] font-medium text-stone-700 transition hover:bg-stone-50" title="引用简历或项目材料">
+                  <Paperclip className="h-3 w-3" /><span>引用材料</span>
+                  {uploadedFiles.length > 0 && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-stone-900 text-[9px] text-white">{uploadedFiles.length}</span>}
+                </button>
+                <button type="button" onClick={handleToggleVoice} className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition ${isRecording ? 'border-rose-600 bg-rose-500 text-white' : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'}`}>
+                  {isRecording ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}<span>{isRecording ? '录音中…' : '语音'}</span>
+                </button>
+              </div>
             </div>
 
-            <div className="flex min-h-0 flex-1 items-stretch gap-3.5">
-              <div className="flex shrink-0 flex-col items-center gap-2 border-r border-stone-100 pr-3.5 pt-0.5">
-              <button
-                type="button"
-                onClick={handleTriggerUpload}
-                title="在对话中附加简历或项目材料"
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200/50 bg-stone-50 text-stone-700 transition hover:bg-stone-100"
-              >
-                <Paperclip className="h-4 w-4" />
-                {uploadedFiles.length > 0 && <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] text-white">{uploadedFiles.length}</span>}
-              </button>
-              <button
-                type="button"
-                onClick={handleToggleVoice}
-                title="语音输入"
-                className={`flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200/50 transition ${isRecording ? 'bg-rose-500 text-white' : 'bg-stone-50 text-stone-700 hover:bg-stone-100'}`}
-              >
-                {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-              </button>
-              </div>
-
+            <div className="flex min-h-0 flex-1 items-stretch gap-2 rounded-xl border border-stone-200/90 p-1.5 shadow-sm transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 sm:rounded-2xl sm:p-2">
               <div className="flex min-w-0 flex-1 flex-col">
                 {voiceNotice && <p className="mb-2 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs text-emerald-900">{voiceNotice}</p>}
                 {commandNotice && <p className="mb-2 rounded-lg bg-amber-50 px-2.5 py-1 text-xs text-amber-900">{commandNotice}</p>}
@@ -1767,13 +1738,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     if (selectedPresetId) setSelectedPresetId(null);
                   }}
                   onKeyDown={handleExperienceComposerKeyDown}
-                  rows={6}
+                  rows={2}
                   maxLength={3000}
                   placeholder={demoMode && demoProbingActive
                     ? '随心输入'
-                    : '分享一次印象深刻的经历。\n可以写项目、实习、比赛或长期兴趣。\n输入 / 使用 Skills。'}
+                    : '描述一段经历事实（发生了什么、遇到了什么挑战、你怎么解决的），按 Enter 发送开启深度追问…'}
                   aria-label="经历对话输入"
-                  className="profile-composer-input min-h-[150px] w-full flex-1 resize-none bg-transparent px-1 text-sm leading-6 text-stone-900 outline-none placeholder:text-stone-400"
+                  className="profile-composer-input max-h-20 min-h-[52px] w-full flex-1 resize-none bg-transparent px-1 py-0.5 text-sm leading-6 text-stone-900 outline-none placeholder:text-stone-400"
                 />
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3 text-[10px] text-stone-400">
                   <span>{demoMode && demoProbingActive
@@ -1803,105 +1774,48 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   </div>
                 </div>
                 {explorationError && <p role="alert" className="mt-2 text-[10px] text-rose-700">{explorationError}</p>}
+                {explorationStatus === 'loading' && queueStatus && (
+                  <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-950" role="status" aria-live="polite">
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin text-amber-700" />
+                      {queueStatus.state === 'queued'
+                        ? queueStatus.ahead > 0
+                          ? `排队中，前方还有 ${queueStatus.ahead} 个请求`
+                          : '已进入队列，正在等待处理'
+                        : queueStatus.state === 'running'
+                          ? '已轮到你，Agent 正在处理…'
+                          : '正在取消请求…'}
+                    </span>
+                    {queueStatus.can_cancel && (
+                      <button type="button" onClick={() => void cancelExploration()} className="shrink-0 rounded-full border border-amber-300 bg-white px-2.5 py-1 font-medium text-amber-900 transition hover:bg-amber-100">
+                        取消
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <p className="profile-composer-note text-center text-[11px] text-stone-500">
-            {demoMode && demoProbingActive
-              ? '每轮回答都会并入当前经历证据，四轮完成后生成候选能力卡。'
-              : '整段用户对话和附件正文共同构成候选卡的证据来源。'}
-          </p>
-
-          {!focusedConversationActive && <div className="space-y-2 pt-1 text-center">
-            <p className="font-serif text-sm text-stone-900">快速开始</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {PRESET_EXPERIENCES.map(preset => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => handleSelectPreset(preset)}
-                  className={`truncate rounded-full border px-3 py-2 text-xs transition ${selectedPresetId === preset.id ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 bg-white/80 text-stone-700 hover:border-stone-400'}`}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-          </div>}
-
-          {focusedConversationActive && (
-            <div className="profile-composer-footer flex items-center justify-between pt-1 text-[11px] text-stone-500">
-              <span>{demoProbingActive ? `第 ${demoProbingRoundIndex + 1}/4 轮追问` : `已交流 ${messages.filter(message => message.role === 'user').length} 轮`}</span>
+          <div className="profile-composer-footer flex items-center justify-between px-1 pt-0.5 text-[10.5px] text-stone-500">
+              <span>{focusedConversationActive
+                ? demoProbingActive ? `第 ${demoProbingRoundIndex + 1}/4 轮追问` : `已交流 ${messages.filter(message => message.role === 'user').length} 轮`
+                : `已输入 ${coachInput.length} 字`}</span>
               <button
                 type="button"
                 onClick={() => void handleStartAnalysis(demoProbingActive ? demoProbingInput : coachInput.trim().startsWith('/') ? '' : coachInput)}
                 disabled={isAnalyzing || explorationStatus === 'loading' || isDemoReplying}
                 className="font-medium text-stone-800 transition hover:text-black"
               >
-                提前生成能力卡 →
+                {focusedConversationActive ? '提前生成能力卡' : '跳过追问，直接生成能力卡'} →
               </button>
-            </div>
-          )}
-          {focusedConversationActive && analysisError && (
+          </div>
+          {analysisError && (
             <p role="alert" className="mt-2 text-xs text-rose-800">{analysisError}</p>
           )}
         </motion.div>
 
       </div>
-
-      {/* 
-        ======================================================================
-        4. BOTTOM CENTER CALL-TO-ACTION BUTTON (分析经历)
-        ======================================================================
-      */}
-      {!focusedConversationActive && <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.15 }}
-        className="pt-6 pb-2 flex flex-col items-center justify-center gap-3 relative z-10"
-      >
-        <button
-          onClick={() => void handleStartAnalysis()}
-          disabled={!inputText.trim() || isAnalyzing}
-          className={`w-full sm:w-64 py-3.5 px-8 rounded-full font-medium text-sm sm:text-base transition-all duration-200 cursor-pointer shadow-sm flex items-center justify-center gap-2 ${
-            inputText.trim() && !isAnalyzing
-              ? 'bg-stone-900 hover:bg-black text-white active:scale-98'
-              : 'bg-stone-200/80 text-stone-400 cursor-not-allowed'
-          }`}
-          id="btn-analyze-experience"
-        >
-          {isAnalyzing ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin text-white" />
-              <span className="text-white text-sm font-normal">
-                {analysisStep || '正在整理经历…'}
-              </span>
-            </>
-          ) : (
-            <span className="tracking-wide text-white font-medium">
-              分析经历
-            </span>
-          )}
-        </button>
-
-        {analysisError && (
-          <div
-            role="alert"
-            className="max-w-xl rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-center text-xs leading-relaxed text-rose-800"
-          >
-            {analysisError}
-          </div>
-        )}
-
-        {/* Back Link */}
-        <button
-          onClick={onBackToLanding}
-          className="text-xs text-stone-400 hover:text-stone-700 transition cursor-pointer font-normal"
-        >
-          ← 返回首页
-        </button>
-      </motion.div>}
-
       {/* 
         ======================================================================
         5. MODAL: GUIDED FILE / RESUME / PORTFOLIO UPLOAD MODAL

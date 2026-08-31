@@ -20,8 +20,8 @@ test('01 使用完整聊天记录、单一输入框和对话附件建立候选�
   assert.match(experienceSource, /Enter \{demoMode && demoProbingActive \? '提交' : '发送'\}/);
   assert.match(experienceSource, /Shift\+Enter 换行/);
   assert.doesNotMatch(experienceSource, /handleSendMessage/);
-  assert.match(experienceSource, /整段用户对话和附件正文/);
-  assert.match(experienceSource, /和你一起把其中的行动与能力线索理清/);
+  assert.match(experienceSource, /附件和文字都会进入当前对话记录/);
+  assert.match(experienceSource, /我会陪你下钻追问并提炼能力卡/);
   assert.match(explorationHookSource, /你刚才发送的内容已经保留/);
   assert.match(explorationHookSource, /cause instanceof Error \? cause\.message/);
   assert.match(experienceSource, /handleTriggerUpload/);
@@ -35,7 +35,7 @@ test('01 使用完整聊天记录、单一输入框和对话附件建立候选�
   assert.match(verificationSource, /onWithdrawConfirmedCard/);
 });
 
-test('01 探索目标与英文斜杠 Skills 接入现有分析链路', () => {
+test('01 探索目标与斜杠快捷指令接入现有分析链路', () => {
   assert.match(experienceSource, /我有目标职业/);
   assert.match(experienceSource, /我还没有明确方向/);
   assert.match(experienceSource, /target_role: targetCareerState === 'has_target'/);
@@ -46,7 +46,7 @@ test('01 探索目标与英文斜杠 Skills 接入现有分析链路', () => {
   assert.match(profileSkillsSource, /outcome: 'candidate-cards'/);
   assert.match(experienceSource, /executeProfileSkill/);
   assert.match(experienceSource, /auditEvent\('profile_skill_invoked'/);
-  assert.match(experienceSource, /Skill 不作为对话发送/);
+  assert.match(experienceSource, /快捷指令/);
   assert.match(experienceSource, /coachInput\.trim\(\)\.startsWith\('\/'\)/);
 });
 

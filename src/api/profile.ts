@@ -14,10 +14,12 @@ import type {
 
 export function createProfileExplorationMessage(
   request: ProfileExplorationRequest,
+  signal?: AbortSignal,
 ): Promise<ProfileExplorationResponse> {
   return apiRequest<ProfileExplorationResponse>('/profile/exploration/messages', {
     method: 'POST',
     body: JSON.stringify(request),
+    signal,
   });
 }
 

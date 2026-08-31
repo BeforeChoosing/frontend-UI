@@ -88,7 +88,8 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
       ...init,
       headers: requestHeaders(init?.headers),
     });
-  } catch {
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
     throw new ApiClientError('暂时无法连接服务，请检查网络后重试。');
   }
 
@@ -117,7 +118,8 @@ export async function apiFormRequest<T>(path: string, form: FormData): Promise<T
       },
       body: form,
     });
-  } catch {
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
     throw new ApiClientError('暂时无法连接服务，请检查网络后重试。');
   }
 

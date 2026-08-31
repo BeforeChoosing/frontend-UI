@@ -38,6 +38,6 @@ test('演示与正式流程不显示区别性操作文案', () => {
   const source = [experienceSource, trialSource, workbenchSource].join('\n');
   assert.doesNotMatch(source, /演示说明|演示数据|演示方案|整理演示经历|不调用 Qwen|无需输入|无需上传/);
   assert.match(experienceSource, /分析经历/);
-  assert.match(experienceSource, /重新开始对话/);
+  assert.match(experienceSource, /新建空白对话/);
   assert.match(workbenchSource, /提交任务并评价/);
 });
