@@ -83,6 +83,17 @@ test('个人画像页采用 Demo 拱形卡、悬停详情与真实档案数量',
   assert.match(source, /ProfileArchiveModal/);
 });
 
+test('档案页只调整桌面布局，保留原有拱形卡与弹簧动画', () => {
+  const profile = readFileSync(new URL('../src/components/UserProfileScreen.tsx', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
+  assert.match(profile, /translateY\(-8px\) rotate\(-3\.5deg\) scale\(1\.02\)/);
+  assert.match(profile, /type: 'spring', stiffness: 360, damping: 26, mass: 0\.7/);
+  assert.match(profile, /<AnimatePresence mode="popLayout">/);
+  assert.match(css, /grid-template-columns: repeat\(3, minmax\(142px, 180px\)\) minmax\(300px, 1fr\)/);
+  assert.match(css, /\.profile-interactive \.profile-hover-panel \{\s*grid-column: 4;\s*grid-row: 1/);
+  assert.doesNotMatch(profile, /growth-activity-title" className="mt-auto/);
+});
+
 test('成长档案空态不展示 Demo 数字，卡库统计随输入变化', () => {
   const props = { auth: { isLoggedIn: false }, onNavigate: noop, onOpenCardDetail: noop };
   const emptyHtml = renderToStaticMarkup(React.createElement(UserProfileScreen, props));

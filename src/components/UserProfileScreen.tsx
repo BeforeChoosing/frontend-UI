@@ -501,7 +501,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             )}
           </AnimatePresence>
         </motion.section>
-        <section aria-labelledby="growth-activity-title" className="mt-auto shrink-0 rounded-2xl border border-stone-200/70 bg-white/80 px-4 py-3 sm:px-5">
+        <section aria-labelledby="growth-activity-title" className="shrink-0 rounded-2xl border border-stone-200/70 bg-white/80 px-4 py-3 sm:px-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 id="growth-activity-title" className="flex items-center gap-2 text-sm font-semibold text-stone-800"><Clock className="h-4 w-4 text-orange-600" />最近成长记录</h2>
             {recentEvidence.length > 0 && <button type="button" onClick={() => setActiveArchive('reports')} className="flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs text-stone-600 hover:bg-orange-50 hover:text-orange-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-600 active:scale-[.97]">查看任务证据<ArrowRight className="h-3.5 w-3.5" /></button>}

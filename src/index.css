@@ -167,7 +167,26 @@
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (min-height: 651px) {
+  .profile-interactive {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(142px, 180px)) minmax(300px, 1fr);
+    align-items: stretch;
+    column-gap: clamp(12px, 1.25vw, 18px);
+  }
+
+  .profile-interactive .profile-arch-card {
+    grid-row: 1;
+    width: 100%;
+  }
+
+  .profile-interactive .profile-hover-panel {
+    grid-column: 4;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
   .profile-interactive .profile-hover-panel,
   .profile-interactive .profile-arch-card {
     height: clamp(260px, 32vh, 320px);
