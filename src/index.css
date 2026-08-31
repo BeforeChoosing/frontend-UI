@@ -370,11 +370,15 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   min-height: 0;
 }
 
+/* Keep the profile screen width identical before and after the first message. */
+.experience-screen {
+  width: 100%;
+  max-width: 1152px;
+}
+
 .experience-screen[data-focused="true"] {
   flex: 1 1 0%;
   min-height: 0;
-  width: 100%;
-  max-width: 1152px;
   padding-top: 20px;
   padding-bottom: 64px;
 }
@@ -410,13 +414,13 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .experience-screen .profile-composer-card {
   flex: 1 1 0%;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .experience-screen .profile-composer-main {
@@ -449,7 +453,7 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   box-shadow: none;
   backdrop-filter: none;
   transform: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .experience-screen[data-focused="true"] .profile-intro:hover {
