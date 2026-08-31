@@ -157,6 +157,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   }));
 
   const profileProgressIntro = `已确认 ${persistedCards.length} 张能力卡，完成 ${profileEvidence.length} 个小任务，最近一次记录来自${profileEvidence.length > 0 ? `「${profileEvidence[0].task_id}」` : '尚未提交的任务'}`;
+  const recentEvidence = [...profileEvidence]
+    .sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0))
+    .slice(0, 3);
 
   // The profile shows only cards confirmed through the backend. Landing-page
   // examples are intentionally not presented as personal evidence.
@@ -256,7 +259,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       };
 
   return (
-    <div className="profile-dashboard h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] overflow-hidden p-3 sm:p-4 lg:p-5 relative selection:bg-orange-100 text-stone-900 font-sans bg-[#FBFBFA]">
+    <div className="profile-dashboard h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] overflow-y-auto p-3 sm:p-4 lg:p-5 relative selection:bg-orange-100 text-stone-900 font-sans bg-[#FBFBFA]">
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-orange-100/30 blur-3xl" />
         <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-amber-100/25 blur-3xl" />
@@ -498,6 +501,22 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             )}
           </AnimatePresence>
         </motion.section>
+        <section aria-labelledby="growth-activity-title" className="mt-auto shrink-0 rounded-2xl border border-stone-200/70 bg-white/80 px-4 py-3 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="growth-activity-title" className="flex items-center gap-2 text-sm font-semibold text-stone-800"><Clock className="h-4 w-4 text-orange-600" />最近成长记录</h2>
+            {recentEvidence.length > 0 && <button type="button" onClick={() => setActiveArchive('reports')} className="flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs text-stone-600 hover:bg-orange-50 hover:text-orange-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-600 active:scale-[.97]">查看任务证据<ArrowRight className="h-3.5 w-3.5" /></button>}
+          </div>
+          {recentEvidence.length > 0 ? (
+            <ol className="mt-2 grid gap-3 md:grid-cols-3">
+              {recentEvidence.map(record => <li key={record.session_id} className="flex min-w-0 items-start gap-2.5 border-l-2 border-orange-200 pl-3">
+                <div className="min-w-0 space-y-1">
+                  <p className="text-xs font-medium text-stone-800">完成 {record.task_id} 试路任务<span className="ml-2 text-orange-800">观察等级 {record.observed_evidence.observed_level || '证据不足'}</span></p>
+                  <p className="text-[11px] leading-relaxed text-stone-500">{formatEvidenceDate(record.created_at)} · 已形成任务证据</p>
+                </div>
+              </li>)}
+            </ol>
+          ) : <p className="mt-2 text-xs leading-relaxed text-stone-500">还没有任务记录。完成一次试路任务后，这里会留下时间、观察等级与对应证据。</p>}
+        </section>
       </div>
 
         {activeArchive && (

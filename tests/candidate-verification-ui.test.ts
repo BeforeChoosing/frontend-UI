@@ -7,7 +7,7 @@ import { CandidateAbilityCard, getCandidateEvidenceLabel } from '../src/componen
 import { AbilityCardVerificationScreen } from '../src/components/AbilityCardVerificationScreen';
 import { GrowthCompanionWidget } from '../src/components/GrowthCompanionWidget';
 import { UserProfileScreen } from '../src/components/UserProfileScreen';
-import { DEMO_SKILL_CARDS } from '../src/data/demoMode';
+import { DEMO_SKILL_CARDS, DEMO_PROFILE_EVIDENCE } from '../src/data/demoMode';
 
 const noop = () => {};
 test('证据标签使用卡片元数据，不把第一张卡或自述提升为已证实事实', () => {
@@ -91,6 +91,23 @@ test('成长档案空态不展示 Demo 数字，卡库统计随输入变化', ()
   assert.doesNotMatch(emptyHtml, /林曦|已累积 14/);
   const populatedHtml = renderToStaticMarkup(React.createElement(UserProfileScreen, { ...props, persistedCards: DEMO_SKILL_CARDS.slice(0, 2) }));
   assert.match(populatedHtml, /已确认 2 张能力卡，完成 0 个小任务/);
+});
+
+test('最近成长记录按时间倒序展示三条真实证据，空态不生成记录', () => {
+  const props = { auth: { isLoggedIn: false }, onNavigate: noop, onOpenCardDetail: noop };
+  const empty = renderToStaticMarkup(React.createElement(UserProfileScreen, props));
+  assert.match(empty, /还没有任务记录/);
+  const evidence = [1, 4, 2, 3].map(day => ({
+    ...DEMO_PROFILE_EVIDENCE[0], session_id: `session-${day}`, task_id: `task-${day}`,
+    created_at: `2026-08-0${day}T10:00:00+08:00`,
+  }));
+  const html = renderToStaticMarkup(React.createElement(UserProfileScreen, { ...props, profileEvidence: evidence }));
+  const activity = html.slice(html.indexOf('<section aria-labelledby="growth-activity-title"'));
+  assert.ok(activity.indexOf('task-4') < activity.indexOf('task-3'));
+  assert.ok(activity.indexOf('task-3') < activity.indexOf('task-2'));
+  assert.ok(!activity.includes('task-1'));
+  assert.match(activity, /查看任务证据/);
+  assert.deepEqual(evidence.map(record => record.task_id), ['task-1', 'task-4', 'task-2', 'task-3']);
 });
 
 test('档案入口接通陪伴，并保留键盘关闭及小屏详情布局', () => {
