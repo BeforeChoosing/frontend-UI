@@ -19,7 +19,8 @@ export function useProfileExploration() {
         setStatus('success');
         return response;
       } catch (cause) {
-        const message = '这次整理没有完成，你刚才发送的内容已经保留。稍后可以再次发送。';
+        const detail = cause instanceof Error ? cause.message : '请稍后重试。';
+        const message = `这次整理没有完成，你刚才发送的内容已经保留。\n${detail}`;
         setStatus('error');
         setError(message);
         throw cause;

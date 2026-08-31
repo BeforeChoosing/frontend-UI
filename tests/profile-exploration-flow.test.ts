@@ -23,6 +23,7 @@ test('01 使用完整聊天记录、单一输入框和对话附件建立候选�
   assert.match(experienceSource, /整段用户对话和附件正文/);
   assert.match(experienceSource, /和你一起把其中的行动与能力线索理清/);
   assert.match(explorationHookSource, /你刚才发送的内容已经保留/);
+  assert.match(explorationHookSource, /cause instanceof Error \? cause\.message/);
   assert.match(experienceSource, /handleTriggerUpload/);
   assert.match(experienceSource, /发送交流/);
   assert.match(experienceSource, /分析经历/);
