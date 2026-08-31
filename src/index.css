@@ -460,10 +460,10 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   transform: none;
 }
 
+/* Match the Demo's neutral input treatment; focus must not add a colored ring. */
 .profile-composer-input:focus-visible {
-  outline: 2px solid #a7d8bf;
-  outline-offset: 2px;
-  border-radius: 10px;
+  outline: none;
+  outline-offset: 0;
 }
 
 .experience-screen[data-focused="true"] .profile-composer-note {
