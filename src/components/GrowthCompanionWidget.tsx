@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useDragControls } from 'motion/react';
 import { ArrowRight, Loader2, Send, Sparkles, Sprout, X } from 'lucide-react';
 import { AGENT_REGISTRY, type ScreenMode } from '../types';
+import { createCompanionGesture } from '../services/companionGesture';
 
 interface GrowthCompanionWidgetProps {
   demoMode: boolean;
@@ -60,6 +61,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
   const demoReplyTimerRef = useRef<number | null>(null);
   const demoTypingTimerRef = useRef<number | null>(null);
   const dragControls = useDragControls();
+  const gesture = useRef(createCompanionGesture());
   const companion = AGENT_REGISTRY.growth_companion;
   const stageLabel = SCREEN_LABELS[currentScreen];
   const transcript = useMemo(() => messages.map(message => ({ role: message.role, content: message.content })), [messages]);
@@ -139,14 +141,27 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
 
   return (
     <div className="growth-companion-widget pointer-events-none fixed right-3 top-[78px] z-50 sm:right-6">
-      <motion.div drag dragListener={false} dragControls={dragControls} dragMomentum={false} dragElastic={0.06} className="pointer-events-auto select-none">
+      <motion.div drag dragListener={false} dragControls={dragControls} dragMomentum={false} dragElastic={0.06}
+        onDragStart={() => gesture.current.markDragged()}
+        onPointerMoveCapture={event => gesture.current.move(event)}
+        onPointerUpCapture={event => gesture.current.move(event)}
+        onPointerCancelCapture={() => gesture.current.markDragged()}
+        className="pointer-events-auto select-none">
         <AnimatePresence mode="wait" initial={false}>
           {!open ? (
             <motion.button key="companion-collapsed" ref={triggerRef} type="button" aria-label="成长陪伴 Agent" aria-expanded="false" aria-controls="growth-companion-panel"
               initial={{ opacity: 0, transform: 'scale(.96)' }} animate={{ opacity: 1, transform: 'scale(1)' }} exit={{ opacity: 0, transform: 'scale(.96)' }}
-              transition={{ type: 'spring', duration: .32, bounce: .08 }} onClick={() => setOpen(true)}
-              onPointerDown={event => dragControls.start(event)}
-              className="flex h-11 cursor-grab items-center gap-2 rounded-full border border-stone-700/70 bg-stone-900/95 px-3.5 text-xs text-white shadow-lg backdrop-blur-xl active:cursor-grabbing active:scale-[.97]">
+              transition={{ type: 'spring', duration: .32, bounce: .08 }}
+              onClick={event => {
+                if (!gesture.current.shouldOpen(event.detail)) { event.preventDefault(); event.stopPropagation(); return; }
+                setOpen(true);
+              }}
+              onPointerDown={event => {
+                if (!event.isPrimary || event.button !== 0) return;
+                gesture.current.begin(event);
+                dragControls.start(event);
+              }}
+              className="flex h-11 touch-none cursor-grab items-center gap-2 rounded-full border border-stone-700/70 bg-stone-900/95 px-3.5 text-xs text-white shadow-lg backdrop-blur-xl active:cursor-grabbing active:scale-[.97]">
               <span className="relative flex h-6 w-6 items-center justify-center rounded-full bg-stone-800"><Sprout className="h-4 w-4 text-emerald-400" /><span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-stone-900 bg-emerald-400" /></span>
               <span className="font-medium">{companion.shortName}</span><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             </motion.button>
@@ -155,7 +170,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
               initial={{ opacity: 0, transform: 'scale(.96) translateY(4px)' }} animate={{ opacity: 1, transform: 'scale(1) translateY(0)' }} exit={{ opacity: 0, transform: 'scale(.96) translateY(4px)' }}
               transition={{ type: 'spring', duration: .36, bounce: .08 }}
               className="flex h-[510px] max-h-[calc(100vh-92px)] w-[292px] max-w-[calc(100vw-24px)] origin-top-right flex-col overflow-hidden rounded-[22px] border border-white/70 bg-[#f8f7f3]/95 text-stone-900 shadow-[0_24px_64px_rgba(28,35,31,.18)] backdrop-blur-2xl">
-              <header onPointerDown={event => dragControls.start(event)} className="flex cursor-grab items-center justify-between border-b border-stone-200/70 bg-white/85 px-3 py-2.5 active:cursor-grabbing">
+              <header onPointerDown={event => dragControls.start(event)} className="flex touch-none cursor-grab items-center justify-between border-b border-stone-200/70 bg-white/85 px-3 py-2.5 active:cursor-grabbing">
                 <div className="flex min-w-0 items-center gap-2"><span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-stone-900"><Sprout className="h-4 w-4 text-emerald-400" /><span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white bg-emerald-400" /></span><span className="min-w-0"><strong className="block truncate text-xs">成长陪伴 Agent</strong><span className="block truncate text-[10px] text-stone-500">{stageLabel}</span></span></div>
                 <button type="button" aria-label="收起成长陪伴" onPointerDown={event => event.stopPropagation()} onClick={() => setOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 active:scale-[.96]"><X className="h-4 w-4" /></button>
               </header>

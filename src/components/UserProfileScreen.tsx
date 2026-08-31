@@ -262,7 +262,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-amber-100/25 blur-3xl" />
       </div>
 
-      <div className="profile-dashboard-content w-full max-w-7xl h-full mx-auto min-h-0 flex flex-col justify-between gap-2.5 sm:gap-3 relative z-10">
+      <div className="profile-dashboard-content w-full max-w-7xl h-full mx-auto min-h-0 flex flex-col justify-start gap-3 sm:gap-4 relative z-10">
         <motion.section
           initial={reduceMotion ? false : { opacity: 0, transform: 'translateY(-10px)' }}
           animate={{ opacity: 1, transform: 'translateY(0)' }}
@@ -284,7 +284,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     {userStatus}
                   </span>
                 </div>
-                <p className="text-xs text-stone-600 truncate max-w-3xl">
+                <p className="text-xs text-stone-600 leading-relaxed max-w-3xl">
                   <span className="text-orange-700 font-semibold font-mono">（进度简介）</span>
                   {persistedCards.length > 0 || profileEvidence.length > 0 ? profileProgressIntro : userProgressIntro}
                 </p>
@@ -376,7 +376,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         <motion.section
           ref={interactiveAreaRef}
           layout={!reduceMotion}
-          className="profile-interactive flex-1 min-h-0 flex items-center gap-2.5 sm:gap-3 select-none"
+          className="profile-interactive min-h-0 flex items-stretch gap-3 sm:gap-4"
           onMouseEnter={() => {
             if (hoverTimeoutRef.current) {
               clearTimeout(hoverTimeoutRef.current);
@@ -486,11 +486,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <AnimatePresence mode="popLayout">
             {hoveredCard === null && (
               <motion.div key="panel-default-insights" layout={!reduceMotion} {...panelMotion} transition={{ type: 'spring', stiffness: 340, damping: 28, mass: 0.7 }} className="profile-hover-panel min-w-0">
-                <div className="flex items-center justify-between pb-2 border-b border-orange-100 shrink-0">
-                  <button type="button" onClick={() => setActiveArchive('reports')} className="craft-btn-secondary px-3 py-1 text-xs text-stone-600 hover:text-orange-950 hover:bg-orange-50 hover:border-orange-300">查看更多洞察</button>
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-orange-100 shrink-0">
                   <h3 className="text-xs sm:text-sm font-bold text-orange-950 font-serif craft-serif flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-orange-500" />AI 最近注意到……</h3>
+                  <button type="button" onClick={() => setActiveArchive('reports')} className="craft-btn-secondary px-3 py-1 text-xs text-stone-600 hover:text-orange-950 hover:bg-orange-50 hover:border-orange-300">查看更多洞察</button>
                 </div>
-                <div className="flex-1 min-h-0 flex flex-col justify-around py-1 space-y-1.5">
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-3 pt-4">
                   {liveObservations.map((obs) => <ObservationRow key={obs.id} quote={obs.quote} meta={`${obs.timestamp} · ${obs.context}`} />)}
                   {liveObservations.length === 0 && <EmptyProfileState text="完成任务后，AI 会从真实评价中整理近期观察。" />}
                 </div>
@@ -748,12 +748,12 @@ const EmptyProfileState: React.FC<{ text: string }> = ({ text }) => (
 );
 
 const ObservationRow: React.FC<{ quote: string; meta: string }> = ({ quote, meta }) => (
-  <div className="flex items-start justify-between gap-3 text-right group">
-    <div className="flex-1 text-right space-y-0.5 min-w-0">
-      <p className="text-xs sm:text-[13px] font-medium text-stone-800 leading-snug group-hover:text-orange-950 transition-colors line-clamp-2">{quote}</p>
-      <p className="text-[10px] text-orange-700/75 font-mono truncate">{meta}</p>
-    </div>
+  <div className="flex items-start gap-3 rounded-2xl border border-orange-100/80 bg-orange-50/40 p-3 sm:p-4">
     <span className="w-4 h-4 rounded-full bg-orange-100 border border-orange-300 flex items-center justify-center shrink-0 mt-1 shadow-2xs"><span className="w-1.5 h-1.5 rounded-full bg-orange-500" /></span>
+    <div className="flex-1 text-left space-y-2 min-w-0">
+      <p className="text-xs sm:text-sm font-medium text-stone-800 leading-relaxed break-words">{quote}</p>
+      <p className="text-[11px] text-stone-500 leading-relaxed">{meta}</p>
+    </div>
   </div>
 );
 
