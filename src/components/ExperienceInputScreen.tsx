@@ -1717,7 +1717,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               </div>
             </div>
 
-            <div className="flex min-h-0 flex-1 items-stretch gap-2 rounded-xl border border-stone-200/90 p-1.5 shadow-sm transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 sm:rounded-2xl sm:p-2">
+            <div className="profile-composer-main flex min-h-0 flex-1 items-stretch gap-2 rounded-xl border border-stone-200/90 p-1.5 shadow-sm transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 sm:rounded-2xl sm:p-2">
               <div className="flex min-w-0 flex-1 flex-col">
                 {voiceNotice && <p className="mb-2 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs text-emerald-900">{voiceNotice}</p>}
                 {commandNotice && <p className="mb-2 rounded-lg bg-amber-50 px-2.5 py-1 text-xs text-amber-900">{commandNotice}</p>}
@@ -1783,7 +1783,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                           ? `排队中，前方还有 ${queueStatus.ahead} 个请求`
                           : '已进入队列，正在等待处理'
                         : queueStatus.state === 'running'
-                          ? '已轮到你，Agent 正在处理…'
+                          ? '当前正在处理'
                           : '正在取消请求…'}
                     </span>
                     {queueStatus.can_cancel && (

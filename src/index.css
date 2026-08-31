@@ -408,6 +408,15 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   position: relative;
   z-index: 20;
   flex: 0 0 auto;
+  /* Keep the composer at the same compact size after the first message. */
+  --profile-composer-height: clamp(180px, 22vh, 224px);
+  height: var(--profile-composer-height);
+  min-height: var(--profile-composer-height);
+  max-height: var(--profile-composer-height);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid #e7e5e4;
   border-radius: 24px;
   padding: 12px 16px;
@@ -416,6 +425,7 @@ main > div:has(> .experience-screen[data-focused="true"]) {
 }
 
 .experience-screen[data-focused="true"] .profile-composer-card {
+  height: 100%;
   min-height: 0;
   padding: 0;
   border: 0;
@@ -423,6 +433,14 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   box-shadow: none;
   backdrop-filter: none;
   transform: none;
+  overflow: hidden;
+}
+
+.experience-screen[data-focused="true"] .profile-composer-main {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .experience-screen[data-focused="true"] .profile-intro:hover {
@@ -432,6 +450,8 @@ main > div:has(> .experience-screen[data-focused="true"]) {
 .experience-screen[data-focused="true"] .profile-composer-input {
   height: 64px;
   min-height: 64px;
+  max-height: 64px;
+  overflow-y: auto;
   flex: none;
 }
 

@@ -72,6 +72,10 @@ test('01 首段提交后锁定页面，仅允许对话记录滚动', () => {
   assert.doesNotMatch(experienceSource, /if \(focusedConversationActive\) \{\s*return/);
   assert.match(experienceSource, /\{showUploadModal &&/);
   assert.match(experienceSource, /成长陪伴对话记录/);
+  assert.match(experienceSource, /当前正在处理/);
+  assert.doesNotMatch(experienceSource, /已轮到你，Agent 正在处理/);
+  assert.match(styleSource, /--profile-composer-height: clamp\(180px, 22vh, 224px\)/);
+  assert.match(styleSource, /max-height: 64px;[\s\S]*?overflow-y: auto;/);
 });
 
 test('03 试路地图采用 Demo 的八环节路径与三张直接启动任务卡', () => {
