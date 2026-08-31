@@ -17,10 +17,10 @@ const verificationSource = readFileSync(new URL('../src/components/AbilityCardVe
 test('01 使用完整聊天记录、单一输入框和对话附件建立候选证据', () => {
   assert.match(experienceSource, /const \[coachInput, setCoachInput\]/);
   assert.equal(experienceSource.match(/<textarea/g)?.length, 1);
-  assert.match(experienceSource, /Enter \{demoMode && demoProbingActive \? '提交' : '发送'\}/);
-  assert.match(experienceSource, /Shift\+Enter 换行/);
+  assert.match(experienceSource, /event\.key === 'Enter' && !event\.shiftKey/);
+  assert.match(experienceSource, /profile-composer-main flex items-end gap-2/);
   assert.doesNotMatch(experienceSource, /handleSendMessage/);
-  assert.match(experienceSource, /附件和文字都会进入当前对话记录/);
+  assert.match(experienceSource, /uploadedFiles\.length/);
   assert.match(experienceSource, /我会陪你下钻追问并提炼能力卡/);
   assert.match(explorationHookSource, /你刚才发送的内容已经保留/);
   assert.match(explorationHookSource, /cause instanceof Error \? cause\.message/);
@@ -70,16 +70,17 @@ test('01 首段提交后锁定页面，仅允许对话记录滚动', () => {
   assert.match(experienceSource, /document\.documentElement\.style\.overflow = 'hidden'/);
   assert.match(styleSource, /height: 100dvh/);
   assert.match(styleSource, /\.profile-chat-scroll \{[\s\S]*?overflow-y: auto;[\s\S]*?overscroll-behavior: contain;/);
-  assert.match(styleSource, /\.profile-composer \{[\s\S]*?flex: 0 0 auto;/);
+  assert.match(experienceSource, /className="profile-composer z-20 shrink-0"/);
   assert.doesNotMatch(experienceSource, /React\.createElement\('textarea'/);
   assert.doesNotMatch(experienceSource, /if \(focusedConversationActive\) \{\s*return/);
   assert.match(experienceSource, /\{showUploadModal &&/);
   assert.match(experienceSource, /成长陪伴对话记录/);
   assert.match(experienceSource, /当前正在处理/);
   assert.doesNotMatch(experienceSource, /已轮到你，Agent 正在处理/);
-  assert.match(styleSource, /--profile-composer-height: clamp\(180px, 22vh, 224px\)/);
-  assert.match(experienceSource, /profile-composer-main flex min-h-0 flex-1 items-end gap-2/);
-  assert.match(experienceSource, /className="craft-btn-black flex shrink-0 items-center/);
+  assert.match(styleSource, /\.experience-screen \{[\s\S]*?max-width: 896px;/);
+  assert.doesNotMatch(styleSource, /--profile-composer-height/);
+  assert.match(experienceSource, /profile-composer-main flex items-end gap-2/);
+  assert.match(experienceSource, /flex h-8 shrink-0 items-center justify-center/);
   assert.doesNotMatch(styleSource, /\.experience-screen \.profile-composer-input[\s\S]*?max-height: 64px/);
 });
 
