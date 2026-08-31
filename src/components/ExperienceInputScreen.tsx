@@ -97,6 +97,7 @@ type DemoProbingRound = {
   title: string;
   question: string;
   options: string[];
+  defaultAnswer: string;
   clues: string[];
 };
 
@@ -111,6 +112,7 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '信息极度不对称，迫切需要一个统一透明的流转规则',
       '最初只是帮身边朋友解决麻烦，后来发现是普遍刚需',
     ],
+    defaultAnswer: '大家都在抱怨但没人动手，我发现核心矛盾是信任和履约成本',
     clues: ['底层问题归因', '敏锐痛点捕捉'],
   },
   {
@@ -121,6 +123,7 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '放弃复杂的线上支付，用最轻量的面对面转交快速验证',
       '建立履约评价机制，让表现稳定的用户获得更高优先级',
     ],
+    defaultAnswer: '主动找舍管沟通，用标准交接单化解安全顾虑',
     clues: ['关键路径决策', '利益协同破局'],
   },
   {
@@ -131,6 +134,7 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '模式获得辅导员和社团骨干认可，随后扩展到其他宿舍楼',
       '团队形成了可复用的交接文档与数据复盘方法',
     ],
+    defaultAnswer: '首月完成 800 余笔书籍流转，交易双方的沟通成本明显降低',
     clues: ['闭环交付度量', '长期价值沉淀'],
   },
   {
@@ -141,6 +145,7 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '擅长站在他人角度沟通，把阻力转化为可协作的条件',
       '会主动建立指标与复盘机制，让方案在真实结果中得到验证',
     ],
+    defaultAnswer: '能快速穿透表象，找到最小成本的高杠杆解法',
     clues: ['高阶胜任力画像', '自我认知清晰度'],
   },
 ];
@@ -811,7 +816,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         setIsDemoReplying(false);
         setDemoProbingActive(true);
         setDemoProbingRoundIndex(0);
-        setDemoProbingInput('');
+        setDemoProbingInput(DEMO_PROBING_ROUNDS[0].defaultAnswer);
         setDemoProbingHistory([]);
         setIsChatExpanded(false);
       };
@@ -1283,7 +1288,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
     if (demoProbingRoundIndex < DEMO_PROBING_ROUNDS.length - 1) {
       setInputText(prev => [prev.trim(), evidenceLine].filter(Boolean).join('\n\n').slice(0, 12000));
-      setDemoProbingRoundIndex(index => index + 1);
+      const nextRoundIndex = demoProbingRoundIndex + 1;
+      setDemoProbingRoundIndex(nextRoundIndex);
+      setDemoProbingInput(DEMO_PROBING_ROUNDS[nextRoundIndex].defaultAnswer);
       return;
     }
 

@@ -53,6 +53,9 @@ test('01 探索目标与斜杠快捷指令接入现有分析链路', () => {
 test('演示模式固定回复后进入四轮成长陪伴追问且不调用模型', () => {
   assert.match(experienceSource, /const DEMO_PROBING_REPLY/);
   assert.match(experienceSource, /const DEMO_PROBING_ROUNDS/);
+  assert.match(experienceSource, /defaultAnswer:/);
+  assert.match(experienceSource, /setDemoProbingInput\(DEMO_PROBING_ROUNDS\[0\]\.defaultAnswer\)/);
+  assert.match(experienceSource, /setDemoProbingInput\(DEMO_PROBING_ROUNDS\[nextRoundIndex\]\.defaultAnswer\)/);
   assert.match(experienceSource, /window\.setInterval/);
   assert.match(experienceSource, /prefers-reduced-motion/);
   assert.match(experienceSource, /if \(demoMode\) \{/);
