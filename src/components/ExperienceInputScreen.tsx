@@ -1724,7 +1724,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               </div>
             </div>
 
-            <div className="profile-composer-main flex min-h-0 flex-1 items-stretch gap-2 rounded-xl border border-stone-200/90 p-1.5 shadow-sm transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 sm:rounded-2xl sm:p-2">
+            <div className="profile-composer-main flex min-h-0 flex-1 items-end gap-2 rounded-xl border border-stone-200/90 p-1.5 shadow-sm transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 sm:rounded-2xl sm:p-2">
               <div className="flex min-w-0 flex-1 flex-col">
                 {voiceNotice && <p className="mb-2 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs text-emerald-900">{voiceNotice}</p>}
                 {commandNotice && <p className="mb-2 rounded-lg bg-amber-50 px-2.5 py-1 text-xs text-amber-900">{commandNotice}</p>}
@@ -1759,26 +1759,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     : uploadedFiles.length > 0
                       ? `本轮对话已附加 ${uploadedFiles.length} 份材料`
                       : '附件和文字都会进入当前对话记录'}</span>
-                  <div className="flex items-center gap-2">
-                    <span>Enter {demoMode && demoProbingActive ? '提交' : '发送'}·Shift+Enter 换行</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (demoMode && demoProbingActive) {
-                          handleDemoProbingSubmit();
-                        } else {
-                          void handleSendCoachMessage();
-                        }
-                      }}
-                      disabled={demoMode && demoProbingActive
-                        ? !demoProbingInput.trim() || demoProbingInput.trim().startsWith('/') || isAnalyzing
-                        : !coachInput.trim() || coachInput.trim().startsWith('/') || explorationStatus === 'loading' || isDemoReplying || isAnalyzing}
-                      className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {explorationStatus === 'loading' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                      {demoMode && demoProbingActive ? '提交' : '发送交流'}
-                    </button>
-                  </div>
+                  <span>Enter {demoMode && demoProbingActive ? '提交' : '发送'}·Shift+Enter 换行</span>
                 </div>
                 {explorationError && <p role="alert" className="mt-2 text-[10px] text-rose-700">{explorationError}</p>}
                 {explorationStatus === 'loading' && queueStatus && (
@@ -1801,6 +1782,24 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   </div>
                 )}
               </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (demoMode && demoProbingActive) {
+                    handleDemoProbingSubmit();
+                  } else {
+                    void handleSendCoachMessage();
+                  }
+                }}
+                disabled={demoMode && demoProbingActive
+                  ? !demoProbingInput.trim() || demoProbingInput.trim().startsWith('/') || isAnalyzing
+                  : !coachInput.trim() || coachInput.trim().startsWith('/') || explorationStatus === 'loading' || isDemoReplying || isAnalyzing}
+                className="craft-btn-black flex shrink-0 items-center gap-1.5 px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {explorationStatus === 'loading' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                {demoMode && demoProbingActive ? '提交' : '发送交流'}
+              </button>
             </div>
           </div>
 

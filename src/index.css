@@ -426,14 +426,6 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   scrollbar-gutter: stable;
 }
 
-.experience-screen .profile-composer-input {
-  height: 64px;
-  min-height: 64px;
-  max-height: 64px;
-  overflow-y: auto;
-  flex: none;
-}
-
 .experience-screen[data-focused="true"] .profile-intro {
   margin-bottom: 20px;
 }
