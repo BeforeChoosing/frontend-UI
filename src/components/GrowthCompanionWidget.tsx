@@ -6,6 +6,7 @@ import { createCompanionGesture } from '../services/companionGesture';
 
 interface GrowthCompanionWidgetProps {
   demoMode: boolean;
+  userId?: string;
   currentScreen: ScreenMode;
   existingCardTitles?: string[];
   onContinue: () => void;
@@ -35,24 +36,26 @@ const DEMO_REPLIES = [
   '当前证据已经覆盖行动和结果。若要让能力卡更可信，可以再补充一个关键取舍：当时有哪些方案，你为什么放弃其中一些，并最终选择现在的做法？',
 ];
 
-function storageKey(demoMode: boolean) {
-  return `before-choosing:growth-companion:${demoMode ? 'demo' : 'use'}:messages-v1`;
+function storageKey(demoMode: boolean, userId?: string) {
+  const namespace = demoMode ? 'demo' : userId ? `use:${encodeURIComponent(userId)}` : 'use:anonymous';
+  return `before-choosing:growth-companion:${namespace}:messages-v1`;
 }
 
-function loadMessages(demoMode: boolean): CompanionMessage[] {
+function loadMessages(demoMode: boolean, userId?: string): CompanionMessage[] {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(storageKey(demoMode)) || '[]') as CompanionMessage[];
+    const parsed = JSON.parse(window.localStorage.getItem(storageKey(demoMode, userId)) || '[]') as CompanionMessage[];
     return Array.isArray(parsed) && parsed.length ? parsed.slice(-20) : [INITIAL_MESSAGE];
   } catch { return [INITIAL_MESSAGE]; }
 }
 
-function loadProfileEvidence(demoMode: boolean): string {
-  return window.localStorage.getItem(`before-choosing:profile-exploration:${demoMode ? 'demo' : 'use'}:evidence-v3`)?.trim() || '';
+function loadProfileEvidence(demoMode: boolean, userId?: string): string {
+  const namespace = demoMode ? 'demo' : userId ? `use:${encodeURIComponent(userId)}` : 'use:anonymous';
+  return window.localStorage.getItem(`before-choosing:profile-exploration:${namespace}:evidence-v3`)?.trim() || '';
 }
 
-export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ demoMode, currentScreen, existingCardTitles = [], onContinue }) => {
+export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ demoMode, userId, currentScreen, existingCardTitles = [], onContinue }) => {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<CompanionMessage[]>(() => loadMessages(demoMode));
+  const [messages, setMessages] = useState<CompanionMessage[]>(() => loadMessages(demoMode, userId));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,9 +78,10 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(storageKey(demoMode), JSON.stringify(messages.slice(-20)));
+    if (!demoMode && !userId) return;
+    window.localStorage.setItem(storageKey(demoMode, userId), JSON.stringify(messages.slice(-20)));
     if (open) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [demoMode, messages, open]);
+  }, [demoMode, messages, open, userId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -123,7 +127,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
     }
     try {
       const { createProfileExplorationMessage } = await import('../api/profile');
-      const profileEvidence = loadProfileEvidence(demoMode);
+      const profileEvidence = loadProfileEvidence(demoMode, userId);
       const response = await createProfileExplorationMessage({
         experience_text: [profileEvidence, ...transcript.filter(message => message.role === 'user').map(message => message.content), content]
           .filter(Boolean).join('\n\n').slice(-12000),

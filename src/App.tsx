@@ -48,6 +48,8 @@ export default function App() {
           draftCards: DEMO_SKILL_CARDS.slice(0, 3),
         }
       : {},
+    window.localStorage,
+    initialAppMode === 'use' ? null : undefined,
   ));
   const [appMode, setAppMode] = useState<AppMode>(initialAppMode);
   const [currentScreen, setCurrentScreen] = useState<ScreenMode>(initialProgress.currentScreen);
@@ -82,6 +84,17 @@ export default function App() {
     removeCard,
   } = useProfileCards(appMode !== 'use' || auth.isLoggedIn);
 
+  const restoreFormalProgress = (userId: string) => {
+    const progress = loadDemoProgress('use', {}, window.localStorage, userId);
+    setCurrentScreen(progress.currentScreen);
+    setSelectedTrialTaskId(progress.selectedTrialTaskId);
+    setCareerSelectedCardIds(progress.careerSelectedCardIds);
+    setCareerRecommendation(progress.careerRecommendation);
+    setCareerRecommendationCardSignature(progress.careerRecommendationCardSignature);
+    setDraftCards(progress.draftCards);
+    setDraftExperience(progress.draftExperience);
+  };
+
   useEffect(() => {
     if (persistedCards.length > 0) {
       setUnlockedCards(prev => mergeCardsById(prev, persistedCards));
@@ -89,6 +102,7 @@ export default function App() {
   }, [persistedCards]);
 
   useEffect(() => {
+    if (appMode === 'use' && !auth.user?.id) return;
     saveDemoProgress({
       currentScreen,
       selectedTrialTaskId,
@@ -97,8 +111,8 @@ export default function App() {
       careerRecommendationCardSignature,
       draftCards,
       draftExperience,
-    }, appMode);
-  }, [appMode, careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, draftCards, draftExperience, selectedTrialTaskId]);
+    }, appMode, window.localStorage, auth.user?.id);
+  }, [appMode, auth.user?.id, careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, draftCards, draftExperience, selectedTrialTaskId]);
 
   useEffect(() => {
     if (appMode !== 'use') return undefined;
@@ -156,6 +170,7 @@ export default function App() {
     void getCurrentUser()
       .then((user) => {
         if (!active) return;
+        restoreFormalProgress(user.id);
         setAuth({
           isLoggedIn: true,
           user: {
@@ -172,6 +187,13 @@ export default function App() {
         clearAccessToken();
         setAuth({ isLoggedIn: false });
         setUnlockedCards([]);
+        setCurrentScreen('landing');
+        setSelectedTrialTaskId('A-02');
+        setCareerSelectedCardIds([]);
+        setCareerRecommendation(null);
+        setCareerRecommendationCardSignature(null);
+        setDraftCards([]);
+        setDraftExperience(null);
         setIsAuthOpen(true);
       })
       .finally(() => {
@@ -187,6 +209,13 @@ export default function App() {
       if (appMode !== 'use') return;
       setAuth({ isLoggedIn: false });
       setUnlockedCards([]);
+      setCurrentScreen('landing');
+      setSelectedTrialTaskId('A-02');
+      setCareerSelectedCardIds([]);
+      setCareerRecommendation(null);
+      setCareerRecommendationCardSignature(null);
+      setDraftCards([]);
+      setDraftExperience(null);
       setIsAuthOpen(true);
     };
     window.addEventListener('before-choosing:auth-required', onAuthRequired);
@@ -203,7 +232,7 @@ export default function App() {
       careerRecommendationCardSignature,
       draftCards,
       draftExperience,
-    }, appMode);
+    }, appMode, window.localStorage, auth.user?.id);
     saveAppMode(nextMode);
     setAppMode(nextMode);
     if (nextMode === 'use' && !getAccessToken()) {
@@ -223,6 +252,8 @@ export default function App() {
             draftCards: DEMO_SKILL_CARDS.slice(0, 3),
           }
         : {},
+      window.localStorage,
+      nextMode === 'use' ? auth.user?.id || null : undefined,
     );
     setCurrentScreen(progress.currentScreen);
     setSelectedTrialTaskId(progress.selectedTrialTaskId);
@@ -268,6 +299,7 @@ export default function App() {
   };
 
   const handleLoginSuccess = (session: AuthSession) => {
+    restoreFormalProgress(session.user.id);
     setAuth({
       isLoggedIn: true,
       user: {
@@ -287,6 +319,13 @@ export default function App() {
     } finally {
       setAuth({ isLoggedIn: false });
       setUnlockedCards([]);
+      setCurrentScreen('landing');
+      setSelectedTrialTaskId('A-02');
+      setCareerSelectedCardIds([]);
+      setCareerRecommendation(null);
+      setCareerRecommendationCardSignature(null);
+      setDraftCards([]);
+      setDraftExperience(null);
       if (appMode === 'use') setIsAuthOpen(true);
     }
   };
@@ -363,7 +402,7 @@ export default function App() {
           )}
 
           {currentScreen === 'input-experience' && (
-            <StageTransition key={`input-experience-${appMode}-${demoReplayId}`}>
+            <StageTransition key={`input-experience-${appMode}-${auth.user?.id || 'anonymous'}-${demoReplayId}`}>
               <ExperienceInputScreen
                 onGenerateCards={(cards, experience) => {
                   setDraftCards(cards);
@@ -372,6 +411,7 @@ export default function App() {
                 }}
                 onBackToLanding={() => setCurrentScreen('landing')}
                 demoMode={appMode === 'demo'}
+                userId={auth.user?.id}
                 demoCards={DEMO_SKILL_CARDS.slice(0, 3)}
                 demoExperienceText={DEMO_EXPERIENCE_TEXT}
                 focusRequest={profileFocusRequest}
@@ -438,11 +478,12 @@ export default function App() {
           )}
 
           {currentScreen === 'stage2' && (
-            <StageTransition key={`stage2-${appMode}-${demoReplayId}`}>
+            <StageTransition key={`stage2-${appMode}-${auth.user?.id || 'anonymous'}-${demoReplayId}`}>
               <DynamicTrialTaskScreen
                 taskId={selectedTrialTaskId}
                 confirmedCards={activeCards}
                 demoMode={appMode === 'demo'}
+                userId={auth.user?.id}
                 onBackToExplore={() => setCurrentScreen('career-explore')}
                 onEnterProfile={() => setCurrentScreen('profile')}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
@@ -502,8 +543,9 @@ export default function App() {
 
       {!isStageTwoFocusMode && (appMode === 'demo' || auth.isLoggedIn) && (
         <GrowthCompanionWidget
-          key={`growth-companion-${appMode}-${currentScreen}`}
+          key={`growth-companion-${appMode}-${auth.user?.id || 'anonymous'}-${currentScreen}`}
           demoMode={appMode === 'demo'}
+          userId={auth.user?.id}
           currentScreen={currentScreen}
           existingCardTitles={activeCards.map(card => card.title)}
           onContinue={() => {

@@ -33,6 +33,7 @@ interface DynamicTrialTaskScreenProps {
   onUpdateCardsFromTrial?: (cards: SkillCard[]) => Promise<unknown> | void;
   onFocusModeChange?: (focused: boolean) => void;
   demoMode?: boolean;
+  userId?: string;
 }
 
 interface TrialEvaluationViewProps {
@@ -305,6 +306,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   onUpdateCardsFromTrial,
   onFocusModeChange,
   demoMode = false,
+  userId,
 }) => {
   const progressMode = demoMode ? 'demo' : 'use';
   const [activeTaskId, setActiveTaskId] = useState<TrialTaskId>(taskId);
@@ -313,9 +315,9 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const [taskCatalog, setTaskCatalog] = useState<ApiTrialTaskDefinition[]>([]);
   const [taskCatalogStatus, setTaskCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [taskCatalogError, setTaskCatalogError] = useState<string | null>(null);
-  const { task, session, status, error, save, revealEvent, requestCoach, submit } = useDynamicTrialTask(activeTaskId, progressMode);
+  const { task, session, status, error, save, revealEvent, requestCoach, submit } = useDynamicTrialTask(activeTaskId, progressMode, userId);
   const [stepIndex, setStepIndex] = useState(() => {
-    const saved = Number(window.localStorage.getItem(trialStepKey(activeTaskId, progressMode)));
+    const saved = Number(window.localStorage.getItem(trialStepKey(activeTaskId, progressMode, userId)));
     return Number.isInteger(saved) && saved >= 0 && saved < 5 ? saved : 0;
   });
   const [answer, setAnswer] = useState<ApiDynamicTrialAnswer | null>(null);
@@ -374,20 +376,20 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
       setDemoCompletedStepIds([]);
       setPhase('card-play');
       setStepIndex(0);
-      window.localStorage.setItem(trialStepKey(activeTaskId, progressMode), '0');
+      window.localStorage.setItem(trialStepKey(activeTaskId, progressMode, userId), '0');
       return;
     }
     // Entering 03 always returns to the three-challenge overview. Completed
     // rounds stay visible and the user explicitly continues to the briefing.
     setPhase('card-play');
-    const savedStep = Number(window.localStorage.getItem(trialStepKey(activeTaskId, progressMode)));
+    const savedStep = Number(window.localStorage.getItem(trialStepKey(activeTaskId, progressMode, userId)));
     if (Number.isInteger(savedStep) && savedStep >= 0 && savedStep < task.steps.length) {
       setStepIndex(savedStep);
     } else {
       const firstIncomplete = task.steps.findIndex(step => !nextAnswer.step_answers[step.id]?.trim());
       setStepIndex(firstIncomplete === -1 ? task.steps.length - 1 : firstIncomplete);
     }
-  }, [activeTaskId, demoAnswer, demoMode, onFocusModeChange, progressMode, session, task]);
+  }, [activeTaskId, demoAnswer, demoMode, onFocusModeChange, progressMode, session, task, userId]);
 
   useEffect(() => {
     if (phase === 'card-play') {
@@ -397,8 +399,9 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   }, [onFocusModeChange, phase]);
 
   useEffect(() => {
-    window.localStorage.setItem(trialStepKey(activeTaskId, progressMode), String(stepIndex));
-  }, [activeTaskId, progressMode, stepIndex]);
+    if (!demoMode && !userId) return;
+    window.localStorage.setItem(trialStepKey(activeTaskId, progressMode, userId), String(stepIndex));
+  }, [activeTaskId, demoMode, progressMode, stepIndex, userId]);
 
   useEffect(() => () => onFocusModeChange?.(false), [onFocusModeChange]);
 

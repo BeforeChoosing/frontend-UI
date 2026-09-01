@@ -48,7 +48,8 @@ const DEFAULT_PROGRESS: DemoProgress = {
 
 type ProgressStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
-export function progressStorageKey(mode: ProgressMode): string {
+export function progressStorageKey(mode: ProgressMode, userId?: string | null): string {
+  if (mode === 'use' && userId) return `${STORAGE_KEYS[mode]}:${encodeURIComponent(userId)}`;
   return STORAGE_KEYS[mode];
 }
 
@@ -72,11 +73,14 @@ export function loadDemoProgress(
   mode: ProgressMode = 'use',
   fallback: Partial<DemoProgress> = {},
   storage: ProgressStorage = window.localStorage,
+  userId?: string | null,
 ): DemoProgress {
   const defaultProgress = { ...DEFAULT_PROGRESS, ...fallback };
   try {
-    const raw = storage.getItem(progressStorageKey(mode))
-      || (mode === 'use' ? storage.getItem(LEGACY_STORAGE_KEY) : null);
+    const raw = userId === null
+      ? null
+      : storage.getItem(progressStorageKey(mode, userId))
+        || (mode === 'use' && !userId ? storage.getItem(LEGACY_STORAGE_KEY) : null);
     if (!raw) return defaultProgress;
     const parsed = JSON.parse(raw) as Partial<DemoProgress>;
     return {
@@ -109,16 +113,18 @@ export function saveDemoProgress(
   progress: DemoProgress,
   mode: ProgressMode = 'use',
   storage: ProgressStorage = window.localStorage,
+  userId?: string | null,
 ): void {
   try {
-    storage.setItem(progressStorageKey(mode), JSON.stringify(progress));
+    if (userId === null) return;
+    storage.setItem(progressStorageKey(mode, userId), JSON.stringify(progress));
   } catch {
     // The backend session remains the source of truth when browser storage is unavailable.
   }
 }
 
-export function trialStepKey(taskId: TrialTaskId, mode: 'demo' | 'use' = 'use'): string {
+export function trialStepKey(taskId: TrialTaskId, mode: 'demo' | 'use' = 'use', userId?: string | null): string {
   return mode === 'use'
-    ? `before-choosing:trial-ui:${taskId}:step`
+    ? `before-choosing:trial-ui:${taskId}:step${userId ? `:${encodeURIComponent(userId)}` : ''}`
     : `before-choosing:trial-ui:demo:${taskId}:step`;
 }

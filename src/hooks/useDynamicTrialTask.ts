@@ -34,16 +34,16 @@ export function resetPendingDemoTrialLoads(): void {
   }
 }
 
-function storageKey(taskId: TrialTaskId, namespace: 'demo' | 'use') {
+function storageKey(taskId: TrialTaskId, namespace: 'demo' | 'use', userId?: string) {
   return namespace === 'use'
-    ? `before-choosing:dynamic-trial:${taskId}`
+    ? `before-choosing:dynamic-trial:${taskId}${userId ? `:${encodeURIComponent(userId)}` : ''}`
     : `before-choosing:dynamic-trial:demo:${taskId}`;
 }
 
-async function resolveDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use'): Promise<LoadedDynamicTrial> {
+async function resolveDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use', userId?: string): Promise<LoadedDynamicTrial> {
   const task = await getDynamicTrialTask(taskId);
   let session: ApiDynamicTrialSession | null = null;
-  const storedId = window.localStorage.getItem(storageKey(taskId, namespace));
+  const storedId = window.localStorage.getItem(storageKey(taskId, namespace, userId));
 
   if (storedId) {
     try {
@@ -51,31 +51,31 @@ async function resolveDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use
       if (session.task_id !== taskId) session = null;
     } catch (cause) {
       if (!(cause instanceof ApiClientError) || cause.status !== 404) throw cause;
-      window.localStorage.removeItem(storageKey(taskId, namespace));
+      window.localStorage.removeItem(storageKey(taskId, namespace, userId));
     }
   }
 
   if (!session) {
     session = await createDynamicTrialSession(taskId);
-    window.localStorage.setItem(storageKey(taskId, namespace), session.id);
+    window.localStorage.setItem(storageKey(taskId, namespace, userId), session.id);
   }
 
   return { task, session };
 }
 
-function loadDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use'): Promise<LoadedDynamicTrial> {
-  const pendingKey = `${namespace}:${taskId}`;
+function loadDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use', userId?: string): Promise<LoadedDynamicTrial> {
+  const pendingKey = `${namespace}:${userId || 'anonymous'}:${taskId}`;
   const pending = pendingTrialLoads.get(pendingKey);
   if (pending) return pending;
 
-  const request = resolveDynamicTrial(taskId, namespace).finally(() => {
+  const request = resolveDynamicTrial(taskId, namespace, userId).finally(() => {
     if (pendingTrialLoads.get(pendingKey) === request) pendingTrialLoads.delete(pendingKey);
   });
   pendingTrialLoads.set(pendingKey, request);
   return request;
 }
 
-export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'use' = 'use') {
+export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'use' = 'use', userId?: string) {
   const [task, setTask] = useState<ApiTrialTaskDefinition | null>(null);
   const [session, setSession] = useState<ApiDynamicTrialSession | null>(null);
   const [status, setStatus] = useState<DynamicTrialStatus>('loading');
@@ -89,7 +89,7 @@ export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'us
       setStatus('loading');
       setError(null);
       try {
-        const { task: taskResponse, session: sessionResponse } = await loadDynamicTrial(taskId, namespace);
+        const { task: taskResponse, session: sessionResponse } = await loadDynamicTrial(taskId, namespace, userId);
         if (!cancelled) {
           setTask(taskResponse);
           setSession(sessionResponse);
@@ -104,7 +104,7 @@ export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'us
     };
     void load();
     return () => { cancelled = true; };
-  }, [namespace, taskId]);
+  }, [namespace, taskId, userId]);
 
   const run = useCallback(async <T extends ApiDynamicTrialSession>(
     state: DynamicTrialStatus,

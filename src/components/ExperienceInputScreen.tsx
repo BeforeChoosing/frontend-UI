@@ -47,6 +47,7 @@ interface ExperienceInputScreenProps {
   onGenerateCards: (cards: SkillCard[], experience: ApiExperienceSummary) => void;
   onBackToLanding: () => void;
   demoMode?: boolean;
+  userId?: string;
   demoCards?: SkillCard[];
   demoExperienceText?: string;
   focusRequest?: number;
@@ -160,6 +161,7 @@ const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
 function explorationStorageKey(
   demoMode: boolean,
   field: 'evidence' | 'messages' | 'materials' | 'consent' | 'target-state' | 'target-role',
+  userId?: string,
 ): string {
   const versionedField = field === 'messages'
     ? 'messages-v3'
@@ -168,23 +170,24 @@ function explorationStorageKey(
       : field === 'materials'
         ? 'attachments-v3'
         : field;
-  return `before-choosing:profile-exploration:${demoMode ? 'demo' : 'use'}:${versionedField}`;
+  const namespace = demoMode ? 'demo' : userId ? `use:${encodeURIComponent(userId)}` : 'use:anonymous';
+  return `before-choosing:profile-exploration:${namespace}:${versionedField}`;
 }
 
-function loadTargetCareerState(demoMode: boolean): TargetCareerState {
-  const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'target-state'));
+function loadTargetCareerState(demoMode: boolean, userId?: string): TargetCareerState {
+  const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'target-state', userId));
   if (value === 'has_target' || value === 'no_target' || value === 'unselected') return value;
   return demoMode ? 'has_target' : 'unselected';
 }
 
-function loadTargetRole(demoMode: boolean): string {
-  const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'target-role'))?.trim();
+function loadTargetRole(demoMode: boolean, userId?: string): string {
+  const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'target-role', userId))?.trim();
   return value || (demoMode ? DEFAULT_TARGET_ROLE : '');
 }
 
-function loadExplorationMessages(demoMode: boolean): ChatMessage[] {
+function loadExplorationMessages(demoMode: boolean, userId?: string): ChatMessage[] {
   try {
-    const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'messages'));
+    const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'messages', userId));
     if (!raw) return [INITIAL_CHAT_MESSAGE];
     const parsed = JSON.parse(raw) as ChatMessage[];
     return Array.isArray(parsed) && parsed.length > 0
@@ -195,9 +198,9 @@ function loadExplorationMessages(demoMode: boolean): ChatMessage[] {
   }
 }
 
-function loadUploadedMaterials(demoMode: boolean): UploadedMaterial[] {
+function loadUploadedMaterials(demoMode: boolean, userId?: string): UploadedMaterial[] {
   try {
-    const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'materials'));
+    const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'materials', userId));
     if (!raw) return [];
     const parsed = JSON.parse(raw) as UploadedMaterial[];
     return Array.isArray(parsed) ? parsed.filter(item => item?.name && item?.type) : [];
@@ -617,12 +620,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   onGenerateCards,
   onBackToLanding,
   demoMode = false,
+  userId,
   demoCards = [],
   demoExperienceText = '',
   focusRequest = 0,
 }) => {
   const [inputText, setInputText] = useState(() => (
-    window.localStorage.getItem(explorationStorageKey(demoMode, 'evidence')) || ''
+    demoMode || userId ? window.localStorage.getItem(explorationStorageKey(demoMode, 'evidence', userId)) || '' : ''
   ));
   const [coachInput, setCoachInput] = useState(() => (
     demoMode && !window.localStorage.getItem(explorationStorageKey(true, 'evidence'))
@@ -633,10 +637,10 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState('');
   const [targetCareerState, setTargetCareerState] = useState<TargetCareerState>(() => (
-    loadTargetCareerState(demoMode)
+    loadTargetCareerState(demoMode, userId)
   ));
-  const [targetRole, setTargetRole] = useState(() => loadTargetRole(demoMode));
-  const [targetRoleDraft, setTargetRoleDraft] = useState(() => loadTargetRole(demoMode));
+  const [targetRole, setTargetRole] = useState(() => loadTargetRole(demoMode, userId));
+  const [targetRoleDraft, setTargetRoleDraft] = useState(() => loadTargetRole(demoMode, userId));
   const [isEditingTargetRole, setIsEditingTargetRole] = useState(false);
   const [showCommandsMenu, setShowCommandsMenu] = useState(false);
   const [commandNotice, setCommandNotice] = useState<string | null>(null);
@@ -651,13 +655,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   }>>([]);
   
   // Real-time Chat Messages state
-  const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode));
+  const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode, userId));
   const [isAiThinking, setIsAiThinking] = useState(false);
 
   // File Upload Dialog & Drawer state
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadTab, setUploadTab] = useState<'resume' | 'portfolio' | 'link'>('resume');
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedMaterial[]>(() => loadUploadedMaterials(demoMode));
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedMaterial[]>(() => loadUploadedMaterials(demoMode, userId));
   const [linkInput, setLinkInput] = useState('');
   const [isParsingFile, setIsParsingFile] = useState(false);
   const [parsingStep, setParsingStep] = useState('');
@@ -720,36 +724,41 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(explorationStorageKey(demoMode, 'evidence'), inputText);
-  }, [demoMode, inputText]);
+    if (!demoMode && !userId) return;
+    window.localStorage.setItem(explorationStorageKey(demoMode, 'evidence', userId), inputText);
+  }, [demoMode, inputText, userId]);
 
   useEffect(() => {
+    if (!demoMode && !userId) return;
     window.localStorage.setItem(
-      explorationStorageKey(demoMode, 'messages'),
+      explorationStorageKey(demoMode, 'messages', userId),
       JSON.stringify(messages.slice(-30)),
     );
-  }, [demoMode, messages]);
+  }, [demoMode, messages, userId]);
 
   useEffect(() => {
+    if (!demoMode && !userId) return;
     window.localStorage.setItem(
-      explorationStorageKey(demoMode, 'materials'),
+      explorationStorageKey(demoMode, 'materials', userId),
       JSON.stringify(uploadedFiles),
     );
-  }, [demoMode, uploadedFiles]);
+  }, [demoMode, uploadedFiles, userId]);
 
   useEffect(() => {
+    if (!demoMode && !userId) return;
     window.localStorage.setItem(
-      explorationStorageKey(demoMode, 'target-state'),
+      explorationStorageKey(demoMode, 'target-state', userId),
       targetCareerState,
     );
-  }, [demoMode, targetCareerState]);
+  }, [demoMode, targetCareerState, userId]);
 
   useEffect(() => {
+    if (!demoMode && !userId) return;
     window.localStorage.setItem(
-      explorationStorageKey(demoMode, 'target-role'),
+      explorationStorageKey(demoMode, 'target-role', userId),
       targetRole.trim(),
     );
-  }, [demoMode, targetRole]);
+  }, [demoMode, targetRole, userId]);
 
   const handleNewBlankConversation = async () => {
     if (explorationStatus === 'loading') await cancelExploration();
