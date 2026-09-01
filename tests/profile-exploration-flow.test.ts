@@ -13,6 +13,8 @@ const trialMapSource = readFileSync(new URL('../src/components/TrialTaskMapScree
 const styleSource = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 const cardPlaySource = readFileSync(new URL('../src/components/TrialCardPlayScreen.tsx', import.meta.url), 'utf8');
 const verificationSource = readFileSync(new URL('../src/components/AbilityCardVerificationScreen.tsx', import.meta.url), 'utf8');
+const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+const authModalSource = readFileSync(new URL('../src/components/AuthModal.tsx', import.meta.url), 'utf8');
 
 test('01 使用完整聊天记录、单一输入框和对话附件建立候选证据', () => {
   assert.match(experienceSource, /const \[coachInput, setCoachInput\]/);
@@ -82,6 +84,26 @@ test('01 首段提交后锁定页面，仅允许对话记录滚动', () => {
   assert.match(experienceSource, /profile-composer-main flex items-end gap-2/);
   assert.match(experienceSource, /flex h-8 shrink-0 items-center justify-center/);
   assert.doesNotMatch(styleSource, /\.experience-screen \.profile-composer-input[\s\S]*?max-height: 64px/);
+});
+
+test('正式模式可新建真正空白对话，并从页面恢复账号内历史', () => {
+  assert.match(experienceSource, /setCoachInput\(demoMode \? demoExperienceText : ''\)/);
+  assert.match(experienceSource, /setTargetCareerState\(demoMode \? 'has_target' : 'unselected'\)/);
+  assert.match(experienceSource, /setTargetRole\(demoMode \? DEFAULT_TARGET_ROLE : ''\)/);
+  assert.match(experienceSource, /conversations-v1/);
+  assert.match(experienceSource, /历史对话/);
+  assert.match(experienceSource, /restoreConversation/);
+  assert.match(experienceSource, /!demoMode && !userId/);
+});
+
+test('正式首页不强制登录，进入阶段时才打开可关闭登录层', () => {
+  assert.match(appSource, /screen !== 'landing'/);
+  assert.match(appSource, /setPendingScreen\(screen\)/);
+  assert.match(appSource, /isOpen=\{isAuthOpen\}/);
+  assert.doesNotMatch(appSource, /isOpen=\{isAuthOpen \|\|/);
+  assert.match(authModalSource, /onClick=\{onClose\}/);
+  assert.match(authModalSource, /忘记密码/);
+  assert.match(authModalSource, /6 位邮箱验证码/);
 });
 
 test('03 试路地图采用 Demo 的八环节路径与三张直接启动任务卡', () => {

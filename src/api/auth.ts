@@ -51,3 +51,21 @@ export async function logout(): Promise<void> {
     clearAccessToken();
   }
 }
+
+export function requestPasswordReset(email: string): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>('/auth/password-reset/request', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function confirmPasswordReset(
+  email: string,
+  code: string,
+  newPassword: string,
+): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>('/auth/password-reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ email, code, new_password: newPassword }),
+  });
+}

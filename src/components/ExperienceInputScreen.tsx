@@ -92,6 +92,17 @@ type UploadedMaterial = {
 
 type TargetCareerState = 'unselected' | 'has_target' | 'no_target';
 
+type StoredConversation = {
+  id: string;
+  title: string;
+  createdAt: string;
+  messages: ChatMessage[];
+  evidence: string;
+  materials: UploadedMaterial[];
+  targetCareerState: TargetCareerState;
+  targetRole: string;
+};
+
 const DEFAULT_TARGET_ROLE = 'AI 产品经理';
 
 type DemoProbingRound = {
@@ -160,7 +171,7 @@ const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
 
 function explorationStorageKey(
   demoMode: boolean,
-  field: 'evidence' | 'messages' | 'materials' | 'consent' | 'target-state' | 'target-role',
+  field: 'evidence' | 'messages' | 'materials' | 'consent' | 'target-state' | 'target-role' | 'conversations',
   userId?: string,
 ): string {
   const versionedField = field === 'messages'
@@ -168,10 +179,26 @@ function explorationStorageKey(
     : field === 'evidence'
       ? 'evidence-v3'
       : field === 'materials'
-        ? 'attachments-v3'
+      ? 'attachments-v3'
+        : field === 'conversations'
+          ? 'conversations-v1'
         : field;
   const namespace = demoMode ? 'demo' : userId ? `use:${encodeURIComponent(userId)}` : 'use:anonymous';
   return `before-choosing:profile-exploration:${namespace}:${versionedField}`;
+}
+
+function loadConversationHistory(demoMode: boolean, userId?: string): StoredConversation[] {
+  if (!demoMode && !userId) return [];
+  try {
+    const raw = window.localStorage.getItem(explorationStorageKey(demoMode, 'conversations', userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as StoredConversation[];
+    return Array.isArray(parsed)
+      ? parsed.slice(0, 20).filter(item => item?.id && Array.isArray(item.messages) && item.messages.length > 0)
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function loadTargetCareerState(demoMode: boolean, userId?: string): TargetCareerState {
@@ -657,6 +684,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   // Real-time Chat Messages state
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode, userId));
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<StoredConversation[]>(() => loadConversationHistory(demoMode, userId));
+  const [showConversationHistory, setShowConversationHistory] = useState(false);
 
   // File Upload Dialog & Drawer state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -739,6 +768,14 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   useEffect(() => {
     if (!demoMode && !userId) return;
     window.localStorage.setItem(
+      explorationStorageKey(demoMode, 'conversations', userId),
+      JSON.stringify(conversationHistory.slice(0, 20)),
+    );
+  }, [conversationHistory, demoMode, userId]);
+
+  useEffect(() => {
+    if (!demoMode && !userId) return;
+    window.localStorage.setItem(
       explorationStorageKey(demoMode, 'materials', userId),
       JSON.stringify(uploadedFiles),
     );
@@ -760,10 +797,54 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     );
   }, [demoMode, targetRole, userId]);
 
+  const snapshotCurrentConversation = (): StoredConversation | null => {
+    const hasUserMessage = messages.some(message => message.role === 'user' && message.content.trim());
+    if (!hasUserMessage) return null;
+    const firstUserMessage = messages.find(message => message.role === 'user' && message.content.trim());
+    return {
+      id: `conversation-${Date.now()}`,
+      title: (firstUserMessage?.content || '未命名对话').replace(/\s+/g, ' ').slice(0, 32),
+      createdAt: new Date().toISOString(),
+      messages: messages.slice(-30),
+      evidence: inputText,
+      materials: uploadedFiles,
+      targetCareerState,
+      targetRole,
+    };
+  };
+
+  const archiveCurrentConversation = () => {
+    const snapshot = snapshotCurrentConversation();
+    if (!snapshot || (!demoMode && !userId)) return;
+    setConversationHistory(previous => [snapshot, ...previous.filter(item => item.title !== snapshot.title)].slice(0, 20));
+  };
+
+  const restoreConversation = (conversation: StoredConversation) => {
+    archiveCurrentConversation();
+    setMessages(conversation.messages.map(message => message.id === INITIAL_CHAT_MESSAGE.id ? INITIAL_CHAT_MESSAGE : message));
+    setInputText(conversation.evidence || '');
+    setCoachInput('');
+    setUploadedFiles(conversation.materials || []);
+    setTargetCareerState(conversation.targetCareerState || 'unselected');
+    setTargetRole(conversation.targetRole || '');
+    setTargetRoleDraft(conversation.targetRole || '');
+    setIsEditingTargetRole(false);
+    setShowConversationHistory(false);
+    setShowCommandsMenu(false);
+    setDemoProbingActive(false);
+    setIsDemoReplying(false);
+    setDemoProbingRoundIndex(0);
+    setDemoProbingInput('');
+    setDemoProbingHistory([]);
+    setIsChatExpanded(true);
+    resetExploration();
+  };
+
   const handleNewBlankConversation = async () => {
     if (explorationStatus === 'loading') await cancelExploration();
+    archiveCurrentConversation();
     setInputText('');
-    setCoachInput(demoExperienceText);
+    setCoachInput(demoMode ? demoExperienceText : '');
     setSelectedPresetId(null);
     setMessages([INITIAL_CHAT_MESSAGE]);
     setUploadedFiles([]);
@@ -771,11 +852,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setLinkInput('');
     setUploadError(null);
     setVoiceNotice(null);
-    setTargetCareerState('has_target');
-    setTargetRole(DEFAULT_TARGET_ROLE);
-    setTargetRoleDraft(DEFAULT_TARGET_ROLE);
+    setTargetCareerState(demoMode ? 'has_target' : 'unselected');
+    setTargetRole(demoMode ? DEFAULT_TARGET_ROLE : '');
+    setTargetRoleDraft(demoMode ? DEFAULT_TARGET_ROLE : '');
     setIsEditingTargetRole(false);
     setShowCommandsMenu(false);
+    setShowConversationHistory(false);
     setCommandNotice(null);
     setDemoProbingActive(false);
     setIsDemoReplying(false);
@@ -1457,16 +1539,56 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 
                 <div className="flex items-center gap-3">
                   {!focusedConversationActive && <span className="text-[10px] text-stone-500">还原真实决策与隐性胜任力</span>}
-                  {focusedConversationActive && (
+                  <button
+                    type="button"
+                    onClick={() => void handleNewBlankConversation()}
+                    className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-stone-500 transition hover:text-stone-800"
+                  >
+                    <FilePlus className="h-3 w-3" />
+                    <span>新建空白对话</span>
+                  </button>
+                  <div className="relative">
                     <button
                       type="button"
-                      onClick={() => void handleNewBlankConversation()}
+                      onClick={() => setShowConversationHistory(current => !current)}
                       className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-stone-500 transition hover:text-stone-800"
+                      aria-expanded={showConversationHistory}
+                      aria-haspopup="listbox"
                     >
-                      <FilePlus className="h-3 w-3" />
-                      <span>新建空白对话</span>
+                      <FolderArchive className="h-3 w-3" />
+                      <span>历史对话{conversationHistory.length > 0 ? ` (${conversationHistory.length})` : ''}</span>
                     </button>
-                  )}
+                    <AnimatePresence>
+                      {showConversationHistory && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 5, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 5, scale: 0.98 }}
+                          className="absolute right-0 top-full z-40 mt-2 w-72 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl"
+                          role="listbox"
+                        >
+                          <p className="px-2 py-1 text-[10px] font-semibold tracking-wide text-stone-500">历史对话</p>
+                          {conversationHistory.length === 0 ? (
+                            <p className="px-2 py-3 text-xs text-stone-400">还没有保存的对话</p>
+                          ) : conversationHistory.map(conversation => (
+                            <button
+                              key={conversation.id}
+                              type="button"
+                              onClick={() => restoreConversation(conversation)}
+                              className="flex w-full items-start gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-stone-50"
+                              role="option"
+                            >
+                              <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                              <span className="min-w-0">
+                                <span className="block truncate text-xs font-medium text-stone-700">{conversation.title}</span>
+                                <span className="mt-0.5 block text-[10px] text-stone-400">{new Date(conversation.createdAt).toLocaleString()}</span>
+                              </span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                   {!focusedConversationActive && messages.length > 2 && (
                     <button
                       type="button"
