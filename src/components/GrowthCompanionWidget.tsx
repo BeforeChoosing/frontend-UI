@@ -58,6 +58,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
   const [messages, setMessages] = useState<CompanionMessage[]>(() => loadMessages(demoMode, userId));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streamingReplyId, setStreamingReplyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -126,21 +127,35 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
       return;
     }
     try {
-      const { createProfileExplorationMessage } = await import('../api/profile');
+      const { streamProfileExplorationMessage } = await import('../api/profile');
+      const replyId = `companion-stream-${Date.now()}`;
       const profileEvidence = loadProfileEvidence(demoMode, userId);
-      const response = await createProfileExplorationMessage({
-        experience_text: [profileEvidence, ...transcript.filter(message => message.role === 'user').map(message => message.content), content]
-          .filter(Boolean).join('\n\n').slice(-12000),
-        messages: [...transcript.slice(-9), { role: 'user', content }], existing_card_titles: existingCardTitles,
-        request_id: `companion-${Date.now()}`,
-      });
-      setMessages(current => [...current, {
-        id: `companion-${response.trace_id}`, role: 'assistant', content: response.reply,
+      const response = await streamProfileExplorationMessage(
+        {
+          experience_text: [profileEvidence, ...transcript.filter(message => message.role === 'user').map(message => message.content), content]
+            .filter(Boolean).join('\n\n').slice(-12000),
+          messages: [...transcript.slice(-9), { role: 'user', content }], existing_card_titles: existingCardTitles,
+          request_id: `companion-${Date.now()}`,
+        },
+        delta => {
+          setStreamingReplyId(replyId);
+          setMessages(current => current.some(message => message.id === replyId)
+            ? current.map(message => message.id === replyId
+              ? { ...message, content: message.content + delta }
+              : message)
+            : [...current, { id: replyId, role: 'assistant', content: delta }].slice(-20));
+        },
+      );
+      const finalMessage: CompanionMessage = {
+        id: replyId, role: 'assistant', content: response.reply,
         signals: [response.evidence_found[0], response.evidence_gap].filter(Boolean).slice(0, 2),
-      }].slice(-20));
+      };
+      setMessages(current => current.some(message => message.id === replyId)
+        ? current.map(message => message.id === replyId ? finalMessage : message)
+        : [...current, finalMessage].slice(-20));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '这次回复没有完成，请稍后再试。');
-    } finally { setLoading(false); }
+    } finally { setLoading(false); setStreamingReplyId(null); }
   };
 
   return (
@@ -180,8 +195,8 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
               </header>
               <div className="flex items-center gap-2 border-b border-stone-200/60 bg-emerald-50/70 px-3 py-2 text-[10px] text-emerald-900"><Sparkles className="h-3 w-3" /><span>沿用你的经历与已确认能力，不编造证据</span></div>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3" aria-live="polite">
-                {messages.map(message => <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] text-stone-400">{message.role === 'user' ? '你' : '成长陪伴'}</span><div className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[11px] leading-[1.65] ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-white' : 'rounded-tl-md border border-stone-200 bg-white text-stone-800 shadow-sm'}`}>{message.content}</div>{message.signals?.length ? <div className="mt-1.5 flex max-w-[92%] flex-wrap gap-1">{message.signals.map(signal => <span key={signal} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] text-emerald-800">{signal}</span>)}</div> : null}</div>)}
-                {loading && <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-2.5 text-[10px] text-stone-500"><Loader2 className="h-3 w-3 animate-spin" />正在整理证据边界…</div>}<div ref={endRef} />
+                {messages.map(message => <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] text-stone-400">{message.role === 'user' ? '你' : '成长陪伴'}</span><div className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[11px] leading-[1.65] ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-white' : 'rounded-tl-md border border-stone-200 bg-white text-stone-800 shadow-sm'}`}>{message.content}{streamingReplyId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</div>{message.signals?.length ? <div className="mt-1.5 flex max-w-[92%] flex-wrap gap-1">{message.signals.map(signal => <span key={signal} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] text-emerald-800">{signal}</span>)}</div> : null}</div>)}
+                {loading && !streamingReplyId && <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-2.5 text-[10px] text-stone-500"><Loader2 className="h-3 w-3 animate-spin" />正在整理证据边界…</div>}<div ref={endRef} />
               </div>
               <div className="border-t border-stone-200/70 bg-white/90 p-2.5">
                 <div className="mb-2 space-y-1">{QUICK_PROMPTS.map(prompt => <button key={prompt} type="button" disabled={loading} onClick={() => void send(prompt)} className="flex min-h-8 w-full items-center justify-between rounded-lg bg-stone-50 px-2.5 text-left text-[10px] text-stone-700 hover:bg-stone-100 disabled:opacity-50"><span className="truncate">{prompt}</span><ArrowRight className="h-3 w-3 shrink-0" /></button>)}</div>

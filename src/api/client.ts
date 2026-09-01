@@ -105,6 +105,27 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   return payload as T;
 }
 
+export async function apiStreamRequest(path: string, init?: RequestInit): Promise<Response> {
+  let response: Response;
+  const streamHeaders = new Headers(init?.headers);
+  streamHeaders.set('Accept', 'text/event-stream');
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: requestHeaders(streamHeaders),
+    });
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
+    throw new ApiClientError('暂时无法连接服务，请检查网络后重试。');
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as ErrorPayload | null;
+    if (response.status === 401 && !path.startsWith('/auth/')) notifyAuthRequired();
+    throw responseError(response, payload);
+  }
+  return response;
+}
+
 export async function apiFormRequest<T>(path: string, form: FormData): Promise<T> {
   let response: Response;
   try {

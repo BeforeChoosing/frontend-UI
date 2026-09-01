@@ -684,6 +684,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   // Real-time Chat Messages state
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode, userId));
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [conversationHistory, setConversationHistory] = useState<StoredConversation[]>(() => loadConversationHistory(demoMode, userId));
   const [showConversationHistory, setShowConversationHistory] = useState(false);
 
@@ -836,6 +837,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setDemoProbingRoundIndex(0);
     setDemoProbingInput('');
     setDemoProbingHistory([]);
+    setStreamingMessageId(null);
     setIsChatExpanded(true);
     resetExploration();
   };
@@ -941,33 +943,60 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     }
 
     try {
+      const replyId = `ai-stream-${Date.now()}`;
       const conversation = messages.slice(-11).map(message => ({
         role: message.role === 'ai' ? 'assistant' as const : 'user' as const,
         content: message.content,
       }));
       conversation.push({ role: 'user', content: text });
-      const response = await exploreProfile({
-        experience_text: nextEvidenceText,
-        messages: conversation,
-        target_role: targetCareerState === 'has_target'
-          ? (targetRole.trim() || DEFAULT_TARGET_ROLE)
-          : undefined,
-        request_id: `profile-${Date.now()}`,
+      const response = await exploreProfile(
+        {
+          experience_text: nextEvidenceText,
+          messages: conversation,
+          target_role: targetCareerState === 'has_target'
+            ? (targetRole.trim() || DEFAULT_TARGET_ROLE)
+            : undefined,
+          request_id: `profile-${Date.now()}`,
+        },
+        delta => {
+          setIsAiThinking(false);
+          setStreamingMessageId(replyId);
+          setMessages(prev => {
+            const existing = prev.some(message => message.id === replyId);
+            if (!existing) {
+              return [...prev, {
+                id: replyId,
+                role: 'ai',
+                content: delta,
+                timestamp,
+              }].slice(-30);
+            }
+            return prev.map(message => message.id === replyId
+              ? { ...message, content: message.content + delta }
+              : message);
+          });
+        },
+      );
+      setMessages(prev => {
+        const finalMessage: ChatMessage = {
+          id: replyId,
+          role: 'ai',
+          content: response.reply,
+          timestamp,
+          detectedSignals: [
+            EXPLORATION_FOCUS_LABELS[response.focus_dimension],
+            ...response.evidence_found.slice(0, 2),
+          ],
+        };
+        return prev.some(message => message.id === replyId)
+          ? prev.map(message => message.id === replyId ? finalMessage : message)
+          : [...prev, finalMessage].slice(-30);
       });
-      setMessages(prev => [...prev, {
-        id: `ai-${response.trace_id}`,
-        role: 'ai',
-        content: response.reply,
-        timestamp,
-        detectedSignals: [
-          EXPLORATION_FOCUS_LABELS[response.focus_dimension],
-          ...response.evidence_found.slice(0, 2),
-        ],
-      }].slice(-30));
     } catch {
       // The hook exposes the backend/Qwen error beside the exploration composer.
     } finally {
       setIsAiThinking(false);
+      setStreamingMessageId(null);
     }
   };
 
@@ -1490,7 +1519,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   {message.role === 'ai' && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-[11px] font-semibold text-stone-700 shadow-sm">AI</span>}
                   <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-xs leading-6 shadow-sm sm:text-sm ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-stone-100' : 'rounded-tl-md border border-stone-200 bg-white text-stone-700'}`}>
                     {message.attachedFile && <p className="mb-2 border-b border-current/10 pb-2 text-[10px] opacity-70">附件 · {message.attachedFile.name}</p>}
-                    <p>{message.content}</p>
+                    <p>{message.content}{streamingMessageId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
                     {message.detectedSignals && message.detectedSignals.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{message.detectedSignals.map(signal => <span key={signal} className="rounded-md bg-stone-100 px-2 py-0.5 text-[9px] text-stone-600">{signal}</span>)}</div>}
                   </div>
                   {message.role === 'user' && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-stone-100 text-[11px] font-semibold text-stone-700">我</span>}
@@ -1649,7 +1678,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                             <span>{msg.attachedFile.name} ({msg.attachedFile.size})</span>
                           </div>
                         )}
-                        <p>{msg.content}</p>
+                        <p>{msg.content}{streamingMessageId === msg.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
                         {msg.detectedSignals && msg.detectedSignals.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {msg.detectedSignals.map((s, idx) => (

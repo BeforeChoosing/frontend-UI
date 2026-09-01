@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { createProfileExplorationMessage } from '../api/profile';
+import { streamProfileExplorationMessage } from '../api/profile';
 import { cancelMyLlmRequest, getMyLlmQueueStatus, type LlmQueueStatus } from '../api/llmQueue';
 import type { ProfileExplorationRequest, ProfileExplorationResponse } from '../types/api';
 
@@ -13,7 +13,10 @@ export function useProfileExploration() {
   const abortRef = useRef<AbortController | null>(null);
   const pollTimerRef = useRef<number | null>(null);
 
-  const explore = useCallback((request: ProfileExplorationRequest) => {
+  const explore = useCallback((
+    request: ProfileExplorationRequest,
+    onDelta: (text: string) => void = () => {},
+  ) => {
     if (pendingRef.current) return pendingRef.current;
     const pending = (async () => {
       const controller = new AbortController();
@@ -31,7 +34,7 @@ export function useProfileExploration() {
       pollTimerRef.current = window.setInterval(() => void poll(), 800);
       window.setTimeout(() => void poll(), 120);
       try {
-        const response = await createProfileExplorationMessage(request, controller.signal);
+        const response = await streamProfileExplorationMessage(request, onDelta, controller.signal);
         setStatus('success');
         return response;
       } catch (cause) {

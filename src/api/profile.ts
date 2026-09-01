@@ -1,4 +1,4 @@
-import { apiFormRequest, apiRequest } from './client';
+import { ApiClientError, apiFormRequest, apiRequest, apiStreamRequest } from './client';
 import type {
   ApiCardProposal,
   MaterialExtractResponse,
@@ -21,6 +21,67 @@ export function createProfileExplorationMessage(
     body: JSON.stringify(request),
     signal,
   });
+}
+
+export async function streamProfileExplorationMessage(
+  request: ProfileExplorationRequest,
+  onDelta: (text: string) => void,
+  signal?: AbortSignal,
+): Promise<ProfileExplorationResponse> {
+  const response = await apiStreamRequest('/profile/exploration/messages/stream', {
+    method: 'POST',
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.body) throw new ApiClientError('当前浏览器无法接收流式回复。');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let result: ProfileExplorationResponse | null = null;
+
+  const consume = (block: string) => {
+    let event = 'message';
+    const data: string[] = [];
+    for (const line of block.split('\n')) {
+      if (line.startsWith('event:')) event = line.slice(6).trim();
+      if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+    }
+    if (!data.length) return;
+    const payload = JSON.parse(data.join('\n')) as Record<string, unknown>;
+    if (event === 'delta') {
+      const text = typeof payload.text === 'string' ? payload.text : '';
+      if (text) onDelta(text);
+      return;
+    }
+    if (event === 'done') {
+      result = payload as unknown as ProfileExplorationResponse;
+      return;
+    }
+    if (event === 'error') {
+      throw new ApiClientError(
+        typeof payload.message === 'string' ? payload.message : '这次回复没有完成。',
+        typeof payload.status === 'number' ? payload.status : 502,
+        { requestId: typeof payload.request_id === 'string' ? payload.request_id : '' },
+      );
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    buffer = buffer.replaceAll('\r\n', '\n');
+    let boundary = buffer.indexOf('\n\n');
+    while (boundary >= 0) {
+      consume(buffer.slice(0, boundary));
+      buffer = buffer.slice(boundary + 2);
+      boundary = buffer.indexOf('\n\n');
+    }
+    if (done) break;
+  }
+  if (buffer.trim()) consume(buffer);
+  if (!result) throw new ApiClientError('流式回复已结束，但没有收到完整结果。', 502);
+  return result;
 }
 
 export function extractProfileMaterial(file: File): Promise<MaterialExtractResponse> {

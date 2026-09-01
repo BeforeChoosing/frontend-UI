@@ -64,7 +64,8 @@ test('成长陪伴显示为 Demo 风格浮动入口，并提供辅助对话面�
   const source = readFileSync(new URL('../src/components/GrowthCompanionWidget.tsx', import.meta.url), 'utf8');
   assert.match(source, /DEMO_REPLIES/);
   assert.match(source, /demoTypingTimerRef/);
-  assert.match(source, /createProfileExplorationMessage/);
+  assert.match(source, /streamProfileExplorationMessage/);
+  assert.match(source, /agent-stream-cursor/);
   assert.match(source, /profile-exploration.*evidence-v3/);
 });
 

@@ -424,6 +424,24 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   outline-offset: 0;
 }
 
+.agent-stream-cursor {
+  display: inline-block;
+  width: 1px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: currentColor;
+  animation: agent-stream-cursor-blink 900ms steps(1, end) infinite;
+}
+
+@keyframes agent-stream-cursor-blink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-stream-cursor { animation: none; }
+}
+
 .experience-screen[data-focused="true"] .profile-composer-note {
   display: none;
 }
