@@ -18,12 +18,15 @@ export interface ProfileExplorationMessage {
   content: string;
 }
 
+export type ProfileModelTier = 'fast' | 'balanced' | 'reasoning';
+
 export interface ProfileExplorationRequest {
   experience_text: string;
   messages: ProfileExplorationMessage[];
   target_role?: string;
   existing_card_titles?: string[];
   request_id?: string;
+  model_tier?: ProfileModelTier;
 }
 
 export interface ProfileExplorationResponse {

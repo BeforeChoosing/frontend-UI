@@ -38,6 +38,7 @@ import { SkillCard } from '../types';
 import { mapProfileProposalToSkillCards } from '../features/profile/profileAdapter';
 import { useExperienceAnalysis } from '../hooks/useExperienceAnalysis';
 import { useProfileExploration } from '../hooks/useProfileExploration';
+import type { ProfileModelTier } from '../types/api';
 import { extractProfileMaterial, extractProfileMultimodalEvidence } from '../api/profile';
 import { auditEvent } from '../api/client';
 import { findProfileSkill, PROFILE_SKILLS, type ProfileSkillId } from '../features/profile/profileSkills';
@@ -171,7 +172,7 @@ const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
 
 function explorationStorageKey(
   demoMode: boolean,
-  field: 'evidence' | 'messages' | 'materials' | 'consent' | 'target-state' | 'target-role' | 'conversations',
+  field: 'evidence' | 'messages' | 'materials' | 'consent' | 'target-state' | 'target-role' | 'conversations' | 'model-tier',
   userId?: string,
 ): string {
   const versionedField = field === 'messages'
@@ -210,6 +211,12 @@ function loadTargetCareerState(demoMode: boolean, userId?: string): TargetCareer
 function loadTargetRole(demoMode: boolean, userId?: string): string {
   const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'target-role', userId))?.trim();
   return value || (demoMode ? DEFAULT_TARGET_ROLE : '');
+}
+
+function loadModelTier(demoMode: boolean, userId?: string): ProfileModelTier {
+  if (typeof window === 'undefined') return 'balanced';
+  const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'model-tier', userId));
+  return value === 'fast' || value === 'reasoning' ? value : 'balanced';
 }
 
 function loadExplorationMessages(demoMode: boolean, userId?: string): ChatMessage[] {
@@ -685,6 +692,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode, userId));
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [modelTier, setModelTier] = useState<ProfileModelTier>(() => loadModelTier(demoMode, userId));
   const [conversationHistory, setConversationHistory] = useState<StoredConversation[]>(() => loadConversationHistory(demoMode, userId));
   const [showConversationHistory, setShowConversationHistory] = useState(false);
 
@@ -797,6 +805,14 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       targetRole.trim(),
     );
   }, [demoMode, targetRole, userId]);
+
+  useEffect(() => {
+    if (!demoMode && !userId) return;
+    window.localStorage.setItem(
+      explorationStorageKey(demoMode, 'model-tier', userId),
+      modelTier,
+    );
+  }, [demoMode, modelTier, userId]);
 
   const snapshotCurrentConversation = (): StoredConversation | null => {
     const hasUserMessage = messages.some(message => message.role === 'user' && message.content.trim());
@@ -957,6 +973,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             ? (targetRole.trim() || DEFAULT_TARGET_ROLE)
             : undefined,
           request_id: `profile-${Date.now()}`,
+          model_tier: modelTier,
         },
         delta => {
           setIsAiThinking(false);
@@ -1872,6 +1889,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </div>
+              <div className="inline-flex items-center rounded-full bg-stone-100 p-0.5" aria-label="选择模型响应档位">
+                {([['fast', '快速'], ['balanced', '适中'], ['reasoning', '思考']] as const).map(([tier, label]) => (
+                  <button key={tier} type="button" disabled={explorationStatus === 'loading'} onClick={() => setModelTier(tier)} aria-pressed={modelTier === tier} className={`rounded-full px-2 py-1 text-[10px] transition ${modelTier === tier ? 'bg-white font-semibold text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'}`}>{label}</button>
+                ))}
               </div>
               <div className="flex items-center gap-1.5">
                 <button type="button" onClick={handleTriggerUpload} className="relative flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-2 py-1 text-[11px] font-medium text-stone-700 transition hover:bg-stone-50" title="引用简历或项目材料">

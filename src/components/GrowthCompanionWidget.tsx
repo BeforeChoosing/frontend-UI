@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useDragControls } from 'motion/react';
 import { ArrowRight, Loader2, Send, Sparkles, Sprout, X } from 'lucide-react';
 import { AGENT_REGISTRY, type ScreenMode } from '../types';
 import { createCompanionGesture } from '../services/companionGesture';
+import type { ProfileModelTier } from '../types/api';
 
 interface GrowthCompanionWidgetProps {
   demoMode: boolean;
@@ -26,6 +27,11 @@ const INITIAL_MESSAGE: CompanionMessage = {
 };
 
 const QUICK_PROMPTS = ['帮我区分这段经历里的事实与推断', '我还缺少哪些可核验的证据？'];
+const MODEL_TIERS: Array<{ id: ProfileModelTier; label: string }> = [
+  { id: 'fast', label: '快速' },
+  { id: 'balanced', label: '适中' },
+  { id: 'reasoning', label: '思考' },
+];
 const SCREEN_LABELS: Record<ScreenMode, string> = {
   landing: '开始认识自己', auth: '建立个人档案', 'input-experience': '阶段 01 · 经历解构',
   'verify-cards': '阶段 01 · 能力确认', 'career-explore': '阶段 02 · 方向探索',
@@ -39,6 +45,17 @@ const DEMO_REPLIES = [
 function storageKey(demoMode: boolean, userId?: string) {
   const namespace = demoMode ? 'demo' : userId ? `use:${encodeURIComponent(userId)}` : 'use:anonymous';
   return `before-choosing:growth-companion:${namespace}:messages-v1`;
+}
+
+function modelTierStorageKey(demoMode: boolean, userId?: string) {
+  const namespace = demoMode ? 'demo' : userId ? `use:${encodeURIComponent(userId)}` : 'use:anonymous';
+  return `before-choosing:growth-companion:${namespace}:model-tier-v1`;
+}
+
+function loadModelTier(demoMode: boolean, userId?: string): ProfileModelTier {
+  if (typeof window === 'undefined') return 'balanced';
+  const stored = window.localStorage.getItem(modelTierStorageKey(demoMode, userId));
+  return stored === 'fast' || stored === 'reasoning' ? stored : 'balanced';
 }
 
 function loadMessages(demoMode: boolean, userId?: string): CompanionMessage[] {
@@ -60,6 +77,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
   const [loading, setLoading] = useState(false);
   const [streamingReplyId, setStreamingReplyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [modelTier, setModelTier] = useState<ProfileModelTier>(() => loadModelTier(demoMode, userId));
   const triggerRef = useRef<HTMLButtonElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const demoReplyTimerRef = useRef<number | null>(null);
@@ -83,6 +101,10 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
     window.localStorage.setItem(storageKey(demoMode, userId), JSON.stringify(messages.slice(-20)));
     if (open) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [demoMode, messages, open, userId]);
+
+  useEffect(() => {
+    window.localStorage.setItem(modelTierStorageKey(demoMode, userId), modelTier);
+  }, [demoMode, modelTier, userId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -136,6 +158,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
             .filter(Boolean).join('\n\n').slice(-12000),
           messages: [...transcript.slice(-9), { role: 'user', content }], existing_card_titles: existingCardTitles,
           request_id: `companion-${Date.now()}`,
+          model_tier: modelTier,
         },
         delta => {
           setStreamingReplyId(replyId);
@@ -194,6 +217,12 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
                 <button type="button" aria-label="收起成长陪伴" onPointerDown={event => event.stopPropagation()} onClick={() => setOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 active:scale-[.96]"><X className="h-4 w-4" /></button>
               </header>
               <div className="flex items-center gap-2 border-b border-stone-200/60 bg-emerald-50/70 px-3 py-2 text-[10px] text-emerald-900"><Sparkles className="h-3 w-3" /><span>沿用你的经历与已确认能力，不编造证据</span></div>
+              <div className="flex items-center justify-between border-b border-stone-200/60 bg-white/80 px-3 py-2">
+                <span className="text-[10px] text-stone-500">响应档位</span>
+                <div className="inline-flex rounded-full bg-stone-100 p-0.5" aria-label="选择模型响应档位">
+                  {MODEL_TIERS.map(tier => <button key={tier.id} type="button" disabled={loading} onClick={() => setModelTier(tier.id)} aria-pressed={modelTier === tier.id} className={`rounded-full px-2 py-1 text-[9px] transition ${modelTier === tier.id ? 'bg-white font-semibold text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'}`}>{tier.label}</button>)}
+                </div>
+              </div>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3" aria-live="polite">
                 {messages.map(message => <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] text-stone-400">{message.role === 'user' ? '你' : '成长陪伴'}</span><div className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[11px] leading-[1.65] ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-white' : 'rounded-tl-md border border-stone-200 bg-white text-stone-800 shadow-sm'}`}>{message.content}{streamingReplyId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</div>{message.signals?.length ? <div className="mt-1.5 flex max-w-[92%] flex-wrap gap-1">{message.signals.map(signal => <span key={signal} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] text-emerald-800">{signal}</span>)}</div> : null}</div>)}
                 {loading && !streamingReplyId && <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-2.5 text-[10px] text-stone-500"><Loader2 className="h-3 w-3 animate-spin" />正在整理证据边界…</div>}<div ref={endRef} />
