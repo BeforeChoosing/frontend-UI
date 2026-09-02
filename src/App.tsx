@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScreenMode, SkillCard, UserAuth } from './types';
 import { Header } from './components/Header';
 import { LandingHero } from './components/LandingHero';
@@ -20,7 +20,7 @@ import type { ApiCareerRecommendation, ApiExperienceSummary, ProfileCardPatchReq
 import { loadDemoProgress, saveDemoProgress } from './services/demoProgress';
 import { createCareerSelectionSignature } from './services/careerRecommendationState';
 import { loadAppMode, saveAppMode, type AppMode } from './services/appMode';
-import { resetDemoReplayStorage } from './services/demoReplay';
+import { clearLegacyDemoTrialSessionStorage, resetDemoReplayStorage } from './services/demoReplay';
 import { resetPendingDemoTrialLoads } from './hooks/useDynamicTrialTask';
 import {
   DEMO_CAREER_RECOMMENDATION,
@@ -74,17 +74,19 @@ export default function App() {
     isLoggedIn: false,
   });
   const [authChecking, setAuthChecking] = useState(initialAppMode === 'use');
+  const authEpochRef = useRef(0);
   const {
     cards: persistedCards,
     version: profileVersion,
     updatedAt: profileUpdatedAt,
     evidence: profileEvidence,
     status: profileStatus,
+    ownerId: profileOwnerId,
     refresh: refreshProfile,
     confirmCards,
     updateCard,
     removeCard,
-  } = useProfileCards(appMode !== 'use' || auth.isLoggedIn);
+  } = useProfileCards(appMode === 'use' && auth.isLoggedIn, auth.user?.id);
 
   const restoreFormalProgress = (userId: string) => {
     const progress = loadDemoProgress('use', {}, window.localStorage, userId);
@@ -98,10 +100,14 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (persistedCards.length > 0) {
+    clearLegacyDemoTrialSessionStorage();
+  }, []);
+
+  useEffect(() => {
+    if (appMode === 'use' && auth.isLoggedIn && persistedCards.length > 0) {
       setUnlockedCards(prev => mergeCardsById(prev, persistedCards));
     }
-  }, [persistedCards]);
+  }, [appMode, auth.isLoggedIn, persistedCards]);
 
   useEffect(() => {
     if (appMode === 'use' && !auth.user?.id) return;
@@ -158,6 +164,7 @@ export default function App() {
       return;
     }
     let active = true;
+    const authEpoch = ++authEpochRef.current;
     setAuthChecking(true);
     const token = getAccessToken();
     if (!token) {
@@ -171,7 +178,7 @@ export default function App() {
     }
     void getCurrentUser()
       .then((user) => {
-        if (!active) return;
+        if (!active || authEpochRef.current !== authEpoch) return;
         restoreFormalProgress(user.id);
         setAuth({
           isLoggedIn: true,
@@ -185,7 +192,7 @@ export default function App() {
         setIsAuthOpen(false);
       })
       .catch(() => {
-        if (!active) return;
+        if (!active || authEpochRef.current !== authEpoch) return;
         clearAccessToken();
         setAuth({ isLoggedIn: false });
         setUnlockedCards([]);
@@ -199,7 +206,7 @@ export default function App() {
         setIsAuthOpen(false);
       })
       .finally(() => {
-        if (active) setAuthChecking(false);
+        if (active && authEpochRef.current === authEpoch) setAuthChecking(false);
       });
     return () => {
       active = false;
@@ -209,6 +216,7 @@ export default function App() {
   useEffect(() => {
     const onAuthRequired = () => {
       if (appMode !== 'use') return;
+      authEpochRef.current += 1;
       setAuth({ isLoggedIn: false });
       setUnlockedCards([]);
       setCurrentScreen('landing');
@@ -301,6 +309,12 @@ export default function App() {
   };
 
   const handleLoginSuccess = (session: AuthSession) => {
+    authEpochRef.current += 1;
+    if (appMode !== 'use') {
+      saveAppMode('use');
+      setAppMode('use');
+    }
+    setUnlockedCards([]);
     restoreFormalProgress(session.user.id);
     setAuth({
       isLoggedIn: true,
@@ -308,7 +322,7 @@ export default function App() {
         id: session.user.id,
         name: session.user.display_name,
         email: session.user.email,
-        unlockedCards: unlockedCards,
+        unlockedCards: [],
       },
     });
     setAuthChecking(false);
@@ -330,23 +344,34 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    const logoutRequest = logoutAccount();
+    authEpochRef.current += 1;
+    setAuth({ isLoggedIn: false });
+    setUnlockedCards([]);
+    setCurrentScreen('landing');
+    setSelectedTrialTaskId('A-02');
+    setCareerSelectedCardIds([]);
+    setCareerRecommendation(null);
+    setCareerRecommendationCardSignature(null);
+    setDraftCards([]);
+    setDraftExperience(null);
+    setPendingScreen(null);
+    setSelectedCard(null);
+    setIsStageTwoFocusMode(false);
+    if (appMode === 'use') setIsAuthOpen(false);
     try {
-      await logoutAccount();
-    } finally {
-      setAuth({ isLoggedIn: false });
-      setUnlockedCards([]);
-      setCurrentScreen('landing');
-      setSelectedTrialTaskId('A-02');
-      setCareerSelectedCardIds([]);
-      setCareerRecommendation(null);
-      setCareerRecommendationCardSignature(null);
-      setDraftCards([]);
-      setDraftExperience(null);
-      if (appMode === 'use') setIsAuthOpen(false);
+      await logoutRequest;
+    } catch (cause) {
+      console.warn('账号已在本机退出，但服务端会话撤销未完成。', cause);
     }
   };
 
-  const activeCards = appMode === 'demo' ? DEMO_SKILL_CARDS : persistedCards;
+  const activeCards = appMode === 'demo'
+    ? DEMO_SKILL_CARDS
+    : auth.isLoggedIn && profileOwnerId === auth.user?.id
+      ? persistedCards
+      : [];
+  const visibleAuth: UserAuth = appMode === 'use' ? auth : { isLoggedIn: false };
 
   // Dynamic subtle ambient glows matching Craft.do warm paper workspace
   const getScreenBackground = (screen: ScreenMode) => {
@@ -393,7 +418,7 @@ export default function App() {
           onOpenAuth={() => setIsAuthOpen(true)}
           onLogout={handleLogout}
           onOpenFigmaGuide={() => setIsFigmaGuideOpen(true)}
-          isLoggedIn={auth.isLoggedIn}
+          isLoggedIn={appMode === 'use' && auth.isLoggedIn}
           unlockedCardCount={activeCards.length}
         />
       )}
@@ -425,7 +450,7 @@ export default function App() {
                 }}
                 onBackToLanding={() => navigateToScreen('landing')}
                 demoMode={appMode === 'demo'}
-                userId={auth.user?.id}
+                userId={appMode === 'use' ? auth.user?.id : undefined}
                 demoCards={DEMO_SKILL_CARDS.slice(0, 3)}
                 demoExperienceText={DEMO_EXPERIENCE_TEXT}
                 focusRequest={profileFocusRequest}
@@ -497,12 +522,12 @@ export default function App() {
                 taskId={selectedTrialTaskId}
                 confirmedCards={activeCards}
                 demoMode={appMode === 'demo'}
-                userId={auth.user?.id}
+                userId={appMode === 'use' ? auth.user?.id : undefined}
                 onBackToExplore={() => navigateToScreen('career-explore')}
                 onEnterProfile={() => navigateToScreen('profile')}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onTaskChange={setSelectedTrialTaskId}
-                onTrialComplete={refreshProfile}
+                onTrialComplete={appMode === 'use' ? refreshProfile : undefined}
                 onUpdateCardsFromTrial={async (cards) => {
                   if (appMode === 'demo') {
                     setDemoUnlockedCards(prev => mergeCardsById(prev, cards));
@@ -524,7 +549,7 @@ export default function App() {
                 profileEvidence={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE : profileEvidence}
                 profileVersion={appMode === 'demo' ? 4 : profileVersion}
                 profileUpdatedAt={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE[0].created_at : profileUpdatedAt}
-                auth={auth}
+                auth={visibleAuth}
                 onNavigate={navigateToScreen}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onUpdateCard={appMode === 'use' ? handleUpdateProfileCard : undefined}
@@ -542,7 +567,7 @@ export default function App() {
                 profileEvidence={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE : profileEvidence}
                 profileVersion={appMode === 'demo' ? 4 : profileVersion}
                 profileUpdatedAt={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE[0].created_at : profileUpdatedAt}
-                auth={auth}
+                auth={visibleAuth}
                 onNavigate={navigateToScreen}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onUpdateCard={appMode === 'use' ? handleUpdateProfileCard : undefined}
@@ -559,7 +584,7 @@ export default function App() {
         <GrowthCompanionWidget
           key={`growth-companion-${appMode}-${auth.user?.id || 'anonymous'}-${currentScreen}`}
           demoMode={appMode === 'demo'}
-          userId={auth.user?.id}
+          userId={appMode === 'use' ? auth.user?.id : undefined}
           currentScreen={currentScreen}
           existingCardTitles={activeCards.map(card => card.title)}
           onContinue={() => {

@@ -70,6 +70,24 @@ test('演示确认卡池不读取或修改正式模式能力卡状态', () => {
   );
 });
 
+test('演示业务不复用正式账号身份或能力库', () => {
+  assert.match(appSource, /useProfileCards\(appMode === 'use' && auth\.isLoggedIn, auth\.user\?\.id\)/);
+  assert.match(appSource, /isLoggedIn=\{appMode === 'use' && auth\.isLoggedIn\}/);
+  assert.match(appSource, /userId=\{appMode === 'use' \? auth\.user\?\.id : undefined\}/);
+  assert.match(appSource, /const visibleAuth: UserAuth = appMode === 'use' \? auth : \{ isLoggedIn: false \}/);
+});
+
+test('退出时先清理前端账号态，再等待服务端撤销', () => {
+  const logoutStart = appSource.indexOf('const handleLogout = async () =>');
+  const logoutEnd = appSource.indexOf('\n  };', logoutStart);
+  const logoutSource = appSource.slice(logoutStart, logoutEnd);
+
+  assert.ok(logoutStart >= 0);
+  assert.ok(logoutSource.indexOf('setAuth({ isLoggedIn: false })') < logoutSource.indexOf('await logoutRequest'));
+  assert.match(logoutSource, /setUnlockedCards\(\[\]\)/);
+  assert.match(logoutSource, /setPendingScreen\(null\)/);
+});
+
 test('演示探索方向初始为空，由一键装配填充能力卡', () => {
   assert.doesNotMatch(appSource, /careerSelectedCardIds: demoSelectedCards\.map\(card => card\.id\)/);
   assert.match(appSource, /setCareerSelectedCardIds\(\[\]\)/);

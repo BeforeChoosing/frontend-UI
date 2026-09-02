@@ -1,4 +1,4 @@
-import { apiRequest, clearAccessToken, setAccessToken } from './client';
+import { apiRequest, clearAccessToken, getAccessToken, setAccessToken } from './client';
 
 export interface AuthUser {
   id: string;
@@ -45,11 +45,13 @@ export function getCurrentUser(): Promise<AuthUser> {
 }
 
 export async function logout(): Promise<void> {
-  try {
-    await apiRequest<{ logged_out: boolean }>('/auth/logout', { method: 'POST' });
-  } finally {
-    clearAccessToken();
-  }
+  const token = getAccessToken();
+  clearAccessToken();
+  if (!token) return;
+  await apiRequest<{ logged_out: boolean }>('/auth/logout', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export function requestPasswordReset(email: string): Promise<{ detail: string }> {
