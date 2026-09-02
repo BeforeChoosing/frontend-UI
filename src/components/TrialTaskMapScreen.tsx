@@ -20,6 +20,7 @@ interface TrialTaskMapScreenProps {
   selectedTaskId: TrialTaskId;
   loading?: boolean;
   error?: string | null;
+  onRetry?: () => void;
   onStart: (taskId: TrialTaskId) => void;
   onBack: () => void;
 }
@@ -54,6 +55,7 @@ export function TrialTaskMapScreen({
   selectedTaskId,
   loading = false,
   error = null,
+  onRetry,
   onStart,
   onBack,
 }: TrialTaskMapScreenProps) {
@@ -102,7 +104,12 @@ export function TrialTaskMapScreen({
 
         <div className="flex min-h-0 flex-1 flex-col border-t border-stone-100 pt-2">
           <h2 className="mb-2 shrink-0 font-serif text-xs font-semibold text-stone-900">推荐从以下 3 个代表性工作片段开始体验</h2>
-          {error && <p role="alert" className="mb-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p>}
+          {error && (
+            <div role="alert" className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+              <span>{error}</span>
+              {onRetry && <button type="button" onClick={onRetry} className="shrink-0 rounded-full border border-rose-200 bg-white px-3 py-1 font-medium text-rose-800 transition hover:bg-rose-100">重新加载</button>}
+            </div>
+          )}
           {loading ? (
             <div className="grid flex-1 place-items-center text-xs text-stone-500">正在读取挑战目录…</div>
           ) : mapTasks.length === 0 ? (

@@ -316,6 +316,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const [taskCatalog, setTaskCatalog] = useState<ApiTrialTaskDefinition[]>([]);
   const [taskCatalogStatus, setTaskCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [taskCatalogError, setTaskCatalogError] = useState<string | null>(null);
+  const [taskCatalogReloadNonce, setTaskCatalogReloadNonce] = useState(0);
   const { task, session, status, error, save, revealEvent, requestCoach, submit, retry } = useDynamicTrialTask(activeTaskId, progressMode, userId);
   const [stepIndex, setStepIndex] = useState(() => {
     const saved = Number(window.localStorage.getItem(trialStepKey(activeTaskId, progressMode, userId)));
@@ -359,7 +360,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
         setTaskCatalogError(cause instanceof Error ? cause.message : '试路任务目录加载失败。');
       });
     return () => { cancelled = true; };
-  }, [demoMode, progressMode]);
+  }, [demoMode, progressMode, taskCatalogReloadNonce]);
 
   const demoAnswer = useMemo(() => demoMode && task ? createDemoTrialAnswer(task) : null, [demoMode, task]);
 
@@ -427,6 +428,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
         selectedTaskId={selectedMapTaskId}
         loading={taskCatalogStatus === 'loading' && mapTasks.length === 0}
         error={taskCatalogStatus === 'error' ? taskCatalogError : null}
+        onRetry={() => setTaskCatalogReloadNonce(value => value + 1)}
         onStart={(taskId) => {
           setSelectedMapTaskId(taskId);
           setActiveTaskId(taskId);
