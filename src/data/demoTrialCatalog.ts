@@ -31,6 +31,13 @@ const A01_RUBRIC: ApiA02RubricCriterion[] = [
   { dimension: '数据驱动', weight: 5, observable_behavior: '能提出任务成功、错误催促等可观测指标。' },
 ];
 
+const F01_RUBRIC: ApiA02RubricCriterion[] = [
+  { dimension: '用户洞察', weight: 40, observable_behavior: '能从混杂反馈中界定一个真实阻塞点，并解释为什么适合由 AI 介入。' },
+  { dimension: '证据与推理', weight: 25, observable_behavior: '引用任务材料支持判断，并区分事实、假设和待验证项。' },
+  { dimension: '方案完整性', weight: 20, observable_behavior: '给出边界、成功信号、风险和失败后的处理方式。' },
+  { dimension: '动态调整', weight: 15, observable_behavior: '在资源变化后重新判断，并说明保持或调整的依据。' },
+];
+
 const A02_RUBRIC: ApiA02RubricCriterion[] = [
   { dimension: 'AI产品化', weight: 40, observable_behavior: '能区分Prompt、模型、数据、工具、记忆、流程、交互等层级，并设计验证。' },
   { dimension: '数据驱动', weight: 20, observable_behavior: '结合频率、指标与影响面做优先级，而非按“看起来严重”排序。' },
@@ -48,6 +55,45 @@ const A03_RUBRIC: ApiA02RubricCriterion[] = [
 ];
 
 const DEMO_TRIAL_CATALOG: ApiTrialTaskDefinition[] = [
+  buildTask({
+    id: 'F-01',
+    track: 'feature',
+    title: 'AI 到底应该进入创作链路的哪一步？',
+    subtitle: '判断 AI 介入点，而不是先堆功能',
+    role_type: 'AI 功能产品经理',
+    work_stage: '机会判断',
+    primary_skill: '用户洞察',
+    supporting_skills: ['方案与交互', '数据驱动'],
+    estimated_minutes: '15–18 分钟',
+    difficulty: '基础',
+    role: '你是一款内容创作产品的 AI 产品经理。',
+    background: '团队准备把 AI 加入创作链路，但用户反馈同时涉及灵感不足、操作复杂和结果不可控。',
+    goal: '选择一个最值得由 AI 介入的问题，并给出最小验证方案。',
+    constraints: ['只能选择一个核心问题', '首轮验证只允许一次模型调用', '必须保留用户控制权'],
+    materials: [
+      { id: 'feedback', title: '用户反馈', kind: 'feedback', content: '用户既希望减少重复操作，也担心 AI 改写超出预期；新用户更需要明确引导，熟练用户更在意控制权。', is_simulated: true },
+      { id: 'funnel', title: '创作漏斗', kind: 'data', content: '开始创作后的首段完成率偏低；生成后直接采用率不高，但局部修改与继续编辑比例较高。', is_simulated: true },
+      { id: 'capability', title: '模型能力边界', kind: 'capability', content: '模型擅长提供候选和局部改写，但无法稳定替代用户完成高主观性的最终表达。', is_simulated: true },
+    ],
+    steps: [
+      { id: 'problem', title: '判断问题类型', input_mode: '单选 + 说明', instruction: '选择单一任务或定制任务，并重新定义用户阻塞点。', constraint: '只保留一个核心问题。' },
+      { id: 'evidence', title: '引用证据', input_mode: '多选 + 说明', instruction: '至少引用两项材料支持介入点判断。', constraint: '证据必须可追溯。' },
+      { id: 'flow', title: '设计介入流程', input_mode: '流程 + 短文本', instruction: '分别说明 AI 做什么、用户做什么、首版暂不做什么。', constraint: '流程保持最小闭环。' },
+      { id: 'validation', title: '定义最小验证', input_mode: '结构化文本', instruction: '说明验证方式、成功信号和停止条件。', constraint: '必须包含停止条件。' },
+      { id: 'event', title: '事件后决策', input_mode: '保持或调整 + 说明', instruction: '资源缩减后重新判断介入点与验证方案。', constraint: '不能跳过资源变化。' },
+    ],
+    event: { actor: '研发负责人', message: '研发周期从三周缩短到十天，首版只允许一次模型调用。', instruction: '保持或调整介入点与验证方案，并说明依据。' },
+    coach_prompts: ['你现在解决的是用户问题，还是在寻找一个能放 AI 的位置？', '哪两条材料最能支持这个介入点？', '如果验证失败，你准备停止什么？'],
+    rubric: F01_RUBRIC,
+    level_anchors: {
+      L1: '先决定加入 AI，再寻找可以包装的使用场景。',
+      L2: '能识别用户问题，但介入点和验证方式仍较宽泛。',
+      L3: '能用证据选择单一阻塞点，保留用户控制并设计最小验证。',
+      L4: '能比较多个介入位置的价值、风险和成本，并明确停止条件。',
+      L5: '形成可复用的 AI 机会判断框架，并持续用真实行为校准。',
+    },
+    source_note: '固定演示任务库',
+  }),
   buildTask({
     id: 'A-01',
     track: 'agent',

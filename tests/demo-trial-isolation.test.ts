@@ -12,7 +12,7 @@ test('演示试路目录和会话完全由前端构造', () => {
   const task = getLocalDemoTrialTask('A-02');
   const session = createLocalDemoTrialSession(task);
 
-  assert.deepEqual(catalog.map(item => item.id), ['A-01', 'A-02', 'A-03']);
+  assert.deepEqual(catalog.map(item => item.id), ['F-01', 'A-01', 'A-02', 'A-03']);
   assert.equal(session.task_id, 'A-02');
   assert.equal(session.id.startsWith('demo-local-'), true);
   assert.equal(session.answer.card_play_rounds.length, task.ability_challenges.length);
