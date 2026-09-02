@@ -359,32 +359,112 @@ function createDemoTrialEvaluationForAnswer(
   cards: SkillCard[],
 ): ApiTrialEvaluation {
   const evidence = createDemoEvidenceBundle(task, answer, cards);
+  if (!answer) {
+    return {
+      // The catalog preview is intentionally still populated so the demo can
+      // show the same end-screen shape before a real answer is submitted.
+      summary: '本次作答完成了 Bad Case 分层、Top 2 选择、证据引用和验证计划，并在新增约束下调整了验证顺序。',
+      dimensions: task.rubric.map(criterion => ({
+        dimension: criterion.dimension,
+        weight: criterion.weight,
+        score: 82,
+        evidence: criterion.observable_behavior,
+        evidence_refs: evidence.refs.slice(0, 5),
+      })),
+      primary_ability: task.primary_skill,
+      observed_level: 'L3',
+      level_reason: '演示任务提供了完整的示例证据链；正式任务会根据你的实际作答重新总结。',
+      supporting_evidence: task.supporting_skills.map(skill => ({
+        ability: skill,
+        observed_level: 'L3',
+        evidence: '演示任务包含对应步骤和材料引用。',
+      })),
+      process_evidence: task.steps.map(step => `已完成：${step.title}`),
+      coach_dependency: '独立完成',
+      strengths: ['归因层级清晰', '优先级有指标与案例依据'],
+      gaps: ['提交任务步骤、判断依据和结果反馈后再做总结。'],
+      next_step: '完成任务后查看基于实际作答的总结。',
+      confidence: '中',
+      evidence_refs: evidence.refs,
+      ability_applications: evidence.applications,
+      evaluation_protocol: 'trial-evidence-v1',
+    };
+  }
+
+  const answerValues = [
+    ...task.steps.map(step => answer.step_answers[step.id] || ''),
+    answer.card_play_rationale,
+    answer.validation_hypothesis,
+    answer.event_response,
+  ].map(value => value.trim());
+  const nonEmpty = answerValues.filter(Boolean);
+  const concreteSignals = /(因为|根据|依据|所以|因此|结果|反馈|数据|指标|提升|下降|完成|上线|验证|选择|调整|问题|行动|用户|团队|风险|约束|资源|时间)/;
+  const concreteCount = nonEmpty.filter(value => concreteSignals.test(value)).length;
+  const expectedCount = answerValues.length || 1;
+  const completionRatio = nonEmpty.length / expectedCount;
+  const detailRatio = concreteCount / Math.max(nonEmpty.length, 1);
+  const cardEvidenceBonus = Math.min(0.2, evidence.selectedCardIds.length * 0.06);
+  const qualityScore = Math.round(Math.min(100, completionRatio * 45 + detailRatio * 35 + cardEvidenceBonus * 100 + (evidence.refs.length > 2 ? 10 : 0)));
+  const observedLevel: ApiTrialEvaluation['observed_level'] = qualityScore >= 72
+    ? 'L3'
+    : qualityScore >= 45
+      ? 'L2'
+      : qualityScore >= 18
+        ? 'L1'
+        : '证据不足';
+  const levelReason = observedLevel === 'L3'
+    ? '作答同时提供了行动、判断依据和结果线索，可以形成初步可核对证据。'
+    : observedLevel === 'L2'
+      ? '作答覆盖了部分任务步骤，但行动与结果之间的依据仍不完整。'
+      : observedLevel === 'L1'
+        ? '作答已被记录，但目前只有零散线索，尚不足以稳定判断能力表现。'
+        : '作答内容较简略，当前只能确认提交发生，尚未形成可评价的能力证据。';
+  const summary = observedLevel === 'L3'
+    ? `本次作答围绕${task.primary_skill}完成了任务拆解，并提供了行动、依据和结果线索；能力应用记录将作为后续验证的起点。`
+    : observedLevel === 'L2'
+      ? `本次作答已完成部分${task.primary_skill}步骤，能够看到一些判断线索；行动与结果的联系还可以继续补充。`
+      : `本次作答已经记录，但内容较为简略，当前只能总结出${task.primary_skill}的初步线索，暂不把它当作能力确认。`;
+  const strengths = observedLevel === '证据不足'
+    ? []
+    : observedLevel === 'L1'
+      ? ['完成了本轮任务提交']
+      : observedLevel === 'L2'
+        ? ['能围绕任务要求给出部分判断']
+        : ['能把任务要求与行动、依据和结果联系起来'];
+  const gaps = observedLevel === 'L3'
+    ? ['仍需在后续任务中补充跨场景过程证据']
+    : ['补充更具体的行动、判断依据和结果反馈'];
+  const processEvidence = task.steps
+    .filter(step => Boolean(answer.step_answers[step.id]?.trim()))
+    .map(step => `已记录：${step.title}`);
   return {
-    summary: '本次作答完成了 Bad Case 分层、Top 2 选择、证据引用和验证计划，并在新增约束下调整了验证顺序。',
+    summary,
     dimensions: task.rubric.map((criterion, index) => ({
       dimension: criterion.dimension,
       weight: criterion.weight,
-      score: Math.max(78, 91 - index * 2),
-      evidence: criterion.observable_behavior,
-      evidence_refs: evidence.refs.slice(0, 5),
+      score: Math.max(0, Math.min(100, qualityScore - index * 3)),
+      evidence: nonEmpty[index] || '本项暂未提供具体作答证据。',
+      evidence_refs: evidence.refs.slice(index, index + 5),
     })),
     primary_ability: task.primary_skill,
-    observed_level: 'L3',
-    level_reason: '本次作答能够区分模型、检索、工具、记忆和交互问题，并给出可观察的验证动作。',
+    observed_level: observedLevel,
+    level_reason: levelReason,
     supporting_evidence: task.supporting_skills.map(skill => ({
       ability: skill,
-      observed_level: 'L3',
-      evidence: '本次作答包含对应任务步骤和材料引用。',
+      observed_level: observedLevel,
+      evidence: nonEmpty[0] || '本轮暂未提供对应证据。',
     })),
-    process_evidence: task.steps.map(step => `已完成：${step.title}`),
+    process_evidence: processEvidence,
     coach_dependency: '独立完成',
-    strengths: ['归因层级清晰', '优先级有指标与案例依据', '验证动作具有可观察信号'],
-    gaps: ['仍需在后续任务中补充跨场景过程证据'],
-    next_step: '继续完成同类任务，验证该能力在不同约束下的稳定性。',
-    confidence: '中',
+    strengths,
+    gaps,
+    next_step: observedLevel === 'L3'
+      ? '继续完成同类任务，验证该能力在不同约束下的稳定性。'
+      : '返回任务补充具体行动、判断依据或结果，再继续验证。',
+    confidence: observedLevel === 'L3' ? '中' : '低',
     evidence_refs: evidence.refs,
     ability_applications: evidence.applications,
-    evaluation_protocol: 'trial-evidence-v1',
+    evaluation_protocol: 'demo-local-evidence-summary-v2',
   };
 }
 
@@ -394,18 +474,26 @@ export function createDemoObservedEvidence(
   cards: SkillCard[] = DEMO_SKILL_CARDS,
 ): ApiObservedEvidence {
   const evidence = createDemoEvidenceBundle(task, answer, cards);
+  const evaluation = createDemoTrialEvaluation(task, answer, cards);
+  const isPreview = !answer;
   return {
     task_id: task.id,
-    statement: '本次作答展示了从 Bad Case 现象到系统性归因、优先级和验证动作的完整过程。',
-    completed_steps: task.steps.map(step => step.id),
+    statement: isPreview
+      ? '本次作答展示了从 Bad Case 现象到系统性归因、优先级和验证动作的完整过程。'
+      : evaluation.summary,
+    completed_steps: isPreview
+      ? task.steps.map(step => step.id)
+      : task.steps
+        .filter(step => Boolean(answer?.step_answers[step.id]?.trim()))
+        .map(step => step.id),
     evidence_refs: evidence.refs,
     caveats: ['本次结果仅基于当前任务表现', '能力等级需要通过后续任务持续验证'],
     evidence_items: evidence.items,
     selected_card_ids: evidence.selectedCardIds,
     primary_ability: task.primary_skill,
-    observed_level: 'L3',
-    level_reason: '能够形成结构化归因和验证计划。',
-    confidence: '中',
+    observed_level: isPreview ? 'L3' : evaluation.observed_level,
+    level_reason: isPreview ? '演示任务提供了完整的示例证据链；正式任务会根据你的实际作答重新总结。' : evaluation.level_reason,
+    confidence: isPreview ? '中' : evaluation.confidence,
     coach_dependency: '独立完成',
   };
 }

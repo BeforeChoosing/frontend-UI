@@ -23,12 +23,12 @@ test('01 使用完整聊天记录、单一输入框和对话附件建立候选�
   assert.match(experienceSource, /profile-composer-main flex items-end gap-2/);
   assert.doesNotMatch(experienceSource, /handleSendMessage/);
   assert.match(experienceSource, /uploadedFiles\.length/);
-  assert.match(experienceSource, /我会陪你下钻追问并提炼能力卡/);
+  assert.match(experienceSource, /我会用几个问题陪你把细节补完整/);
   assert.match(explorationHookSource, /你刚才发送的内容已经保留/);
   assert.match(explorationHookSource, /cause instanceof Error \? cause\.message/);
   assert.match(experienceSource, /handleTriggerUpload/);
   assert.match(experienceSource, /发送交流/);
-  assert.match(experienceSource, /分析经历/);
+  assert.match(experienceSource, /直接根据材料生成候选能力卡/);
   assert.doesNotMatch(experienceSource, />\s*助手\s*</);
   assert.match(profileApiSource, /\/profile\/exploration\/messages/);
   assert.match(verificationSource, /候选项目经历卡/);

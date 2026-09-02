@@ -1,6 +1,8 @@
 import { ApiClientError, apiFormRequest, apiRequest, apiStreamRequest } from './client';
 import type {
   ApiCardProposal,
+  MaterialUnderstandingRequest,
+  MaterialUnderstandingResponse,
   MaterialExtractResponse,
   MultimodalEvidenceResponse,
   ProfileExplorationRequest,
@@ -117,6 +119,15 @@ export function extractProfileMultimodalEvidence(file: File): Promise<Multimodal
   const form = new FormData();
   form.append('file', file);
   return apiFormRequest<MultimodalEvidenceResponse>('/profile/materials/multimodal-extract', form);
+}
+
+export function understandProfileMaterial(
+  request: MaterialUnderstandingRequest,
+): Promise<MaterialUnderstandingResponse> {
+  return apiRequest<MaterialUnderstandingResponse>('/profile/materials/understand', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
 }
 
 export function createProfileProposal(

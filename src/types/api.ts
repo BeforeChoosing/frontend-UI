@@ -13,6 +13,8 @@ export type ProfileExplorationFocus =
   | 'transfer'
   | 'evidence';
 
+export type ProfileStarDimension = 'S' | 'T' | 'A' | 'R';
+
 export interface ProfileExplorationMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -27,6 +29,9 @@ export interface ProfileExplorationRequest {
   existing_card_titles?: string[];
   request_id?: string;
   model_tier?: ProfileModelTier;
+  round_number?: number;
+  star_history?: ProfileStarDimension[];
+  stop_requested?: boolean;
 }
 
 export interface ProfileExplorationResponse {
@@ -41,6 +46,10 @@ export interface ProfileExplorationResponse {
   model_pool?: string | null;
   cache_hit: boolean;
   notice: string;
+  star_dimension?: ProfileStarDimension;
+  round_number?: number;
+  next_action?: 'ask' | 'summarize';
+  finalization_reason?: string | null;
 }
 
 export interface ProfileConversationSnapshotMessage {
@@ -82,6 +91,33 @@ export interface MaterialExtractResponse {
   char_count: number;
   truncated: boolean;
   stored_material_id: string;
+  notice: string;
+}
+
+export interface AttachmentExperienceCandidate {
+  id: string;
+  title: string;
+  excerpt: string;
+  why_worth_exploring: string;
+  suggested_focus: ProfileStarDimension;
+  source_refs: string[];
+}
+
+export interface MaterialUnderstandingRequest {
+  file_name: string;
+  text: string;
+  stored_material_id?: string | null;
+}
+
+export interface MaterialUnderstandingResponse {
+  trace_id: string;
+  file_name: string;
+  summary: string;
+  experience_candidates: AttachmentExperienceCandidate[];
+  suggested_action: 'explore' | 'generate';
+  model?: string | null;
+  model_pool?: string | null;
+  cache_hit: boolean;
   notice: string;
 }
 

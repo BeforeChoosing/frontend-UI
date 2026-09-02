@@ -63,7 +63,10 @@ function deriveTrialUpdateCards(
       };
     })
     .filter(Boolean) as SkillCard[];
-  return cards.length > 0 ? cards : confirmedCards.slice(0, 3);
+  // Only cards explicitly referenced by the evaluation are updated.  A task
+  // with no matching evidence must still show its summary, but must not
+  // silently rewrite the first cards in the user's profile.
+  return cards;
 }
 
 function AutomaticTrialAbilityUpdate({
@@ -108,6 +111,7 @@ function AutomaticTrialAbilityUpdate({
     <TrialExperienceEndScreen
       updatedCards={updatedCards}
       allAccumulatedCards={confirmedCards}
+      evaluation={evaluation}
       onEnterProfile={onEnterProfile}
       onContinueExplore={onContinueExplore}
     />

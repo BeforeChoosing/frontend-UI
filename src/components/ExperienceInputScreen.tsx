@@ -42,12 +42,17 @@ import type { ProfileConversationSnapshot, ProfileConversationSnapshotUpsert, Pr
 import {
   extractProfileMaterial,
   extractProfileMultimodalEvidence,
+  understandProfileMaterial,
   listProfileConversationSnapshots,
   upsertProfileConversationSnapshot,
 } from '../api/profile';
 import { auditEvent } from '../api/client';
 import { findProfileSkill, PROFILE_SKILLS, type ProfileSkillId } from '../features/profile/profileSkills';
-import type { ApiExperienceSummary } from '../types/api';
+import type {
+  ApiExperienceSummary,
+  AttachmentExperienceCandidate,
+  ProfileStarDimension,
+} from '../types/api';
 
 interface ExperienceInputScreenProps {
   onGenerateCards: (cards: SkillCard[], experience: ApiExperienceSummary) => void;
@@ -67,6 +72,7 @@ export interface ChatMessage {
   detectedSignals?: string[];
   model?: string;
   cacheHit?: boolean;
+  actions?: ChatAction[];
   attachedFile?: {
     name: string;
     size: string;
@@ -74,10 +80,17 @@ export interface ChatMessage {
   };
 }
 
+type ChatAction = {
+  id: string;
+  label: string;
+  kind: 'explore' | 'generate';
+  candidate?: AttachmentExperienceCandidate;
+};
+
 const INITIAL_CHAT_MESSAGE: ChatMessage = {
   id: 'msg-init',
   role: 'ai',
-  content: '你好！分享一段过往经历（一次校园项目、一段长期热爱、一次重要选择或突发协调）。你可以直接在下方控制台输入或使用快捷指令，我会陪你下钻追问并提炼能力卡。',
+  content: '你好，很高兴接下来与你一起。我们会从你真实做过的事情出发，一起看看下一步有哪些方向值得尝试。你可以上传一份简历，我先帮你整理经历并生成候选能力卡；也可以直接分享一段让你印象深刻的经历，我会用几个问题陪你把细节补完整。你想从哪一种方式开始？',
   timestamp: '刚刚',
   detectedSignals: [],
 };
@@ -184,7 +197,7 @@ type DemoProbingRound = {
   clues: string[];
 };
 
-const DEMO_PROBING_REPLY = '这段经历已经包含清晰的问题识别、方案取舍、协作推进和结果验证。接下来我会通过四轮追问，补齐你的判断依据与可迁移能力。';
+const DEMO_PROBING_REPLY = '这段经历已经包含清晰的问题识别、方案取舍、协作推进和结果验证。接下来我会按情境、目标、行动、结果四个角度各聊一轮，再一起总结。';
 
 const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
   {
@@ -199,39 +212,74 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
     clues: ['底层问题归因', '敏锐痛点捕捉'],
   },
   {
+    title: '目标与判断标准',
+    question: '在确认问题之后，你当时希望具体改变什么？你用什么标准判断这件事值得优先推进？',
+    options: [
+      '先解决交易双方不信任和碰面低效这两个最影响流转的问题',
+      '把首月完成稳定流转作为目标，先验证需求而不是堆更多功能',
+      '优先处理用户反复反馈的环节，再决定是否扩展到更多宿舍楼',
+    ],
+    defaultAnswer: '先解决交易双方不信任和碰面低效这两个最影响流转的问题',
+    clues: ['目标边界', '判断标准'],
+  },
+  {
     title: '关键行动与决策权衡',
-    question: '面对实际落地中的具体阻力，你采取了哪些最关键的行动？在多种可能中你放弃了什么、坚守了什么？',
+    question: '围绕这个目标，面对实际落地中的阻力，你采取了哪些关键行动？在多种可能中放弃了什么、坚守了什么？',
     options: [
       '主动找舍管沟通，用标准交接单化解安全顾虑',
       '放弃复杂的线上支付，用最轻量的面对面转交快速验证',
       '建立履约评价机制，让表现稳定的用户获得更高优先级',
     ],
     defaultAnswer: '主动找舍管沟通，用标准交接单化解安全顾虑',
-    clues: ['关键路径决策', '利益协同破局'],
+    clues: ['关键行动', '取舍依据'],
   },
   {
-    title: '成效度量与客观反馈',
-    question: '这些行动最终带来了哪些可验证的结果？团队或用户的反馈如何？',
+    title: '结果与反馈验证',
+    question: '这些行动最终带来了哪些可验证的结果？团队或用户的反馈如何？哪些结果最能说明你的判断有效？',
     options: [
       '首月完成 800 余笔书籍流转，交易双方的沟通成本明显降低',
       '模式获得辅导员和社团骨干认可，随后扩展到其他宿舍楼',
       '团队形成了可复用的交接文档与数据复盘方法',
     ],
     defaultAnswer: '首月完成 800 余笔书籍流转，交易双方的沟通成本明显降低',
-    clues: ['闭环交付度量', '长期价值沉淀'],
-  },
-  {
-    title: '胜任力模式提炼',
-    question: '结合这段经历，最能代表你做事方式的核心优势是什么？',
-    options: [
-      '能快速穿透表象，找到最小成本的高杠杆解法',
-      '擅长站在他人角度沟通，把阻力转化为可协作的条件',
-      '会主动建立指标与复盘机制，让方案在真实结果中得到验证',
-    ],
-    defaultAnswer: '能快速穿透表象，找到最小成本的高杠杆解法',
-    clues: ['高阶胜任力画像', '自我认知清晰度'],
+    clues: ['结果数据', '外部反馈'],
   },
 ];
+
+const STOP_INTENTS = ['不知道了', '停止', '结束', '不想继续', '直接总结', '不用再问'];
+
+function isStopIntent(text: string): boolean {
+  const normalized = text.trim().toLowerCase();
+  return STOP_INTENTS.some(term => normalized === term || normalized.includes(term));
+}
+
+const STAR_DIMENSION_LABELS: Record<ProfileStarDimension, string> = {
+  S: '情境',
+  T: '目标',
+  A: '行动与取舍',
+  R: '结果',
+};
+
+function demoMaterialCandidates(fileName: string): AttachmentExperienceCandidate[] {
+  return [
+    {
+      id: `demo-material-${fileName}-project`,
+      title: '校园二手书项目',
+      excerpt: '走访 6 栋宿舍楼，确认交易双方的信任成本和碰面履约效率问题。',
+      why_worth_exploring: '包含你主动发现问题并推动解决的过程，适合继续聊聊。',
+      suggested_focus: 'S',
+      source_refs: [fileName],
+    },
+    {
+      id: `demo-material-${fileName}-delivery`,
+      title: '交接与评分机制',
+      excerpt: '设计宿舍楼集中转交点与交易评价机制，上线首月完成 800 余笔书籍流转。',
+      why_worth_exploring: '同时有具体行动和结果，方便核对你的判断与取舍。',
+      suggested_focus: 'A',
+      source_refs: [fileName],
+    },
+  ];
+}
 
 const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
   title: '校园二手书流转产品实践',
@@ -770,6 +818,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     question: string;
     answer: string;
   }>>([]);
+  const [starHistory, setStarHistory] = useState<ProfileStarDimension[]>([]);
   
   // Real-time Chat Messages state
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode, userId));
@@ -1000,6 +1049,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setDemoProbingRoundIndex(0);
     setDemoProbingInput('');
     setDemoProbingHistory([]);
+    setStarHistory([]);
     setStreamingMessageId(null);
     setIsChatExpanded(true);
     resetExploration();
@@ -1030,6 +1080,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setDemoProbingRoundIndex(0);
     setDemoProbingInput('');
     setDemoProbingHistory([]);
+    setStarHistory([]);
     if (demoTypingTimerRef.current !== null) window.clearInterval(demoTypingTimerRef.current);
     if (demoTransitionTimerRef.current !== null) window.clearTimeout(demoTransitionTimerRef.current);
     setIsChatExpanded(true);
@@ -1038,8 +1089,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     textareaRef.current?.focus();
   };
 
-  const handleSendCoachMessage = async () => {
-    const text = coachInput.trim();
+  const handleSendCoachMessage = async (textOverride?: string) => {
+    const text = (textOverride ?? coachInput).trim();
     if (!text || isDemoReplying || isAnalyzing || explorationStatus === 'loading') return;
     const nextEvidenceText = [inputText.trim(), text].filter(Boolean).join('\n\n').slice(0, 12000);
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1055,6 +1106,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setSelectedPresetId(null);
     setIsChatExpanded(true);
     setIsAiThinking(true);
+
+    // Stop phrases are an explicit user choice, not an answer-quality check.
+    // Summarise immediately and let the user review the resulting cards.
+    if (isStopIntent(text)) {
+      void handleStartAnalysis(text);
+      return;
+    }
 
     if (demoMode) {
       setIsDemoReplying(true);
@@ -1122,6 +1180,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             : undefined,
           request_id: `profile-${Date.now()}`,
           model_tier: modelTier,
+          round_number: Math.min(4, Math.max(1, starHistory.length + 1)),
+          star_history: starHistory,
         },
         delta => {
           setIsAiThinking(false);
@@ -1154,11 +1214,23 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           ],
           model: response.model || undefined,
           cacheHit: response.cache_hit,
+          actions: response.next_action === 'summarize'
+            ? [{ id: 'summarize', label: '总结并生成能力卡', kind: 'generate' }]
+            : [{ id: `continue-${response.star_dimension || 'S'}`, label: `继续补充${STAR_DIMENSION_LABELS[response.star_dimension || 'S']}`, kind: 'explore' }],
         };
         return prev.some(message => message.id === replyId)
           ? prev.map(message => message.id === replyId ? finalMessage : message)
           : [...prev, finalMessage].slice(-60);
       });
+      if (response.star_dimension && !starHistory.includes(response.star_dimension)) {
+        setStarHistory(previous => [...previous, response.star_dimension!].slice(-4));
+      }
+      if (response.next_action === 'summarize') {
+        // The fourth STAR turn is the hand-off point: summarize immediately
+        // from the complete user transcript instead of waiting for another
+        // click. The current message is already in nextEvidenceText.
+        await handleStartAnalysis(nextEvidenceText, { replaceInput: true });
+      }
     } catch {
       // The hook exposes the backend/Qwen error beside the exploration composer.
     } finally {
@@ -1175,6 +1247,18 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
+  };
+
+  const handleAttachmentAction = (action: ChatAction) => {
+    const candidate = action.candidate;
+    if (action.kind === 'generate') {
+      void handleStartAnalysis(candidate?.excerpt || inputText);
+      return;
+    }
+    if (!candidate) return;
+    const selectedText = `我想详细聊聊「${candidate.title}」：${candidate.excerpt}`;
+    setCoachInput('');
+    void handleSendCoachMessage(selectedText);
   };
 
   // Use browser speech recognition when available; never insert fabricated speech.
@@ -1253,6 +1337,18 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       e.target.value = '';
       return;
     }
+    // Demo uploads are fixtures only.  They never call the private upload,
+    // OCR, or understanding endpoints, so a signed-in browser cannot leak
+    // demo material into a formal account.
+    if (demoMode) {
+      simulateParseFile(
+        file.name,
+        `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+        uploadTab === 'resume' ? 'resume' : 'portfolio',
+      );
+      e.target.value = '';
+      return;
+    }
     setUploadError(null);
     setIsParsingFile(true);
     setParsingStep('正在读取材料中的文字与页面证据...');
@@ -1265,6 +1361,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       let extractionNotice = '';
       let storedFileId = '';
       let detectedSignals: string[] = ['文字已读出', '等你确认', '还没有保存到档案'];
+      let materialUnderstanding: Awaited<ReturnType<typeof understandProfileMaterial>> | null = null;
+      let materialUnderstandingNotice = '';
       if (isImage) {
         setParsingStep('正在定位图片中的项目行动与结果...');
         const evidence = await extractProfileMultimodalEvidence(file);
@@ -1295,6 +1393,25 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             : ['未定位到可核对片段', '等待你补充', '还没有保存到档案'];
         }
       }
+      if (extractedText.trim()) {
+        setParsingStep('正在把材料整理成可选择的经历…');
+        try {
+          materialUnderstanding = await understandProfileMaterial({
+            file_name: file.name,
+            // Keep the same payload budget as the profile proposal endpoint;
+            // page/region evidence still remains available in the stored
+            // material and in the visible attachment message.
+            text: extractedText.slice(0, 12000),
+            stored_material_id: storedFileId || undefined,
+          });
+        } catch {
+          // Extraction and OCR are still useful if the follow-up summary is
+          // unavailable.  Keep the material in the composer and give the user
+          // a clear manual path instead of treating the upload as failed.
+          materialUnderstandingNotice = '材料已经读出，但自动整理暂时不可用；你也可以直接补充想聊的部分。';
+          detectedSignals = [...detectedSignals, '等待你选择或补充'];
+        }
+      }
       const storedFile = { ...newFile, serverFileId: storedFileId || undefined };
       setUploadedFiles(prev => [...prev.filter(item => item.type !== materialType), storedFile]);
       setInputText(prev => upsertMaterialEvidence(
@@ -1303,6 +1420,17 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         file.name,
         extractedText || '材料中暂未定位到可引用文字，请补充说明。',
       ));
+      const candidateActions: ChatAction[] = (materialUnderstanding?.experience_candidates || []).map(candidate => ({
+        id: candidate.id,
+        label: `详细聊聊：${candidate.title}`,
+        kind: 'explore' as const,
+        candidate,
+      }));
+      candidateActions.push({
+        id: `generate-${file.name}`,
+        label: '直接根据材料生成候选能力卡',
+        kind: 'generate',
+      });
       setMessages(prev => [...prev, {
         id: `user-upload-${Date.now()}`,
         role: 'user',
@@ -1312,9 +1440,18 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       }, {
         id: `ai-upload-${Date.now()}`,
         role: 'ai',
-        content: `${extractionNotice} 材料内容目前仅作为候选证据，确认前不会进入职业推荐。`,
+        content: [
+          extractionNotice,
+          materialUnderstanding?.summary || materialUnderstandingNotice || '我已经收到并整理了这份材料。',
+          '你可以选择一段经历和我详细聊聊，也可以先根据材料生成候选能力卡，你想从哪一种方式开始？',
+        ].filter(Boolean).join(' '),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        detectedSignals,
+        detectedSignals: materialUnderstanding?.model
+          ? [...detectedSignals, `${materialUnderstanding.model}${materialUnderstanding.cache_hit ? ' · 缓存命中' : ' · 实时生成'}`]
+          : detectedSignals,
+        model: materialUnderstanding?.model || undefined,
+        cacheHit: materialUnderstanding?.cache_hit,
+        actions: candidateActions,
       }].slice(-60));
       setIsChatExpanded(true);
       setShowUploadModal(false);
@@ -1414,9 +1551,18 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         const aiMsg: ChatMessage = {
           id: `ai-upload-${Date.now()}`,
           role: 'ai',
-          content: `${docSummary} 可补充其中一段具体经历，或点击下方「分析经历」生成候选能力卡。`,
+          content: `我已经收到并整理了这份材料。${docSummary} 你可以选择一段经历和我详细聊聊，也可以先根据材料生成候选能力卡，你想从哪一种方式开始？`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          detectedSignals: ['结构化提取完毕', '高价值行动线索', '准备生成能力卡']
+          detectedSignals: ['结构化提取完毕', '高价值行动线索', '等待你选择下一步'],
+          actions: [
+            ...demoMaterialCandidates(fileName).map(candidate => ({
+              id: candidate.id,
+              label: `详细聊聊：${candidate.title}`,
+              kind: 'explore' as const,
+              candidate,
+            })),
+            { id: `generate-${fileName}`, label: '直接根据材料生成候选能力卡', kind: 'generate' as const },
+          ],
         };
 
         setMessages(prev => [...prev, aiMsg]);
@@ -1427,15 +1573,18 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
   // Trigger the real ProfileAgent flow. UI components only consume the domain result;
   // the API contract and backend DTO mapping live outside this screen.
-  const handleStartAnalysis = async (pendingEvidence = '') => {
+  const handleStartAnalysis = async (
+    pendingEvidence = '',
+    options: { replaceInput?: boolean } = {},
+  ) => {
     const normalizedPendingEvidence = pendingEvidence.trim();
-    const combinedContent = [inputText.trim(), normalizedPendingEvidence]
-      .filter(Boolean)
-      .join('\n\n')
-      .slice(0, 12000);
+    const combinedContent = (options.replaceInput
+      ? normalizedPendingEvidence
+      : [inputText.trim(), normalizedPendingEvidence].filter(Boolean).join('\n\n')
+    ).slice(0, 12000);
     if (!combinedContent || isAnalyzing) return;
 
-    if (normalizedPendingEvidence) {
+    if (normalizedPendingEvidence && !options.replaceInput) {
       setInputText(combinedContent);
       setCoachInput('');
       setMessages(prev => [...prev, {
@@ -1578,6 +1727,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     }]);
     setDemoProbingInput('');
 
+    if (isStopIntent(answer) || demoProbingRoundIndex >= DEMO_PROBING_ROUNDS.length - 1) {
+      setDemoProbingActive(false);
+      void handleStartAnalysis(evidenceLine);
+      return;
+    }
+
     if (demoProbingRoundIndex < DEMO_PROBING_ROUNDS.length - 1) {
       setInputText(prev => [prev.trim(), evidenceLine].filter(Boolean).join('\n\n').slice(0, 12000));
       const nextRoundIndex = demoProbingRoundIndex + 1;
@@ -1586,7 +1741,6 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       return;
     }
 
-    void handleStartAnalysis(evidenceLine);
   };
 
   const handleExperienceComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1682,6 +1836,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                       <span>{option}</span><ArrowRight className="h-3.5 w-3.5 shrink-0 text-stone-400" />
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => void handleStartAnalysis()}
+                    className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-left text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-100"
+                  >
+                    不再补充，直接总结能力卡
+                  </button>
                 </div>
               </div>
             </div>
@@ -1693,6 +1854,20 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     {message.attachedFile && <p className="mb-2 border-b border-current/10 pb-2 text-[10px] opacity-70">附件 · {message.attachedFile.name}</p>}
                     <p>{message.content}{streamingMessageId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
                     {message.detectedSignals && message.detectedSignals.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{message.detectedSignals.map(signal => <span key={signal} className="rounded-md bg-stone-100 px-2 py-0.5 text-[9px] text-stone-600">{signal}</span>)}</div>}
+                    {message.actions && message.actions.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3">
+                        {message.actions.map(action => (
+                          <button
+                            key={action.id}
+                            type="button"
+                            onClick={() => handleAttachmentAction(action)}
+                            className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-[10px] font-medium text-stone-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900"
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {message.role === 'ai' && message.model && <p className="mt-2 text-[9px] text-stone-400">{message.model} · {message.cacheHit ? '缓存命中' : '实时生成'}</p>}
                   </div>
                   {message.role === 'user' && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-stone-100 text-[11px] font-semibold text-stone-700">我</span>}
@@ -2145,7 +2320,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 disabled={isAnalyzing || explorationStatus === 'loading' || isDemoReplying}
                 className="font-medium text-stone-800 transition hover:text-black"
               >
-                {focusedConversationActive ? '提前生成能力卡' : '跳过追问，直接生成能力卡'} →
+                {focusedConversationActive ? '不再补充，直接总结能力卡' : '跳过追问，直接生成能力卡'} →
               </button>
           </div>
           {analysisError && (
