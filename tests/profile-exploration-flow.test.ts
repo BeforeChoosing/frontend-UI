@@ -96,6 +96,15 @@ test('正式模式可新建真正空白对话，并从页面恢复账号内历�
   assert.match(experienceSource, /!demoMode && !userId/);
 });
 
+test('正式对话同步服务器并展示本轮实际模型与缓存状态', () => {
+  assert.match(experienceSource, /messages\.slice\(-49\)/);
+  assert.match(experienceSource, /listProfileConversationSnapshots\(50\)/);
+  assert.match(experienceSource, /upsertProfileConversationSnapshot/);
+  assert.match(experienceSource, /缓存命中/);
+  assert.match(experienceSource, /实时生成/);
+  assert.match(profileApiSource, /\/profile\/conversation-snapshots/);
+});
+
 test('正式首页不强制登录，进入阶段时才打开可关闭登录层', () => {
   assert.match(appSource, /screen !== 'landing'/);
   assert.match(appSource, /setPendingScreen\(screen\)/);

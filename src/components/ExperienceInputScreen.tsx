@@ -38,8 +38,13 @@ import { SkillCard } from '../types';
 import { mapProfileProposalToSkillCards } from '../features/profile/profileAdapter';
 import { useExperienceAnalysis } from '../hooks/useExperienceAnalysis';
 import { useProfileExploration } from '../hooks/useProfileExploration';
-import type { ProfileModelTier } from '../types/api';
-import { extractProfileMaterial, extractProfileMultimodalEvidence } from '../api/profile';
+import type { ProfileConversationSnapshot, ProfileConversationSnapshotUpsert, ProfileModelTier } from '../types/api';
+import {
+  extractProfileMaterial,
+  extractProfileMultimodalEvidence,
+  listProfileConversationSnapshots,
+  upsertProfileConversationSnapshot,
+} from '../api/profile';
 import { auditEvent } from '../api/client';
 import { findProfileSkill, PROFILE_SKILLS, type ProfileSkillId } from '../features/profile/profileSkills';
 import type { ApiExperienceSummary } from '../types/api';
@@ -60,6 +65,8 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   detectedSignals?: string[];
+  model?: string;
+  cacheHit?: boolean;
   attachedFile?: {
     name: string;
     size: string;
@@ -97,14 +104,70 @@ type StoredConversation = {
   id: string;
   title: string;
   createdAt: string;
+  updatedAt: string;
   messages: ChatMessage[];
   evidence: string;
   materials: UploadedMaterial[];
   targetCareerState: TargetCareerState;
   targetRole: string;
+  modelTier: ProfileModelTier;
 };
 
 const DEFAULT_TARGET_ROLE = 'AI 产品经理';
+
+function createConversationId(): string {
+  const suffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `conversation-${suffix}`;
+}
+
+function serverSnapshotToStored(snapshot: ProfileConversationSnapshot): StoredConversation {
+  return {
+    id: snapshot.id,
+    title: snapshot.title,
+    createdAt: snapshot.created_at,
+    updatedAt: snapshot.updated_at,
+    messages: snapshot.messages.map(message => ({
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      timestamp: message.timestamp || '',
+      detectedSignals: message.detected_signals,
+      model: message.model || undefined,
+      cacheHit: message.cache_hit ?? undefined,
+    })),
+    evidence: snapshot.evidence || '',
+    materials: (snapshot.materials || []).map(material => ({
+      name: material.name,
+      size: material.size || '',
+      type: material.type,
+    })),
+    targetCareerState: snapshot.target_career_state || 'unselected',
+    targetRole: snapshot.target_role || '',
+    modelTier: snapshot.model_tier || 'balanced',
+  };
+}
+
+function storedConversationToServer(snapshot: StoredConversation): ProfileConversationSnapshotUpsert {
+  return {
+    title: snapshot.title,
+    messages: snapshot.messages.slice(-60).map(message => ({
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      timestamp: message.timestamp,
+      detected_signals: message.detectedSignals || [],
+      model: message.model,
+      cache_hit: message.cacheHit,
+    })),
+    evidence: snapshot.evidence,
+    materials: snapshot.materials,
+    target_career_state: snapshot.targetCareerState,
+    target_role: snapshot.targetRole,
+    model_tier: snapshot.modelTier,
+  };
+}
 
 type DemoProbingRound = {
   title: string;
@@ -172,7 +235,7 @@ const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
 
 function explorationStorageKey(
   demoMode: boolean,
-  field: 'evidence' | 'messages' | 'materials' | 'consent' | 'target-state' | 'target-role' | 'conversations' | 'model-tier',
+  field: 'evidence' | 'messages' | 'materials' | 'consent' | 'target-state' | 'target-role' | 'conversations' | 'model-tier' | 'active-conversation',
   userId?: string,
 ): string {
   const versionedField = field === 'messages'
@@ -195,11 +258,24 @@ function loadConversationHistory(demoMode: boolean, userId?: string): StoredConv
     if (!raw) return [];
     const parsed = JSON.parse(raw) as StoredConversation[];
     return Array.isArray(parsed)
-      ? parsed.slice(0, 20).filter(item => item?.id && Array.isArray(item.messages) && item.messages.length > 0)
+      ? parsed.slice(0, 50)
+        .filter(item => item?.id && Array.isArray(item.messages) && item.messages.length > 0)
+        .map(item => ({
+          ...item,
+          updatedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
+          modelTier: item.modelTier || 'balanced',
+        }))
       : [];
   } catch {
     return [];
   }
+}
+
+function loadActiveConversationId(demoMode: boolean, userId?: string): string {
+  if (!demoMode && !userId) return createConversationId();
+  return window.localStorage.getItem(
+    explorationStorageKey(demoMode, 'active-conversation', userId),
+  ) || createConversationId();
 }
 
 function loadTargetCareerState(demoMode: boolean, userId?: string): TargetCareerState {
@@ -225,7 +301,7 @@ function loadExplorationMessages(demoMode: boolean, userId?: string): ChatMessag
     if (!raw) return [INITIAL_CHAT_MESSAGE];
     const parsed = JSON.parse(raw) as ChatMessage[];
     return Array.isArray(parsed) && parsed.length > 0
-      ? parsed.slice(-30).map(message => message.id === INITIAL_CHAT_MESSAGE.id ? INITIAL_CHAT_MESSAGE : message)
+      ? parsed.slice(-60).map(message => message.id === INITIAL_CHAT_MESSAGE.id ? INITIAL_CHAT_MESSAGE : message)
       : [INITIAL_CHAT_MESSAGE];
   } catch {
     return [INITIAL_CHAT_MESSAGE];
@@ -694,6 +770,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [modelTier, setModelTier] = useState<ProfileModelTier>(() => loadModelTier(demoMode, userId));
   const [conversationHistory, setConversationHistory] = useState<StoredConversation[]>(() => loadConversationHistory(demoMode, userId));
+  const [currentConversationId, setCurrentConversationId] = useState(() => loadActiveConversationId(demoMode, userId));
   const [showConversationHistory, setShowConversationHistory] = useState(false);
 
   // File Upload Dialog & Drawer state
@@ -770,7 +847,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     if (!demoMode && !userId) return;
     window.localStorage.setItem(
       explorationStorageKey(demoMode, 'messages', userId),
-      JSON.stringify(messages.slice(-30)),
+      JSON.stringify(messages.slice(-60)),
     );
   }, [demoMode, messages, userId]);
 
@@ -778,9 +855,42 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     if (!demoMode && !userId) return;
     window.localStorage.setItem(
       explorationStorageKey(demoMode, 'conversations', userId),
-      JSON.stringify(conversationHistory.slice(0, 20)),
+      JSON.stringify(conversationHistory.slice(0, 50)),
     );
   }, [conversationHistory, demoMode, userId]);
+
+  useEffect(() => {
+    if (!demoMode && !userId) return;
+    window.localStorage.setItem(
+      explorationStorageKey(demoMode, 'active-conversation', userId),
+      currentConversationId,
+    );
+  }, [currentConversationId, demoMode, userId]);
+
+  useEffect(() => {
+    if (demoMode || !userId) return;
+    let cancelled = false;
+    const localHistory = loadConversationHistory(false, userId);
+    void listProfileConversationSnapshots(50).then(serverSnapshots => {
+      if (cancelled) return;
+      const serverHistory = serverSnapshots.map(serverSnapshotToStored);
+      const serverIds = new Set(serverHistory.map(item => item.id));
+      const merged = [
+        ...serverHistory,
+        ...localHistory.filter(item => !serverIds.has(item.id)),
+      ].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 50);
+      setConversationHistory(merged);
+      const localOnly = localHistory.filter(item => !serverIds.has(item.id));
+      if (localOnly.length) {
+        void Promise.allSettled(localOnly.map(item => (
+          upsertProfileConversationSnapshot(item.id, storedConversationToServer(item))
+        )));
+      }
+    }).catch(() => {
+      // Keep the per-account local copy available while the server is unreachable.
+    });
+    return () => { cancelled = true; };
+  }, [demoMode, userId]);
 
   useEffect(() => {
     if (!demoMode && !userId) return;
@@ -818,26 +928,55 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     const hasUserMessage = messages.some(message => message.role === 'user' && message.content.trim());
     if (!hasUserMessage) return null;
     const firstUserMessage = messages.find(message => message.role === 'user' && message.content.trim());
+    const now = new Date().toISOString();
+    const existing = conversationHistory.find(item => item.id === currentConversationId);
     return {
-      id: `conversation-${Date.now()}`,
+      id: currentConversationId,
       title: (firstUserMessage?.content || '未命名对话').replace(/\s+/g, ' ').slice(0, 32),
-      createdAt: new Date().toISOString(),
-      messages: messages.slice(-30),
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      messages: messages.slice(-60),
       evidence: inputText,
       materials: uploadedFiles,
       targetCareerState,
       targetRole,
+      modelTier,
     };
   };
+
+  useEffect(() => {
+    if (demoMode || !userId) return;
+    const snapshot = snapshotCurrentConversation();
+    if (!snapshot) return;
+    const timer = window.setTimeout(() => {
+      void upsertProfileConversationSnapshot(
+        snapshot.id,
+        storedConversationToServer(snapshot),
+      ).then(saved => {
+        const stored = serverSnapshotToStored(saved);
+        setConversationHistory(previous => [
+          stored,
+          ...previous.filter(item => item.id !== stored.id),
+        ].slice(0, 50));
+      }).catch(() => {
+        // The browser copy remains available and will migrate on the next successful load.
+      });
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [currentConversationId, demoMode, inputText, messages, modelTier, targetCareerState, targetRole, uploadedFiles, userId]);
 
   const archiveCurrentConversation = () => {
     const snapshot = snapshotCurrentConversation();
     if (!snapshot || (!demoMode && !userId)) return;
-    setConversationHistory(previous => [snapshot, ...previous.filter(item => item.title !== snapshot.title)].slice(0, 20));
+    setConversationHistory(previous => [snapshot, ...previous.filter(item => item.id !== snapshot.id)].slice(0, 50));
+    if (!demoMode) {
+      void upsertProfileConversationSnapshot(snapshot.id, storedConversationToServer(snapshot));
+    }
   };
 
   const restoreConversation = (conversation: StoredConversation) => {
     archiveCurrentConversation();
+    setCurrentConversationId(conversation.id);
     setMessages(conversation.messages.map(message => message.id === INITIAL_CHAT_MESSAGE.id ? INITIAL_CHAT_MESSAGE : message));
     setInputText(conversation.evidence || '');
     setCoachInput('');
@@ -845,6 +984,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setTargetCareerState(conversation.targetCareerState || 'unselected');
     setTargetRole(conversation.targetRole || '');
     setTargetRoleDraft(conversation.targetRole || '');
+    setModelTier(conversation.modelTier || 'balanced');
     setIsEditingTargetRole(false);
     setShowConversationHistory(false);
     setShowCommandsMenu(false);
@@ -861,6 +1001,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const handleNewBlankConversation = async () => {
     if (explorationStatus === 'loading') await cancelExploration();
     archiveCurrentConversation();
+    setCurrentConversationId(createConversationId());
     setInputText('');
     setCoachInput(demoMode ? demoExperienceText : '');
     setSelectedPresetId(null);
@@ -901,7 +1042,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       content: text,
       timestamp,
     };
-    setMessages(prev => [...prev, userMessage].slice(-30));
+    setMessages(prev => [...prev, userMessage].slice(-60));
     setInputText(nextEvidenceText);
     setCoachInput('');
     setSelectedPresetId(null);
@@ -918,7 +1059,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         content: prefersReducedMotion ? DEMO_PROBING_REPLY : '',
         timestamp,
         detectedSignals: prefersReducedMotion ? ['判断依据', '行动取舍', '可迁移能力'] : [],
-      }].slice(-30));
+      }].slice(-60));
       setIsAiThinking(false);
 
       const enterProbing = () => {
@@ -960,7 +1101,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
     try {
       const replyId = `ai-stream-${Date.now()}`;
-      const conversation = messages.slice(-11).map(message => ({
+      const conversation = messages.slice(-49).map(message => ({
         role: message.role === 'ai' ? 'assistant' as const : 'user' as const,
         content: message.content,
       }));
@@ -986,7 +1127,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 role: 'ai',
                 content: delta,
                 timestamp,
-              }].slice(-30);
+              }].slice(-60);
             }
             return prev.map(message => message.id === replyId
               ? { ...message, content: message.content + delta }
@@ -1004,10 +1145,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             EXPLORATION_FOCUS_LABELS[response.focus_dimension],
             ...response.evidence_found.slice(0, 2),
           ],
+          model: response.model || undefined,
+          cacheHit: response.cache_hit,
         };
         return prev.some(message => message.id === replyId)
           ? prev.map(message => message.id === replyId ? finalMessage : message)
-          : [...prev, finalMessage].slice(-30);
+          : [...prev, finalMessage].slice(-60);
       });
     } catch {
       // The hook exposes the backend/Qwen error beside the exploration composer.
@@ -1160,7 +1303,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         content: `${extractionNotice} 材料内容目前仅作为候选证据，确认前不会进入职业推荐。`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         detectedSignals,
-      }].slice(-30));
+      }].slice(-60));
       setIsChatExpanded(true);
       setShowUploadModal(false);
     } catch (cause) {
@@ -1288,7 +1431,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         role: 'user',
         content: normalizedPendingEvidence,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }].slice(-30));
+      }].slice(-60));
     }
 
     setIsAnalyzing(true);
@@ -1538,6 +1681,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     {message.attachedFile && <p className="mb-2 border-b border-current/10 pb-2 text-[10px] opacity-70">附件 · {message.attachedFile.name}</p>}
                     <p>{message.content}{streamingMessageId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
                     {message.detectedSignals && message.detectedSignals.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{message.detectedSignals.map(signal => <span key={signal} className="rounded-md bg-stone-100 px-2 py-0.5 text-[9px] text-stone-600">{signal}</span>)}</div>}
+                    {message.role === 'ai' && message.model && <p className="mt-2 text-[9px] text-stone-400">{message.model} · {message.cacheHit ? '缓存命中' : '实时生成'}</p>}
                   </div>
                   {message.role === 'user' && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-stone-100 text-[11px] font-semibold text-stone-700">我</span>}
                 </div>
@@ -1674,6 +1818,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                       ))}
                     </div>
                   )}
+                  {latestAiMessage.model && <p className="mt-2 text-[9px] text-stone-400">{latestAiMessage.model} · {latestAiMessage.cacheHit ? '缓存命中' : '实时生成'}</p>}
                 </div>
               ) : (
                 <div 
@@ -1705,6 +1850,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                             ))}
                           </div>
                         )}
+                        {msg.role === 'ai' && msg.model && <p className="mt-2 text-[9px] text-stone-400">{msg.model} · {msg.cacheHit ? '缓存命中' : '实时生成'}</p>}
                       </div>
                     </div>
                   ))}

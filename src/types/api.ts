@@ -37,7 +37,42 @@ export interface ProfileExplorationResponse {
   evidence_gap: string;
   potential_hypotheses: string[];
   ready_for_proposal: boolean;
+  model?: string | null;
+  model_pool?: string | null;
+  cache_hit: boolean;
   notice: string;
+}
+
+export interface ProfileConversationSnapshotMessage {
+  id: string;
+  role: 'user' | 'ai';
+  content: string;
+  timestamp?: string;
+  detected_signals?: string[];
+  model?: string | null;
+  cache_hit?: boolean | null;
+}
+
+export interface ProfileConversationMaterial {
+  name: string;
+  size?: string;
+  type: 'resume' | 'portfolio' | 'link';
+}
+
+export interface ProfileConversationSnapshotUpsert {
+  title: string;
+  messages: ProfileConversationSnapshotMessage[];
+  evidence?: string;
+  materials?: ProfileConversationMaterial[];
+  target_career_state?: 'unselected' | 'has_target' | 'no_target';
+  target_role?: string;
+  model_tier?: ProfileModelTier;
+}
+
+export interface ProfileConversationSnapshot extends ProfileConversationSnapshotUpsert {
+  id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MaterialExtractResponse {

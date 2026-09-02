@@ -5,12 +5,35 @@ import type {
   MultimodalEvidenceResponse,
   ProfileExplorationRequest,
   ProfileExplorationResponse,
+  ProfileConversationSnapshot,
+  ProfileConversationSnapshotUpsert,
   ProfileCardPatchRequest,
   ProfileCardsResponse,
   ProfileOverviewResponse,
   ProfileProposalRequest,
   ProfileProposalResponse,
 } from '../types/api';
+
+export function listProfileConversationSnapshots(limit = 50): Promise<ProfileConversationSnapshot[]> {
+  return apiRequest<ProfileConversationSnapshot[]>(`/profile/conversation-snapshots?limit=${limit}`);
+}
+
+export function upsertProfileConversationSnapshot(
+  conversationId: string,
+  snapshot: ProfileConversationSnapshotUpsert,
+): Promise<ProfileConversationSnapshot> {
+  return apiRequest<ProfileConversationSnapshot>(
+    `/profile/conversation-snapshots/${encodeURIComponent(conversationId)}`,
+    { method: 'PUT', body: JSON.stringify(snapshot) },
+  );
+}
+
+export function deleteProfileConversationSnapshot(conversationId: string): Promise<{ deleted: boolean }> {
+  return apiRequest<{ deleted: boolean }>(
+    `/profile/conversation-snapshots/${encodeURIComponent(conversationId)}`,
+    { method: 'DELETE' },
+  );
+}
 
 export function createProfileExplorationMessage(
   request: ProfileExplorationRequest,

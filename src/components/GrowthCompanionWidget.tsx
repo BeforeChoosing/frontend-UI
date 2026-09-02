@@ -18,6 +18,8 @@ interface CompanionMessage {
   role: 'assistant' | 'user';
   content: string;
   signals?: string[];
+  model?: string;
+  cacheHit?: boolean;
 }
 
 const INITIAL_MESSAGE: CompanionMessage = {
@@ -61,7 +63,7 @@ function loadModelTier(demoMode: boolean, userId?: string): ProfileModelTier {
 function loadMessages(demoMode: boolean, userId?: string): CompanionMessage[] {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(storageKey(demoMode, userId)) || '[]') as CompanionMessage[];
-    return Array.isArray(parsed) && parsed.length ? parsed.slice(-20) : [INITIAL_MESSAGE];
+    return Array.isArray(parsed) && parsed.length ? parsed.slice(-60) : [INITIAL_MESSAGE];
   } catch { return [INITIAL_MESSAGE]; }
 }
 
@@ -98,7 +100,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
 
   useEffect(() => {
     if (!demoMode && !userId) return;
-    window.localStorage.setItem(storageKey(demoMode, userId), JSON.stringify(messages.slice(-20)));
+    window.localStorage.setItem(storageKey(demoMode, userId), JSON.stringify(messages.slice(-60)));
     if (open) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [demoMode, messages, open, userId]);
 
@@ -124,14 +126,14 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
     const content = (preset ?? input).trim();
     if (!content || loading) return;
     const userMessage: CompanionMessage = { id: `companion-user-${Date.now()}`, role: 'user', content };
-    const nextMessages = [...messages, userMessage].slice(-20);
+    const nextMessages = [...messages, userMessage].slice(-60);
     setMessages(nextMessages); setInput(''); setError(null); setLoading(true);
     if (demoMode) {
       demoReplyTimerRef.current = window.setTimeout(() => {
         const reply = DEMO_REPLIES[(nextMessages.filter(message => message.role === 'user').length - 1) % DEMO_REPLIES.length];
         const replyId = `companion-demo-${Date.now()}`;
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        setMessages(current => [...current, { id: replyId, role: 'assistant', content: reduceMotion ? reply : '' }].slice(-20));
+        setMessages(current => [...current, { id: replyId, role: 'assistant', content: reduceMotion ? reply : '' }].slice(-60));
         if (reduceMotion) { setLoading(false); return; }
         let visible = 0;
         demoTypingTimerRef.current = window.setInterval(() => {
@@ -156,7 +158,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
         {
           experience_text: [profileEvidence, ...transcript.filter(message => message.role === 'user').map(message => message.content), content]
             .filter(Boolean).join('\n\n').slice(-12000),
-          messages: [...transcript.slice(-9), { role: 'user', content }], existing_card_titles: existingCardTitles,
+          messages: [...transcript.slice(-49), { role: 'user', content }], existing_card_titles: existingCardTitles,
           request_id: `companion-${Date.now()}`,
           model_tier: modelTier,
         },
@@ -166,16 +168,18 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
             ? current.map(message => message.id === replyId
               ? { ...message, content: message.content + delta }
               : message)
-            : [...current, { id: replyId, role: 'assistant', content: delta }].slice(-20));
+            : [...current, { id: replyId, role: 'assistant', content: delta }].slice(-60));
         },
       );
       const finalMessage: CompanionMessage = {
         id: replyId, role: 'assistant', content: response.reply,
         signals: [response.evidence_found[0], response.evidence_gap].filter(Boolean).slice(0, 2),
+        model: response.model || undefined,
+        cacheHit: response.cache_hit,
       };
       setMessages(current => current.some(message => message.id === replyId)
         ? current.map(message => message.id === replyId ? finalMessage : message)
-        : [...current, finalMessage].slice(-20));
+        : [...current, finalMessage].slice(-60));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '这次回复没有完成，请稍后再试。');
     } finally { setLoading(false); setStreamingReplyId(null); }
@@ -224,7 +228,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
                 </div>
               </div>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3" aria-live="polite">
-                {messages.map(message => <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] text-stone-400">{message.role === 'user' ? '你' : '成长陪伴'}</span><div className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[11px] leading-[1.65] ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-white' : 'rounded-tl-md border border-stone-200 bg-white text-stone-800 shadow-sm'}`}>{message.content}{streamingReplyId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</div>{message.signals?.length ? <div className="mt-1.5 flex max-w-[92%] flex-wrap gap-1">{message.signals.map(signal => <span key={signal} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] text-emerald-800">{signal}</span>)}</div> : null}</div>)}
+                {messages.map(message => <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] text-stone-400">{message.role === 'user' ? '你' : '成长陪伴'}</span><div className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[11px] leading-[1.65] ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-white' : 'rounded-tl-md border border-stone-200 bg-white text-stone-800 shadow-sm'}`}>{message.content}{streamingReplyId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</div>{message.signals?.length ? <div className="mt-1.5 flex max-w-[92%] flex-wrap gap-1">{message.signals.map(signal => <span key={signal} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] text-emerald-800">{signal}</span>)}</div> : null}{message.role === 'assistant' && message.model ? <span className="mt-1 px-1 text-[9px] text-stone-400">{message.model} · {message.cacheHit ? '缓存命中' : '实时生成'}</span> : null}</div>)}
                 {loading && !streamingReplyId && <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-2.5 text-[10px] text-stone-500"><Loader2 className="h-3 w-3 animate-spin" />正在整理证据边界…</div>}<div ref={endRef} />
               </div>
               <div className="border-t border-stone-200/70 bg-white/90 p-2.5">
