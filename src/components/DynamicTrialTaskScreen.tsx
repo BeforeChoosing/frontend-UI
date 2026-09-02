@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useDynamicTrialTask } from '../hooks/useDynamicTrialTask';
 import { getDynamicTrialCatalog } from '../api/trial';
+import { getLocalDemoTrialCatalog } from '../data/demoTrialCatalog';
 import type { SkillCard } from '../types';
 import type {
   ApiDynamicTrialAnswer,
@@ -315,7 +316,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const [taskCatalog, setTaskCatalog] = useState<ApiTrialTaskDefinition[]>([]);
   const [taskCatalogStatus, setTaskCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [taskCatalogError, setTaskCatalogError] = useState<string | null>(null);
-  const { task, session, status, error, save, revealEvent, requestCoach, submit } = useDynamicTrialTask(activeTaskId, progressMode, userId);
+  const { task, session, status, error, save, revealEvent, requestCoach, submit, retry } = useDynamicTrialTask(activeTaskId, progressMode, userId);
   const [stepIndex, setStepIndex] = useState(() => {
     const saved = Number(window.localStorage.getItem(trialStepKey(activeTaskId, progressMode, userId)));
     return Number.isInteger(saved) && saved >= 0 && saved < 5 ? saved : 0;
@@ -337,6 +338,12 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   }, [activeTaskId, progressMode, taskId]);
 
   useEffect(() => {
+    if (demoMode) {
+      setTaskCatalog(getLocalDemoTrialCatalog());
+      setTaskCatalogStatus('ready');
+      setTaskCatalogError(null);
+      return undefined;
+    }
     let cancelled = false;
     setTaskCatalogStatus('loading');
     setTaskCatalogError(null);
@@ -352,7 +359,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
         setTaskCatalogError(cause instanceof Error ? cause.message : '试路任务目录加载失败。');
       });
     return () => { cancelled = true; };
-  }, [progressMode]);
+  }, [demoMode, progressMode]);
 
   const demoAnswer = useMemo(() => demoMode && task ? createDemoTrialAnswer(task) : null, [demoMode, task]);
 
@@ -429,6 +436,21 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
         }}
         onBack={onBackToExplore}
       />
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="grid min-h-[calc(100vh-64px)] place-items-center px-6 text-center">
+        <div className="max-w-md rounded-3xl border border-stone-200 bg-white px-8 py-7 shadow-sm">
+          <p className="font-serif text-lg text-stone-900">试路任务暂时无法打开</p>
+          <p className="mt-2 text-sm leading-6 text-stone-500">{error || '加载失败，请稍后重试。'}</p>
+          <div className="mt-5 flex justify-center gap-2">
+            <button type="button" onClick={retry} className="craft-btn-black px-4 py-2 text-xs">重新加载</button>
+            <button type="button" onClick={() => setShowTaskMap(true)} className="craft-btn-secondary px-4 py-2 text-xs">返回任务地图</button>
+          </div>
+        </div>
+      </div>
     );
   }
 

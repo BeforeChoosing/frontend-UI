@@ -1,4 +1,10 @@
 import { loadAppMode } from '../services/appMode';
+import {
+  isApiRequestAllowedInMode,
+  shouldAttachAccessToken,
+} from '../services/requestModePolicy';
+
+export { isApiRequestAllowedInMode, shouldAttachAccessToken } from '../services/requestModePolicy';
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || '/api/v1'
@@ -18,6 +24,14 @@ export function clearAccessToken(): void {
   window.localStorage.removeItem(ACCESS_TOKEN_KEY);
 }
 
+function assertApiRequestAllowed(path: string, mode = loadAppMode()): void {
+  if (isApiRequestAllowedInMode(path, mode)) return;
+  throw new ApiClientError('演示模式使用本地数据，不连接正式服务。', 0, {
+    code: 'DEMO_NETWORK_BLOCKED',
+    retryable: false,
+  });
+}
+
 function clientRequestId(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
@@ -25,14 +39,17 @@ function clientRequestId(): string {
 }
 
 function requestHeaders(extra?: HeadersInit): HeadersInit {
+  const appMode = loadAppMode();
   const headers = new Headers({
     Accept: 'application/json',
     'Content-Type': 'application/json',
-    'X-App-Mode': loadAppMode(),
+    'X-App-Mode': appMode,
     'X-Client-Request-Id': clientRequestId(),
   });
   const token = getAccessToken();
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (token && shouldAttachAccessToken(appMode)) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
   new Headers(extra).forEach((value, key) => headers.set(key, value));
   return headers;
 }
@@ -82,6 +99,7 @@ function responseError(response: Response, payload: ErrorPayload | null): ApiCli
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  assertApiRequestAllowed(path);
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
@@ -106,6 +124,7 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
 }
 
 export async function apiStreamRequest(path: string, init?: RequestInit): Promise<Response> {
+  assertApiRequestAllowed(path);
   let response: Response;
   const streamHeaders = new Headers(init?.headers);
   streamHeaders.set('Accept', 'text/event-stream');
@@ -127,6 +146,7 @@ export async function apiStreamRequest(path: string, init?: RequestInit): Promis
 }
 
 export async function apiFormRequest<T>(path: string, form: FormData): Promise<T> {
+  assertApiRequestAllowed(path);
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
@@ -135,7 +155,9 @@ export async function apiFormRequest<T>(path: string, form: FormData): Promise<T
         Accept: 'application/json',
         'X-App-Mode': loadAppMode(),
         'X-Client-Request-Id': clientRequestId(),
-        ...(getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}),
+        ...(shouldAttachAccessToken(loadAppMode()) && getAccessToken()
+          ? { Authorization: `Bearer ${getAccessToken()}` }
+          : {}),
       },
       body: form,
     });

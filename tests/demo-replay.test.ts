@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resetDemoReplayStorage } from '../src/services/demoReplay';
+import {
+  clearLegacyDemoTrialSessionStorage,
+  resetDemoReplayStorage,
+} from '../src/services/demoReplay';
 
 function createStorage(initial: Record<string, string>) {
   const values = new Map(Object.entries(initial));
@@ -36,4 +39,18 @@ test('重新演示只清除演示命名空间', () => {
   assert.equal(storage.has('before-choosing:profile-exploration:use:messages-v3'), true);
   assert.equal(storage.has('before-choosing:dynamic-trial:A-02'), true);
   assert.equal(storage.has('before-choosing:app-mode:v1'), true);
+});
+
+test('升级后只清理旧演示服务端会话引用', () => {
+  const storage = createStorage({
+    'before-choosing:dynamic-trial:demo:A-01': 'legacy-demo-session',
+    'before-choosing:trial-ui:demo:A-01:step': '2',
+    'before-choosing:dynamic-trial:A-01:user-a': 'formal-session',
+  });
+
+  clearLegacyDemoTrialSessionStorage(storage);
+
+  assert.equal(storage.has('before-choosing:dynamic-trial:demo:A-01'), false);
+  assert.equal(storage.has('before-choosing:trial-ui:demo:A-01:step'), true);
+  assert.equal(storage.has('before-choosing:dynamic-trial:A-01:user-a'), true);
 });
