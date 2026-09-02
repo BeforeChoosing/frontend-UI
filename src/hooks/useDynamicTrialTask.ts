@@ -56,7 +56,13 @@ async function resolveDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use
   if (storedId) {
     try {
       session = await getDynamicTrialSession(storedId);
-      if (session.task_id !== taskId) session = null;
+      // A submitted session is historical evidence, not a reason to skip the
+      // task on the next visit. Keep the old row on the server, but start a
+      // fresh workbench session so the user can redo the task.
+      if (session.task_id !== taskId || session.status === 'submitted') {
+        session = null;
+        window.localStorage.removeItem(storageKey(taskId, namespace, userId));
+      }
     } catch (cause) {
       if (!(cause instanceof ApiClientError) || cause.status !== 404) throw cause;
       window.localStorage.removeItem(storageKey(taskId, namespace, userId));
@@ -206,5 +212,16 @@ export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'us
 
   const retry = useCallback(() => setReloadNonce(value => value + 1), []);
 
-  return { task, session, status, error, save, revealEvent, requestCoach, submit, retry };
+  const restart = useCallback(() => {
+    if (namespace === 'use') {
+      window.localStorage.removeItem(storageKey(taskId, namespace, userId));
+    }
+    setTask(null);
+    setSession(null);
+    setError(null);
+    setStatus('loading');
+    setReloadNonce(value => value + 1);
+  }, [namespace, taskId, userId]);
+
+  return { task, session, status, error, save, revealEvent, requestCoach, submit, retry, restart };
 }

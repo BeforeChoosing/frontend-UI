@@ -321,7 +321,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   const [taskCatalogStatus, setTaskCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [taskCatalogError, setTaskCatalogError] = useState<string | null>(null);
   const [taskCatalogReloadNonce, setTaskCatalogReloadNonce] = useState(0);
-  const { task, session, status, error, save, revealEvent, requestCoach, submit, retry } = useDynamicTrialTask(activeTaskId, progressMode, userId);
+  const { task, session, status, error, save, revealEvent, requestCoach, submit, retry, restart } = useDynamicTrialTask(activeTaskId, progressMode, userId);
   const [stepIndex, setStepIndex] = useState(() => {
     const saved = Number(window.localStorage.getItem(trialStepKey(activeTaskId, progressMode, userId)));
     return Number.isInteger(saved) && saved >= 0 && saved < 5 ? saved : 0;
@@ -434,6 +434,19 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
         error={taskCatalogStatus === 'error' ? taskCatalogError : null}
         onRetry={() => setTaskCatalogReloadNonce(value => value + 1)}
         onStart={(taskId) => {
+          const restartingCurrentTask = activeTaskId === taskId;
+          if (restartingCurrentTask) {
+            // The map is also the explicit entry point for redoing a task.
+            // Clear the current in-memory answer before loading a new local
+            // demo session or a new server workbench session.
+            restart();
+            setAnswer(null);
+            setCoachText(null);
+            setDemoSubmitted(false);
+            setDemoCompletedStepIds([]);
+            setStepIndex(0);
+            setPhase('card-play');
+          }
           setSelectedMapTaskId(taskId);
           setActiveTaskId(taskId);
           initializedSessionRef.current = null;
