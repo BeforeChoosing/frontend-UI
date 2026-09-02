@@ -57,6 +57,7 @@ export interface ProfileConversationMaterial {
   name: string;
   size?: string;
   type: 'resume' | 'portfolio' | 'link';
+  server_file_id?: string | null;
 }
 
 export interface ProfileConversationSnapshotUpsert {
@@ -80,6 +81,7 @@ export interface MaterialExtractResponse {
   text: string;
   char_count: number;
   truncated: boolean;
+  stored_material_id: string;
   notice: string;
 }
 
@@ -104,6 +106,7 @@ export interface MultimodalEvidenceResponse {
   model: string;
   items: MultimodalEvidenceItem[];
   rejected_count: number;
+  stored_material_id?: string | null;
   notice: string;
 }
 

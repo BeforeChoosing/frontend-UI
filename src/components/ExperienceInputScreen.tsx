@@ -96,6 +96,7 @@ type UploadedMaterial = {
   name: string;
   size: string;
   type: 'resume' | 'portfolio' | 'link';
+  serverFileId?: string;
 };
 
 type TargetCareerState = 'unselected' | 'has_target' | 'no_target';
@@ -142,6 +143,7 @@ function serverSnapshotToStored(snapshot: ProfileConversationSnapshot): StoredCo
       name: material.name,
       size: material.size || '',
       type: material.type,
+      serverFileId: material.server_file_id || undefined,
     })),
     targetCareerState: snapshot.target_career_state || 'unselected',
     targetRole: snapshot.target_role || '',
@@ -162,7 +164,12 @@ function storedConversationToServer(snapshot: StoredConversation): ProfileConver
       cache_hit: message.cacheHit,
     })),
     evidence: snapshot.evidence,
-    materials: snapshot.materials,
+    materials: snapshot.materials.map(material => ({
+      name: material.name,
+      size: material.size,
+      type: material.type,
+      server_file_id: material.serverFileId,
+    })),
     target_career_state: snapshot.targetCareerState,
     target_role: snapshot.targetRole,
     model_tier: snapshot.modelTier,
@@ -1253,14 +1260,15 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       const fileSize = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
       const materialType = uploadTab === 'resume' ? 'resume' : 'portfolio';
       const newFile: UploadedMaterial = { name: file.name, size: fileSize, type: materialType };
-      setUploadedFiles(prev => [...prev.filter(item => item.type !== materialType), newFile]);
       const isImage = file.type.startsWith('image/') || ['.png', '.jpg', '.jpeg', '.webp'].includes(extension);
       let extractedText = '';
       let extractionNotice = '';
+      let storedFileId = '';
       let detectedSignals: string[] = ['文字已读出', '等你确认', '还没有保存到档案'];
       if (isImage) {
         setParsingStep('正在定位图片中的项目行动与结果...');
         const evidence = await extractProfileMultimodalEvidence(file);
+        storedFileId = evidence.stored_material_id || '';
         extractedText = formatMultimodalEvidence(evidence.items);
         extractionNotice = `已用 ${evidence.model} 定位 ${evidence.items.length} 条候选证据，保留页码与区域引用。`;
         detectedSignals = evidence.items.length > 0
@@ -1269,6 +1277,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       } else {
         try {
           const extracted = await extractProfileMaterial(file);
+          storedFileId = extracted.stored_material_id;
           extractedText = extracted.text;
           extractionNotice = `已提取 ${extracted.char_count} 字可复制文本${extracted.truncated ? '（内容较长，已截取前 12000 字）' : ''}。`;
         } catch (cause) {
@@ -1278,6 +1287,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           if (extension !== '.pdf' || !message.includes('没有可复制文本')) throw cause;
           setParsingStep('未发现文字层，正在用 Qwen-VL 定位扫描页证据...');
           const evidence = await extractProfileMultimodalEvidence(file);
+          storedFileId = evidence.stored_material_id || '';
           extractedText = formatMultimodalEvidence(evidence.items);
           extractionNotice = `已用 ${evidence.model} 定位 ${evidence.items.length} 条扫描页候选证据，保留页码与区域引用。`;
           detectedSignals = evidence.items.length > 0
@@ -1285,6 +1295,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             : ['未定位到可核对片段', '等待你补充', '还没有保存到档案'];
         }
       }
+      const storedFile = { ...newFile, serverFileId: storedFileId || undefined };
+      setUploadedFiles(prev => [...prev.filter(item => item.type !== materialType), storedFile]);
       setInputText(prev => upsertMaterialEvidence(
         prev,
         materialType,
@@ -1296,7 +1308,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         role: 'user',
         content: `【上传了${materialType === 'resume' ? '个人简历' : '项目补充材料'}】${file.name}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        attachedFile: newFile,
+        attachedFile: storedFile,
       }, {
         id: `ai-upload-${Date.now()}`,
         role: 'ai',
