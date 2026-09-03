@@ -71,6 +71,7 @@ test('成长陪伴隐藏内部标签并把下一步建议只追加到输入框',
   assert.doesNotMatch(experienceSource, /msg\.detectedSignals\.map/);
   assert.match(experienceSource, /suggestedReplies: response\.suggested_replies/);
   assert.match(experienceSource, /下一步回复建议 · 点击填入后可继续编辑/);
+  assert.doesNotMatch(experienceSource, /继续补充\$\{STAR_DIMENSION_LABELS/);
   assert.match(experienceSource, /current\.trimEnd\(\).*\\n.*suggestion/s);
   assert.match(experienceSource, /requestAnimationFrame\(\(\) => textareaRef\.current\?\.focus\(\)\)/);
   assert.doesNotMatch(experienceSource, /onDoubleClick=\{\(\) => handleDemoProbingSubmit/);

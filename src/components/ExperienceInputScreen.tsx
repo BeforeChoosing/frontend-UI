@@ -239,13 +239,6 @@ function isStopIntent(text: string): boolean {
   return STOP_INTENTS.some(term => normalized === term || normalized.includes(term));
 }
 
-const STAR_DIMENSION_LABELS: Record<ProfileStarDimension, string> = {
-  S: '情境',
-  T: '目标',
-  A: '行动与取舍',
-  R: '结果',
-};
-
 function SuggestedReplyChoices({
   replies,
   onSelect,
@@ -1271,7 +1264,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },
                 { id: 'summarize', label: '即刻生成能力卡', kind: 'generate' },
               ]
-            : [{ id: `continue-${response.star_dimension || 'S'}`, label: `继续补充${STAR_DIMENSION_LABELS[response.star_dimension || 'S']}`, kind: 'explore' }],
+            : [],
         };
         return prev.some(message => message.id === replyId)
           ? prev.map(message => message.id === replyId ? finalMessage : message)
