@@ -36,6 +36,15 @@ export function mapApiCardToSkillCard(card: ApiCardProposal | ApiProfileCard): S
     evidenceType: card.evidence_type,
     pendingVerification: card.pending_verification,
     nextVerification: card.next_verification,
+    experienceId: card.experience_id,
+    resolution: card.resolution,
+    mergeTargetCardId: card.merge_target_card_id,
+    evidenceHistory: card.evidence_history?.map(item => ({
+      experienceId: item.experience_id,
+      evidenceQuote: item.evidence_quote,
+      sourceRefs: item.source_refs,
+      traceId: item.trace_id,
+    })),
   };
 }
 
@@ -71,5 +80,14 @@ export function mapSkillCardToApiProposal(card: SkillCard): ApiCardProposal {
     next_verification: card.nextVerification ?? '在后续任务中进一步验证',
     match_reason: card.matchReason ?? '用户确认的能力卡',
     workplace_application: card.workplaceApplication ?? '待在目标任务中验证',
+    experience_id: card.experienceId,
+    resolution: card.resolution ?? 'new',
+    merge_target_card_id: card.mergeTargetCardId,
+    evidence_history: card.evidenceHistory?.map(item => ({
+      experience_id: item.experienceId,
+      evidence_quote: item.evidenceQuote,
+      source_refs: item.sourceRefs,
+      trace_id: item.traceId,
+    })) ?? [],
   };
 }

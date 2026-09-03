@@ -1,5 +1,6 @@
 export interface ProfileProposalRequest {
   experience_text: string;
+  experience_id?: string;
   target_role?: string;
   existing_card_titles?: string[];
 }
@@ -18,9 +19,14 @@ export type ProfileStarDimension = 'S' | 'T' | 'A' | 'R';
 export interface ProfileExplorationMessage {
   role: 'user' | 'assistant';
   content: string;
+  reasoning_content?: string;
+  thinking_enabled?: boolean;
+  thinking_model?: string | null;
+  reasoning_tokens?: number | null;
+  reasoning_status?: 'disabled' | 'streaming' | 'complete' | 'unavailable';
 }
 
-export type ProfileModelTier = 'fast' | 'balanced' | 'reasoning';
+export type ProfileModelTier = 'fast' | 'balanced' | 'comprehensive' | 'thinking' | 'reasoning';
 
 export interface ProfileExplorationRequest {
   experience_text: string;
@@ -32,6 +38,12 @@ export interface ProfileExplorationRequest {
   round_number?: number;
   star_history?: ProfileStarDimension[];
   stop_requested?: boolean;
+  /**
+   * After the four STAR prompts, users may keep adding facts to the same
+   * experience. This mode acknowledges the supplement without opening a
+   * fifth guided question; card generation remains an explicit user action.
+   */
+  supplement_only?: boolean;
 }
 
 export interface ProfileExplorationResponse {
@@ -41,6 +53,7 @@ export interface ProfileExplorationResponse {
   evidence_found: string[];
   evidence_gap: string;
   potential_hypotheses: string[];
+  suggested_replies: string[];
   ready_for_proposal: boolean;
   model?: string | null;
   model_pool?: string | null;
@@ -50,6 +63,11 @@ export interface ProfileExplorationResponse {
   round_number?: number;
   next_action?: 'ask' | 'summarize';
   finalization_reason?: string | null;
+  reasoning_content?: string;
+  thinking_enabled?: boolean;
+  thinking_model?: string | null;
+  reasoning_tokens?: number | null;
+  reasoning_status?: 'disabled' | 'streaming' | 'complete' | 'unavailable';
 }
 
 export interface ProfileConversationSnapshotMessage {
@@ -58,8 +76,15 @@ export interface ProfileConversationSnapshotMessage {
   content: string;
   timestamp?: string;
   detected_signals?: string[];
+  suggested_replies?: string[];
   model?: string | null;
   cache_hit?: boolean | null;
+  star_dimension?: ProfileStarDimension | null;
+  reasoning_content?: string;
+  thinking_enabled?: boolean;
+  thinking_model?: string | null;
+  reasoning_tokens?: number | null;
+  reasoning_status?: 'disabled' | 'streaming' | 'complete' | 'unavailable';
 }
 
 export interface ProfileConversationMaterial {
@@ -177,6 +202,15 @@ export interface ApiCardProposal {
   next_verification: string;
   match_reason: string;
   workplace_application: string;
+  experience_id?: string | null;
+  resolution?: 'new' | 'merge';
+  merge_target_card_id?: string | null;
+  evidence_history?: Array<{
+    experience_id: string;
+    evidence_quote: string;
+    source_refs: string[];
+    trace_id?: string | null;
+  }>;
 }
 
 export interface ProfileProposalResponse {
@@ -486,6 +520,10 @@ export interface ApiDynamicTrialCoachUsage {
   level: 1 | 2 | 3;
   prompt: string;
   used_at: string;
+  model?: string | null;
+  model_pool?: string | null;
+  cache_hit?: boolean;
+  generation_mode?: 'model' | 'preset_fallback';
 }
 
 export interface ApiDynamicTrialCardPlayRound {
@@ -497,11 +535,21 @@ export interface ApiDynamicTrialCardPlayRound {
   feedback: string;
 }
 
+export interface ApiDynamicTrialPendingAbility {
+  id: string;
+  challenge_id: string;
+  title: string;
+  description: string;
+  target_skills: string[];
+  status: 'pending';
+}
+
 export interface ApiDynamicTrialAnswer {
   selected_card_ids: string[];
   card_play_rounds: ApiDynamicTrialCardPlayRound[];
   card_play_current_index: number;
   card_play_rationale: string;
+  pending_abilities: ApiDynamicTrialPendingAbility[];
   validation_hypothesis: string;
   card_play_completed: boolean;
   step_answers: Record<string, string>;

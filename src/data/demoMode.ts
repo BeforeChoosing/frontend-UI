@@ -3,6 +3,7 @@ import type {
   ApiCareerRecommendation,
   ApiDynamicTrialAnswer,
   ApiDynamicTrialCardPlayRound,
+  ApiDynamicTrialPendingAbility,
   ApiObservedEvidence,
   ApiProfileEvidence,
   ApiTrialAbilityApplication,
@@ -168,14 +169,20 @@ const DEMO_CATEGORY_SKILL_WEIGHTS: Record<string, Record<string, number>> = {
 export function evaluateDemoCardPlayRound(
   challenge: ApiTrialAbilityChallenge,
   selectedCards: SkillCard[],
+  pendingAbilities: ApiDynamicTrialPendingAbility[] = [],
 ): ApiDynamicTrialCardPlayRound {
+  const pendingById = new Map(pendingAbilities.map(ability => [ability.id, ability]));
   const scoredCards = selectedCards.map(card => ({
     card,
-    score: Math.max(...challenge.target_skills.map(skill => DEMO_CATEGORY_SKILL_WEIGHTS[card.category]?.[skill] || 0), 0),
+    score: card.pendingVerification
+      ? challenge.target_skills.some(skill => pendingById.get(card.id)?.target_skills.includes(skill)) ? 5 : 0
+      : Math.max(...challenge.target_skills.map(skill => DEMO_CATEGORY_SKILL_WEIGHTS[card.category]?.[skill] || 0), 0),
   }));
   const matchedCards = scoredCards.filter(item => item.score > 0).map(item => item.card);
   const matchedSkills = challenge.target_skills.filter(skill => (
-    selectedCards.some(card => (DEMO_CATEGORY_SKILL_WEIGHTS[card.category]?.[skill] || 0) > 0)
+    selectedCards.some(card => card.pendingVerification
+      ? pendingById.get(card.id)?.target_skills.includes(skill)
+      : (DEMO_CATEGORY_SKILL_WEIGHTS[card.category]?.[skill] || 0) > 0)
   ));
   const directMatch = scoredCards.some(item => item.score >= 6);
   const matchLevel = directMatch || matchedCards.length >= 2
@@ -215,6 +222,23 @@ export function createDemoTrialAnswer(task: ApiTrialTaskDefinition): ApiDynamicT
     card_play_rounds: rounds,
     card_play_current_index: 0,
     card_play_rationale: '优先使用用户洞察和问题拆解识别系统性原因，再用数据验证确定修复顺序。',
+    pending_abilities: [
+      ['数据驱动判断能力', '能否结合目标、指标与实际影响判断优先级，而不是只按数字大小排序。', 1],
+      ['模型评测能力', '能否建立合理的评价标准，区分不同失败类型，并判断模型问题来自哪里。', 2],
+      ['系统性问题诊断能力', '面对失败结果时，能否从数据、模型、流程和产品机制中定位真正的问题来源。', 2],
+      ['AI场景判断能力', '能否判断一个问题是否真的适合使用AI解决，以及AI应该介入到什么程度。', 0],
+      ['技术产品判断能力', '能否在用户需求、技术可行性和产品价值之间进行取舍，而不是只从单一角度判断。', 0],
+    ].map(([title, description, challengeIndex], index) => {
+      const challenge = task.ability_challenges[Number(challengeIndex)] || task.ability_challenges[0];
+      return {
+        id: `pending:${task.id}:${index + 1}`,
+        challenge_id: challenge.id,
+        title: String(title),
+        description: String(description),
+        target_skills: challenge.target_skills,
+        status: 'pending' as const,
+      };
+    }),
     validation_hypothesis: '如果问题主要来自 Memory 与 Tool 链路，修复后任务成功率应提升，人工覆盖率应下降。',
     card_play_completed: false,
     step_answers: Object.fromEntries(task.steps.map(step => [

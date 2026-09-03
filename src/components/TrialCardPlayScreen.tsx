@@ -77,7 +77,20 @@ export function TrialCardPlayScreen({
   const challenge = task.ability_challenges[challengeIndex];
   const currentRound = answer.card_play_rounds.find(item => item.challenge_id === challenge.id)
     || emptyRound(challenge.id);
-  const cardsById = new Map(cards.map(card => [card.id, card]));
+  const pendingCards: SkillCard[] = (answer.pending_abilities || [])
+    .map(ability => ({
+      id: ability.id,
+      title: ability.title,
+      category: '产品策略',
+      description: ability.description,
+      detail: ability.description,
+      icon: 'Sparkles',
+      colorTone: 'amber',
+      pendingVerification: true,
+      nextVerification: '完成当前任务后，再根据行为证据决定是否形成长期能力卡。',
+    }));
+  const availableCards = [...cards, ...pendingCards];
+  const cardsById = new Map(availableCards.map(card => [card.id, card]));
   const selectedCards = currentRound.selected_card_ids
     .map(cardId => cardsById.get(cardId))
     .filter((card): card is SkillCard => Boolean(card));
@@ -356,8 +369,9 @@ export function TrialCardPlayScreen({
           <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-stone-200 bg-white text-stone-600 shadow-xs md:flex"><Bot className="h-5 w-5" /></span>
           <div className="min-w-0 flex-1 overflow-x-auto pb-1 scrollbar-none">
             <div className="flex min-w-max gap-3">
-              {cards.map((card, index) => {
+              {availableCards.map((card, index) => {
                 const selected = currentRound.selected_card_ids.includes(card.id);
+                const pending = card.id.startsWith('pending:');
                 return (
                   <motion.div
                     key={card.id}
@@ -368,10 +382,10 @@ export function TrialCardPlayScreen({
                     draggable={!selected}
                     onDragStart={event => event.dataTransfer.setData('text/card-id', card.id)}
                     onClick={() => toggleCard(card.id)}
-                    className={`flex h-[146px] w-[170px] shrink-0 cursor-pointer select-none flex-col justify-between rounded-3xl border p-4 transition ${selected ? 'border-stone-900 bg-stone-900 text-white shadow-md' : 'border-stone-200/80 bg-white/92 text-stone-900 shadow-2xs hover:border-stone-400'}`}
+                    className={`flex h-[146px] w-[170px] shrink-0 cursor-pointer select-none flex-col justify-between rounded-3xl border p-4 transition ${selected ? 'border-stone-900 bg-stone-900 text-white shadow-md' : pending ? 'border-dashed border-amber-300 bg-amber-50/55 text-stone-900 shadow-2xs hover:border-amber-500' : 'border-stone-200/80 bg-white/92 text-stone-900 shadow-2xs hover:border-stone-400'}`}
                   >
                     <div className="flex items-center justify-between font-mono text-[9px]">
-                      <span className={selected ? 'text-stone-400' : 'text-stone-500'}>{card.category}</span>
+                      <span className={selected ? 'text-stone-400' : pending ? 'text-amber-700' : 'text-stone-500'}>{pending ? '待验证能力' : card.category}</span>
                       {selected ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-stone-950"><Check className="h-3 w-3" /></span> : <span className="text-stone-300">0{index + 1}</span>}
                     </div>
                     <div>

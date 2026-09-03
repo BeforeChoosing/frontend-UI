@@ -64,6 +64,8 @@ test('演示任务准备示例草稿，但能力出牌从未完成状态开始',
   assert.equal(answer.card_play_completed, false);
   assert.equal(answer.card_play_rounds.every(round => round.selected_card_ids.length === 0), true);
   assert.equal(answer.card_play_rounds.every(round => round.match_level === null), true);
+  assert.equal(answer.pending_abilities.length, 5);
+  assert.equal(new Set(answer.pending_abilities.map(item => item.title)).size, 5);
   assert.equal(task.steps.every(step => Boolean(answer.step_answers[step.id]?.trim())), true);
   assert.equal(answer.evidence_refs.length, 3);
   assert.equal(answer.event_decision, '调整');

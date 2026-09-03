@@ -30,6 +30,8 @@ import {
 } from './data/demoMode';
 import { AnimatePresence, MotionConfig } from 'motion/react';
 import { auditEvent, clearAccessToken, getAccessToken } from './api/client';
+import { clearProfileMemory } from './api/profile';
+import { clearCurrentUserMemoryStorage } from './services/userMemory';
 import { getCurrentUser, logout as logoutAccount } from './api/auth';
 import type { AuthSession } from './api/auth';
 
@@ -63,6 +65,7 @@ export default function App() {
   const [draftExperience, setDraftExperience] = useState<ApiExperienceSummary | null>(initialProgress.draftExperience);
   const [demoReplayId, setDemoReplayId] = useState(0);
   const [profileFocusRequest, setProfileFocusRequest] = useState(0);
+  const [profileNewConversationRequest, setProfileNewConversationRequest] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [pendingScreen, setPendingScreen] = useState<ScreenMode | null>(null);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
@@ -86,6 +89,7 @@ export default function App() {
     confirmCards,
     updateCard,
     removeCard,
+    reset: resetProfile,
   } = useProfileCards(appMode === 'use' && auth.isLoggedIn, auth.user?.id);
 
   const restoreFormalProgress = (userId: string) => {
@@ -308,6 +312,24 @@ export default function App() {
     setUnlockedCards(prev => prev.filter(card => card.id !== cardId));
   };
 
+  const handleClearAllMemory = async () => {
+    const userId = auth.user?.id;
+    if (appMode !== 'use' || !userId) throw new Error('请先登录后再清空记忆。');
+    await clearProfileMemory();
+    clearCurrentUserMemoryStorage(userId);
+    resetProfile();
+    setUnlockedCards([]);
+    setCurrentScreen('landing');
+    setSelectedTrialTaskId('A-02');
+    setCareerSelectedCardIds([]);
+    setCareerRecommendation(null);
+    setCareerRecommendationCardSignature(null);
+    setDraftCards([]);
+    setDraftExperience(null);
+    setProfileNewConversationRequest(value => value + 1);
+    setSelectedCard(null);
+  };
+
   const handleLoginSuccess = (session: AuthSession) => {
     authEpochRef.current += 1;
     if (appMode !== 'use') {
@@ -457,6 +479,7 @@ export default function App() {
                 demoCards={DEMO_SKILL_CARDS.slice(0, 3)}
                 demoExperienceText={DEMO_EXPERIENCE_TEXT}
                 focusRequest={profileFocusRequest}
+                newConversationRequest={profileNewConversationRequest}
               />
             </StageTransition>
           )}
@@ -482,8 +505,9 @@ export default function App() {
                   }
                   await handleDeleteProfileCard(cardId);
                 }}
-                onContinueSupplement={() => {
+                onContinueSupplement={(mode) => {
                   navigateToScreen('input-experience');
+                  if (mode === 'new') setProfileNewConversationRequest(value => value + 1);
                 }}
                 onStartCareerExplore={() => {
                   navigateToScreen('career-explore');
@@ -557,6 +581,7 @@ export default function App() {
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onUpdateCard={appMode === 'use' ? handleUpdateProfileCard : undefined}
                 onDeleteCard={appMode === 'use' ? handleDeleteProfileCard : undefined}
+                onClearMemory={appMode === 'use' ? handleClearAllMemory : undefined}
                 readOnly={appMode === 'demo'}
                 initialArchTab="reports"
               />
@@ -575,6 +600,7 @@ export default function App() {
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onUpdateCard={appMode === 'use' ? handleUpdateProfileCard : undefined}
                 onDeleteCard={appMode === 'use' ? handleDeleteProfileCard : undefined}
+                onClearMemory={appMode === 'use' ? handleClearAllMemory : undefined}
                 readOnly={appMode === 'demo'}
                 initialArchTab="insight"
               />

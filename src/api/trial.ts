@@ -83,6 +83,9 @@ function normalizeDynamicSession(session: ApiDynamicTrialSession): ApiDynamicTri
         ? currentIndex
         : 0,
       card_play_rationale: typeof answer.card_play_rationale === 'string' ? answer.card_play_rationale : '',
+      pending_abilities: Array.isArray(answer.pending_abilities)
+        ? answer.pending_abilities.filter(item => item && typeof item.id === 'string')
+        : [],
       validation_hypothesis: typeof answer.validation_hypothesis === 'string' ? answer.validation_hypothesis : '',
       card_play_completed: Boolean(answer.card_play_completed),
       step_answers: answer.step_answers && typeof answer.step_answers === 'object' ? answer.step_answers : {},
@@ -143,7 +146,22 @@ export async function revealDynamicTrialEvent(sessionId: string): Promise<ApiDyn
 export function useDynamicTrialCoach(
   sessionId: string,
   level: 1 | 2 | 3,
-): Promise<{ prompt: string; usage: { level: 1 | 2 | 3; prompt: string; used_at: string } }> {
+): Promise<{
+  prompt: string;
+  usage: {
+    level: 1 | 2 | 3;
+    prompt: string;
+    used_at: string;
+    model?: string | null;
+    model_pool?: string | null;
+    cache_hit?: boolean;
+    generation_mode?: 'model' | 'preset_fallback';
+  };
+  model?: string | null;
+  model_pool?: string | null;
+  cache_hit?: boolean;
+  generation_mode?: 'model' | 'preset_fallback';
+}> {
   return apiRequest(`/trial/workbench/sessions/${encodeURIComponent(sessionId)}/coach`, {
     method: 'POST',
     body: JSON.stringify({ level }),

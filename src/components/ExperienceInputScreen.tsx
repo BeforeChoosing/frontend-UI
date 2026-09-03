@@ -17,7 +17,6 @@ import {
   Link as LinkIcon,
   X,
   Bot,
-  Lightbulb,
   ExternalLink,
   ChevronDown,
   ChevronUp,
@@ -62,6 +61,7 @@ interface ExperienceInputScreenProps {
   demoCards?: SkillCard[];
   demoExperienceText?: string;
   focusRequest?: number;
+  newConversationRequest?: number;
 }
 
 export interface ChatMessage {
@@ -70,8 +70,15 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   detectedSignals?: string[];
+  suggestedReplies?: string[];
   model?: string;
   cacheHit?: boolean;
+  starDimension?: ProfileStarDimension;
+  reasoningContent?: string;
+  thinkingEnabled?: boolean;
+  thinkingModel?: string;
+  reasoningTokens?: number;
+  reasoningStatus?: 'disabled' | 'streaming' | 'complete' | 'unavailable';
   actions?: ChatAction[];
   attachedFile?: {
     name: string;
@@ -83,7 +90,7 @@ export interface ChatMessage {
 type ChatAction = {
   id: string;
   label: string;
-  kind: 'explore' | 'generate';
+  kind: 'explore' | 'continue' | 'generate';
   candidate?: AttachmentExperienceCandidate;
 };
 
@@ -94,16 +101,6 @@ const INITIAL_CHAT_MESSAGE: ChatMessage = {
   timestamp: '刚刚',
   detectedSignals: [],
 };
-
-const EXPLORATION_FOCUS_LABELS = {
-  ownership: '本人职责',
-  decision: '判断依据',
-  constraint: '限制条件',
-  collaboration: '协作过程',
-  result: '实际结果',
-  transfer: '可迁移行为',
-  evidence: '证据完整度',
-} as const;
 
 type UploadedMaterial = {
   name: string;
@@ -148,8 +145,15 @@ function serverSnapshotToStored(snapshot: ProfileConversationSnapshot): StoredCo
       content: message.content,
       timestamp: message.timestamp || '',
       detectedSignals: message.detected_signals,
+      suggestedReplies: message.suggested_replies,
       model: message.model || undefined,
       cacheHit: message.cache_hit ?? undefined,
+      starDimension: message.star_dimension || undefined,
+      reasoningContent: message.reasoning_content || undefined,
+      thinkingEnabled: message.thinking_enabled || false,
+      thinkingModel: message.thinking_model || undefined,
+      reasoningTokens: message.reasoning_tokens ?? undefined,
+      reasoningStatus: message.reasoning_status || undefined,
     })),
     evidence: snapshot.evidence || '',
     materials: (snapshot.materials || []).map(material => ({
@@ -173,8 +177,15 @@ function storedConversationToServer(snapshot: StoredConversation): ProfileConver
       content: message.content,
       timestamp: message.timestamp,
       detected_signals: message.detectedSignals || [],
+      suggested_replies: message.suggestedReplies || [],
       model: message.model,
       cache_hit: message.cacheHit,
+      star_dimension: message.starDimension,
+      reasoning_content: message.reasoningContent || '',
+      thinking_enabled: message.thinkingEnabled || false,
+      thinking_model: message.thinkingModel,
+      reasoning_tokens: message.reasoningTokens,
+      reasoning_status: message.reasoningStatus || 'disabled',
     })),
     evidence: snapshot.evidence,
     materials: snapshot.materials.map(material => ({
@@ -193,8 +204,6 @@ type DemoProbingRound = {
   title: string;
   question: string;
   options: string[];
-  defaultAnswer: string;
-  clues: string[];
 };
 
 const DEMO_PROBING_REPLY = '这段经历已经包含清晰的问题识别、方案取舍、协作推进和结果验证。接下来我会按情境、目标、行动、结果四个角度各聊一轮，再一起总结。';
@@ -208,8 +217,6 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '信息极度不对称，迫切需要一个统一透明的流转规则',
       '最初只是帮身边朋友解决麻烦，后来发现是普遍刚需',
     ],
-    defaultAnswer: '大家都在抱怨但没人动手，我发现核心矛盾是信任和履约成本',
-    clues: ['底层问题归因', '敏锐痛点捕捉'],
   },
   {
     title: '目标与判断标准',
@@ -219,8 +226,6 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '把首月完成稳定流转作为目标，先验证需求而不是堆更多功能',
       '优先处理用户反复反馈的环节，再决定是否扩展到更多宿舍楼',
     ],
-    defaultAnswer: '先解决交易双方不信任和碰面低效这两个最影响流转的问题',
-    clues: ['目标边界', '判断标准'],
   },
   {
     title: '关键行动与决策权衡',
@@ -230,8 +235,6 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '放弃复杂的线上支付，用最轻量的面对面转交快速验证',
       '建立履约评价机制，让表现稳定的用户获得更高优先级',
     ],
-    defaultAnswer: '主动找舍管沟通，用标准交接单化解安全顾虑',
-    clues: ['关键行动', '取舍依据'],
   },
   {
     title: '结果与反馈验证',
@@ -241,8 +244,6 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '模式获得辅导员和社团骨干认可，随后扩展到其他宿舍楼',
       '团队形成了可复用的交接文档与数据复盘方法',
     ],
-    defaultAnswer: '首月完成 800 余笔书籍流转，交易双方的沟通成本明显降低',
-    clues: ['结果数据', '外部反馈'],
   },
 ];
 
@@ -253,12 +254,45 @@ function isStopIntent(text: string): boolean {
   return STOP_INTENTS.some(term => normalized === term || normalized.includes(term));
 }
 
-const STAR_DIMENSION_LABELS: Record<ProfileStarDimension, string> = {
-  S: '情境',
-  T: '目标',
-  A: '行动与取舍',
-  R: '结果',
-};
+function SuggestedReplyChoices({
+  replies,
+  onSelect,
+}: {
+  replies?: string[];
+  onSelect: (reply: string) => void;
+}) {
+  if (!replies?.length) return null;
+  return (
+    <div className="mt-3 border-t border-stone-100 pt-3">
+      <p className="mb-2 text-[10px] font-medium text-stone-500">下一步回复建议 · 点击填入后可继续编辑</p>
+      <div className="flex flex-wrap gap-2">
+        {replies.map(reply => (
+          <button
+            key={reply}
+            type="button"
+            onClick={() => onSelect(reply)}
+            className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-left text-[10px] leading-5 text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+          >
+            {reply}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ThinkingDisclosure({ message }: { message: ChatMessage }) {
+  if (!message.thinkingEnabled) return null;
+  const content = message.reasoningContent?.trim() || '正在接收思考过程…';
+  return (
+    <details open className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2 text-[10px] text-stone-600">
+      <summary className="cursor-pointer select-none font-medium text-emerald-800">
+        思考过程{message.reasoningTokens ? ` · ${message.reasoningTokens} tokens` : ''}
+      </summary>
+      <p className="mt-1.5 whitespace-pre-wrap leading-5">{content}</p>
+    </details>
+  );
+}
 
 function demoMaterialCandidates(fileName: string): AttachmentExperienceCandidate[] {
   return [
@@ -347,7 +381,11 @@ function loadTargetRole(demoMode: boolean, userId?: string): string {
 function loadModelTier(demoMode: boolean, userId?: string): ProfileModelTier {
   if (typeof window === 'undefined') return 'balanced';
   const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'model-tier', userId));
-  return value === 'fast' || value === 'reasoning' ? value : 'balanced';
+  if (value === 'fast' || value === 'balanced' || value === 'comprehensive' || value === 'thinking') {
+    return value;
+  }
+  // Migrate the former single “思考” option to the new comprehensive tier.
+  return value === 'reasoning' ? 'comprehensive' : 'balanced';
 }
 
 function loadExplorationMessages(demoMode: boolean, userId?: string): ChatMessage[] {
@@ -361,6 +399,14 @@ function loadExplorationMessages(demoMode: boolean, userId?: string): ChatMessag
   } catch {
     return [INITIAL_CHAT_MESSAGE];
   }
+}
+
+function deriveStarHistory(messages: ChatMessage[]): ProfileStarDimension[] {
+  return Array.from(new Set(
+    messages.map(message => message.starDimension).filter(
+      (dimension): dimension is ProfileStarDimension => Boolean(dimension),
+    ),
+  )).slice(0, 4);
 }
 
 function loadUploadedMaterials(demoMode: boolean, userId?: string): UploadedMaterial[] {
@@ -789,6 +835,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   demoCards = [],
   demoExperienceText = '',
   focusRequest = 0,
+  newConversationRequest = 0,
 }) => {
   const [inputText, setInputText] = useState(() => (
     demoMode || userId ? window.localStorage.getItem(explorationStorageKey(demoMode, 'evidence', userId)) || '' : ''
@@ -818,10 +865,10 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     question: string;
     answer: string;
   }>>([]);
-  const [starHistory, setStarHistory] = useState<ProfileStarDimension[]>([]);
-  
   // Real-time Chat Messages state
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode, userId));
+  const [starHistory, setStarHistory] = useState<ProfileStarDimension[]>(() => deriveStarHistory(messages));
+  const [supplementingCurrentExperience, setSupplementingCurrentExperience] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [modelTier, setModelTier] = useState<ProfileModelTier>(() => loadModelTier(demoMode, userId));
@@ -859,6 +906,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const demoTypingTimerRef = useRef<number | null>(null);
   const demoTransitionTimerRef = useRef<number | null>(null);
+  const handledNewConversationRequestRef = useRef(0);
 
   useEffect(() => {
     if (!focusRequest) return;
@@ -1049,7 +1097,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setDemoProbingRoundIndex(0);
     setDemoProbingInput('');
     setDemoProbingHistory([]);
-    setStarHistory([]);
+    setStarHistory(deriveStarHistory(conversation.messages));
+    setSupplementingCurrentExperience(false);
     setStreamingMessageId(null);
     setIsChatExpanded(true);
     resetExploration();
@@ -1081,6 +1130,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setDemoProbingInput('');
     setDemoProbingHistory([]);
     setStarHistory([]);
+    setSupplementingCurrentExperience(false);
     if (demoTypingTimerRef.current !== null) window.clearInterval(demoTypingTimerRef.current);
     if (demoTransitionTimerRef.current !== null) window.clearTimeout(demoTransitionTimerRef.current);
     setIsChatExpanded(true);
@@ -1089,9 +1139,22 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     textareaRef.current?.focus();
   };
 
+  useEffect(() => {
+    if (!newConversationRequest || handledNewConversationRequestRef.current === newConversationRequest) return;
+    handledNewConversationRequestRef.current = newConversationRequest;
+    void handleNewBlankConversation();
+    // The monotonically increasing request is the event boundary. The handler
+    // intentionally reads the latest conversation state when it runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newConversationRequest]);
+
   const handleSendCoachMessage = async (textOverride?: string) => {
     const text = (textOverride ?? coachInput).trim();
     if (!text || isDemoReplying || isAnalyzing || explorationStatus === 'loading') return;
+    const asksToContinueCurrentExperience = /继续(?:整理|补充).*当前经历/.test(text)
+      || /继续(?:整理|补充).*这段经历/.test(text);
+    const supplementOnly = supplementingCurrentExperience || asksToContinueCurrentExperience;
+    if (asksToContinueCurrentExperience) setSupplementingCurrentExperience(true);
     const nextEvidenceText = [inputText.trim(), text].filter(Boolean).join('\n\n').slice(0, 12000);
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMessage: ChatMessage = {
@@ -1131,7 +1194,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         setIsDemoReplying(false);
         setDemoProbingActive(true);
         setDemoProbingRoundIndex(0);
-        setDemoProbingInput(DEMO_PROBING_ROUNDS[0].defaultAnswer);
+        setDemoProbingInput('');
         setDemoProbingHistory([]);
         setIsChatExpanded(false);
       };
@@ -1164,6 +1227,26 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       return;
     }
 
+    // Four model-led STAR questions are the hard boundary for one experience.
+    // After that the user may still add facts, but the Agent must not start a
+    // fifth guided question. Keep offering the explicit summary decision.
+    if (starHistory.length >= 4) {
+      if (!supplementOnly) {
+        setMessages(previous => [...previous, {
+          id: `ai-supplement-${Date.now()}`,
+          role: 'ai',
+          content: '这部分已经补充到当前经历。你可以继续整理，也可以现在生成能力卡。',
+          timestamp,
+          actions: [
+            { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },
+            { id: 'summarize', label: '即刻生成能力卡', kind: 'generate' },
+          ],
+        }].slice(-60));
+        setIsAiThinking(false);
+        return;
+      }
+    }
+
     try {
       const replyId = `ai-stream-${Date.now()}`;
       const conversation = messages.slice(-49).map(message => ({
@@ -1182,6 +1265,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           model_tier: modelTier,
           round_number: Math.min(4, Math.max(1, starHistory.length + 1)),
           star_history: starHistory,
+          supplement_only: supplementOnly,
         },
         delta => {
           setIsAiThinking(false);
@@ -1201,6 +1285,37 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               : message);
           });
         },
+        () => {
+          setMessages(prev => prev.map(message => message.id === replyId
+            ? { ...message, content: '', reasoningContent: '', reasoningStatus: 'streaming' }
+            : message));
+        },
+        reasoningDelta => {
+          setIsAiThinking(false);
+          setStreamingMessageId(replyId);
+          setMessages(prev => {
+            const existing = prev.some(message => message.id === replyId);
+            if (!existing) {
+              return [...prev, {
+                id: replyId,
+                role: 'ai',
+                content: '',
+                timestamp,
+                thinkingEnabled: true,
+                reasoningContent: reasoningDelta,
+                reasoningStatus: 'streaming',
+              }].slice(-60);
+            }
+            return prev.map(message => message.id === replyId
+              ? {
+                  ...message,
+                  thinkingEnabled: true,
+                  reasoningContent: `${message.reasoningContent || ''}${reasoningDelta}`.slice(-24000),
+                  reasoningStatus: 'streaming',
+                }
+              : message);
+          });
+        },
       );
       setMessages(prev => {
         const finalMessage: ChatMessage = {
@@ -1208,15 +1323,23 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           role: 'ai',
           content: response.reply,
           timestamp,
-          detectedSignals: [
-            EXPLORATION_FOCUS_LABELS[response.focus_dimension],
-            ...response.evidence_found.slice(0, 2),
-          ],
+          suggestedReplies: response.suggested_replies,
           model: response.model || undefined,
           cacheHit: response.cache_hit,
+          starDimension: response.star_dimension,
+          reasoningContent: response.reasoning_content || undefined,
+          thinkingEnabled: response.thinking_enabled || false,
+          thinkingModel: response.thinking_model || undefined,
+          reasoningTokens: response.reasoning_tokens ?? undefined,
+          reasoningStatus: response.reasoning_status,
           actions: response.next_action === 'summarize'
-            ? [{ id: 'summarize', label: '总结并生成能力卡', kind: 'generate' }]
-            : [{ id: `continue-${response.star_dimension || 'S'}`, label: `继续补充${STAR_DIMENSION_LABELS[response.star_dimension || 'S']}`, kind: 'explore' }],
+            ? supplementOnly
+              ? [{ id: 'summarize', label: '即刻生成能力卡', kind: 'generate' }]
+              : [
+                  { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },
+                  { id: 'summarize', label: '即刻生成能力卡', kind: 'generate' },
+                ]
+            : [],
         };
         return prev.some(message => message.id === replyId)
           ? prev.map(message => message.id === replyId ? finalMessage : message)
@@ -1224,12 +1347,6 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       });
       if (response.star_dimension && !starHistory.includes(response.star_dimension)) {
         setStarHistory(previous => [...previous, response.star_dimension!].slice(-4));
-      }
-      if (response.next_action === 'summarize') {
-        // The fourth STAR turn is the hand-off point: summarize immediately
-        // from the complete user transcript instead of waiting for another
-        // click. The current message is already in nextEvidenceText.
-        await handleStartAnalysis(nextEvidenceText, { replaceInput: true });
       }
     } catch {
       // The hook exposes the backend/Qwen error beside the exploration composer.
@@ -1255,10 +1372,29 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       void handleStartAnalysis(candidate?.excerpt || inputText);
       return;
     }
-    if (!candidate) return;
-    const selectedText = `我想详细聊聊「${candidate.title}」：${candidate.excerpt}`;
-    setCoachInput('');
-    void handleSendCoachMessage(selectedText);
+    if (action.kind === 'continue') {
+      setSupplementingCurrentExperience(true);
+      setCoachInput('');
+      textareaRef.current?.focus();
+      return;
+    }
+    const selectedText = candidate
+      ? `我想详细聊聊「${candidate.title}」：${candidate.excerpt}`
+      : `${action.label}：`;
+    setCoachInput(selectedText);
+    textareaRef.current?.focus();
+  };
+
+  const handleSuggestedReply = (suggestion: string) => {
+    const append = (current: string) => current.trim()
+      ? `${current.trimEnd()}\n${suggestion}`
+      : suggestion;
+    if (demoMode && demoProbingActive) {
+      setDemoProbingInput(append);
+    } else {
+      setCoachInput(append);
+    }
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
   // Use browser speech recognition when available; never insert fabricated speech.
@@ -1613,6 +1749,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       }
       const proposal = await analyzeExperience({
         experience_text: combinedContent,
+        experience_id: currentConversationId,
         target_role: targetCareerState === 'has_target'
           ? (targetRole.trim() || DEFAULT_TARGET_ROLE)
           : undefined,
@@ -1737,7 +1874,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       setInputText(prev => [prev.trim(), evidenceLine].filter(Boolean).join('\n\n').slice(0, 12000));
       const nextRoundIndex = demoProbingRoundIndex + 1;
       setDemoProbingRoundIndex(nextRoundIndex);
-      setDemoProbingInput(DEMO_PROBING_ROUNDS[nextRoundIndex].defaultAnswer);
+      setDemoProbingInput('');
       return;
     }
 
@@ -1826,13 +1963,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     <h3 className="font-serif text-sm text-stone-900">第 {demoProbingRoundIndex + 1} 轮 · {currentDemoRound.title}</h3>
                     <span className="rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5 font-mono text-[9px] text-stone-600">进度 {demoProbingRoundIndex + 1}/4</span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-stone-500"><span>线索捕获：</span>{currentDemoRound.clues.map(clue => <span key={clue} className="rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5">◆ {clue}</span>)}</div>
                 </div>
                 <p className="py-4 text-sm leading-7 text-stone-800">{currentDemoRound.question}</p>
                 <div className="space-y-2 border-t border-stone-100 pt-3">
-                  <p className="flex items-center gap-1.5 text-[10px] text-stone-500"><MessageSquare className="h-3 w-3" />点击参考思路填入，双击直接提交</p>
+                  <p className="flex items-center gap-1.5 text-[10px] text-stone-500"><MessageSquare className="h-3 w-3" />下一步回复建议 · 点击填入后可继续编辑</p>
                   {currentDemoRound.options.map(option => (
-                    <button key={option} type="button" onClick={() => setDemoProbingInput(option)} onDoubleClick={() => handleDemoProbingSubmit(option)} className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs transition ${demoProbingInput === option ? 'border-emerald-300 bg-emerald-50 text-emerald-950' : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300 hover:bg-stone-50'}`}>
+                    <button key={option} type="button" onClick={() => handleSuggestedReply(option)} className="flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-left text-xs text-stone-700 transition hover:border-stone-300 hover:bg-stone-50">
                       <span>{option}</span><ArrowRight className="h-3.5 w-3.5 shrink-0 text-stone-400" />
                     </button>
                   ))}
@@ -1852,8 +1988,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   {message.role === 'ai' && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-[11px] font-semibold text-stone-700 shadow-sm">AI</span>}
                   <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-xs leading-6 shadow-sm sm:text-sm ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-stone-100' : 'rounded-tl-md border border-stone-200 bg-white text-stone-700'}`}>
                     {message.attachedFile && <p className="mb-2 border-b border-current/10 pb-2 text-[10px] opacity-70">附件 · {message.attachedFile.name}</p>}
+                    {message.role === 'ai' && <ThinkingDisclosure message={message} />}
                     <p>{message.content}{streamingMessageId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
-                    {message.detectedSignals && message.detectedSignals.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{message.detectedSignals.map(signal => <span key={signal} className="rounded-md bg-stone-100 px-2 py-0.5 text-[9px] text-stone-600">{signal}</span>)}</div>}
+                    {message.role === 'ai' && <SuggestedReplyChoices replies={message.suggestedReplies} onSelect={handleSuggestedReply} />}
                     {message.actions && message.actions.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3">
                         {message.actions.map(action => (
@@ -1985,26 +2122,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 </p>
               ) : !isChatExpanded ? (
                 <div className="space-y-2 pt-0.5">
+                  <ThinkingDisclosure message={latestAiMessage} />
                   <p className="max-w-3xl text-xs font-normal leading-6 text-stone-700 sm:text-sm">
                     {latestAiMessage.content}
                   </p>
-
-                  {latestAiMessage.detectedSignals && latestAiMessage.detectedSignals.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[10px] text-stone-500 flex items-center gap-1">
-                        <Lightbulb className="w-3 h-3 text-emerald-600" />
-                        <span>捕捉到的线索：</span>
-                      </span>
-                      {latestAiMessage.detectedSignals.map((signal, idx) => (
-                        <span 
-                          key={idx} 
-                          className="text-[10px] font-medium py-0.5 px-2 rounded-full bg-emerald-50/80 border border-emerald-200/60 text-emerald-800"
-                        >
-                          {signal}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <SuggestedReplyChoices replies={latestAiMessage.suggestedReplies} onSelect={handleSuggestedReply} />
                   {latestAiMessage.model && <p className="mt-2 text-[9px] text-stone-400">{latestAiMessage.model} · {latestAiMessage.cacheHit ? '缓存命中' : '实时生成'}</p>}
                 </div>
               ) : (
@@ -2027,16 +2149,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                             <span>{msg.attachedFile.name} ({msg.attachedFile.size})</span>
                           </div>
                         )}
+                        {msg.role === 'ai' && <ThinkingDisclosure message={msg} />}
                         <p>{msg.content}{streamingMessageId === msg.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
-                        {msg.detectedSignals && msg.detectedSignals.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {msg.detectedSignals.map((s, idx) => (
-                              <span key={idx} className="rounded-md bg-stone-100 px-2 py-0.5 text-[9px] text-stone-600">
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        {msg.role === 'ai' && <SuggestedReplyChoices replies={msg.suggestedReplies} onSelect={handleSuggestedReply} />}
                         {msg.role === 'ai' && msg.model && <p className="mt-2 text-[9px] text-stone-400">{msg.model} · {msg.cacheHit ? '缓存命中' : '实时生成'}</p>}
                       </div>
                     </div>
@@ -2224,7 +2339,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 </AnimatePresence>
               </div>
               <div className="inline-flex items-center rounded-full bg-stone-100 p-0.5" aria-label="选择模型响应档位">
-                {([['fast', '快速'], ['balanced', '适中'], ['reasoning', '思考']] as const).map(([tier, label]) => (
+                {([['fast', '快速'], ['balanced', '适中'], ['comprehensive', '全面'], ['thinking', '思考']] as const).map(([tier, label]) => (
                   <button key={tier} type="button" disabled={explorationStatus === 'loading'} onClick={() => setModelTier(tier)} aria-pressed={modelTier === tier} className={`rounded-full px-2 py-1 text-[10px] transition ${modelTier === tier ? 'bg-white font-semibold text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'}`}>{label}</button>
                 ))}
               </div>

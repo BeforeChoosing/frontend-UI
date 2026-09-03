@@ -55,9 +55,7 @@ test('01 探索目标与斜杠快捷指令接入现有分析链路', () => {
 test('演示模式固定回复后进入四轮成长陪伴追问且不调用模型', () => {
   assert.match(experienceSource, /const DEMO_PROBING_REPLY/);
   assert.match(experienceSource, /const DEMO_PROBING_ROUNDS/);
-  assert.match(experienceSource, /defaultAnswer:/);
-  assert.match(experienceSource, /setDemoProbingInput\(DEMO_PROBING_ROUNDS\[0\]\.defaultAnswer\)/);
-  assert.match(experienceSource, /setDemoProbingInput\(DEMO_PROBING_ROUNDS\[nextRoundIndex\]\.defaultAnswer\)/);
+  assert.match(experienceSource, /setDemoProbingInput\(''\)/);
   assert.match(experienceSource, /window\.setInterval/);
   assert.match(experienceSource, /prefers-reduced-motion/);
   assert.match(experienceSource, /if \(demoMode\) \{/);
@@ -65,6 +63,45 @@ test('演示模式固定回复后进入四轮成长陪伴追问且不调用模�
   assert.match(experienceSource, /成长陪伴 Agent · 经历深度挖掘/);
   assert.match(experienceSource, /第 \$\{demoProbingRoundIndex \+ 1\}\/4 轮追问/);
   assert.ok(experienceSource.indexOf('if (demoMode) {') < experienceSource.indexOf('const response = await exploreProfile'));
+});
+
+test('成长陪伴隐藏内部标签并把下一步建议只追加到输入框', () => {
+  assert.doesNotMatch(experienceSource, /message\.detectedSignals\.map/);
+  assert.doesNotMatch(experienceSource, /latestAiMessage\.detectedSignals/);
+  assert.doesNotMatch(experienceSource, /msg\.detectedSignals\.map/);
+  assert.match(experienceSource, /suggestedReplies: response\.suggested_replies/);
+  assert.match(experienceSource, /下一步回复建议 · 点击填入后可继续编辑/);
+  assert.doesNotMatch(experienceSource, /继续补充\$\{STAR_DIMENSION_LABELS/);
+  assert.match(experienceSource, /current\.trimEnd\(\).*\\n.*suggestion/s);
+  assert.match(experienceSource, /requestAnimationFrame\(\(\) => textareaRef\.current\?\.focus\(\)\)/);
+  assert.doesNotMatch(experienceSource, /onDoubleClick=\{\(\) => handleDemoProbingSubmit/);
+  assert.match(experienceSource, /message\.model.*缓存命中.*实时生成/);
+});
+
+test('正式对话最多四轮 STAR 追问，恢复历史后仍保留边界', () => {
+  assert.match(experienceSource, /starDimension: response\.star_dimension/);
+  assert.match(experienceSource, /deriveStarHistory\(conversation\.messages\)/);
+  assert.match(experienceSource, /if \(starHistory\.length >= 4\)/);
+  assert.match(experienceSource, /继续整理当前经历/);
+  assert.match(experienceSource, /即刻生成能力卡/);
+  assert.doesNotMatch(experienceSource, /await handleStartAnalysis\(nextEvidenceText/);
+});
+
+test('思考过程在成长陪伴回答上方展示', () => {
+  assert.match(
+    experienceSource,
+    /\{message\.role === 'ai' && <ThinkingDisclosure message=\{message\} \/>}\s*<p>\{message\.content/s,
+  );
+  assert.match(
+    experienceSource,
+    /<ThinkingDisclosure message=\{latestAiMessage\} \/>\s*<p className="max-w-3xl/s,
+  );
+  assert.match(
+    experienceSource,
+    /\{msg\.role === 'ai' && <ThinkingDisclosure message=\{msg\} \/>}\s*<p>\{msg\.content/s,
+  );
+  const companionSource = readFileSync(new URL('../src/components/GrowthCompanionWidget.tsx', import.meta.url), 'utf8');
+  assert.match(companionSource, /message\.role === 'assistant' && message\.thinkingEnabled \? <details[\s\S]*?<\/details> : null\}<div className=\{`max-w-\[92%\]/);
 });
 
 test('01 首段提交后锁定页面，仅允许对话记录滚动', () => {
@@ -96,6 +133,13 @@ test('正式模式可新建真正空白对话，并从页面恢复账号内历�
   assert.match(experienceSource, /!demoMode && !userId/);
 });
 
+test('整理后由用户决定继续当前经历或保留历史并新建对话', () => {
+  assert.match(verificationSource, /继续当前经历/);
+  assert.match(verificationSource, /更换一段经历/);
+  assert.match(appSource, /setProfileNewConversationRequest\(value => value \+ 1\)/);
+  assert.match(experienceSource, /handledNewConversationRequestRef/);
+});
+
 test('正式对话同步服务器并展示本轮实际模型与缓存状态', () => {
   assert.match(experienceSource, /messages\.slice\(-49\)/);
   assert.match(experienceSource, /listProfileConversationSnapshots\(50\)/);
@@ -124,6 +168,14 @@ test('03 试路地图采用 Demo 的八环节路径与三张直接启动任务�
   assert.match(trialMapSource, /推荐从以下 3 个代表性工作片段开始体验/);
   assert.match(trialMapSource, /onStart\(task\.id\)/);
   assert.match(trialScreenSource, /onStart=\{\(taskId\) =>/);
+});
+
+test('03 能力应用支持当前任务生成的待验证能力', () => {
+  assert.match(cardPlaySource, /answer\.pending_abilities/);
+  assert.match(cardPlaySource, /待验证能力/);
+  assert.match(cardPlaySource, /border-dashed border-amber-300/);
+  assert.match(cardPlaySource, /availableCards/);
+  assert.doesNotMatch(cardPlaySource, /filter\(ability => ability\.challenge_id === challenge\.id\)/);
 });
 
 test('进入 03 时先恢复三轮挑战，再由用户进入任务简报', () => {

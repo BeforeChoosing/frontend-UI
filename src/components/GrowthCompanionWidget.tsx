@@ -18,21 +18,26 @@ interface CompanionMessage {
   role: 'assistant' | 'user';
   content: string;
   signals?: string[];
+  suggestedReplies?: string[];
   model?: string;
   cacheHit?: boolean;
+  reasoningContent?: string;
+  thinkingEnabled?: boolean;
+  reasoningTokens?: number;
+  reasoningStatus?: 'disabled' | 'streaming' | 'complete' | 'unavailable';
 }
 
 const INITIAL_MESSAGE: CompanionMessage = {
   id: 'companion-initial', role: 'assistant',
   content: '你好，我是成长陪伴 Agent。我会基于你已经提供的经历，继续帮你核对事实、判断和能力线索。',
-  signals: ['事实优先', '由你确认'],
 };
 
 const QUICK_PROMPTS = ['帮我区分这段经历里的事实与推断', '我还缺少哪些可核验的证据？'];
 const MODEL_TIERS: Array<{ id: ProfileModelTier; label: string }> = [
   { id: 'fast', label: '快速' },
   { id: 'balanced', label: '适中' },
-  { id: 'reasoning', label: '思考' },
+  { id: 'comprehensive', label: '全面' },
+  { id: 'thinking', label: '思考' },
 ];
 const SCREEN_LABELS: Record<ScreenMode, string> = {
   landing: '开始认识自己', auth: '建立个人档案', 'input-experience': '阶段 01 · 经历解构',
@@ -42,6 +47,10 @@ const SCREEN_LABELS: Record<ScreenMode, string> = {
 const DEMO_REPLIES = [
   '从现有经历看，能够确认的是：你进行了用户访谈、推动方案上线，并记录了结果。至于“洞察力强”仍属于能力推断，需要由你确认，或补充更具体的判断依据。',
   '当前证据已经覆盖行动和结果。若要让能力卡更可信，可以再补充一个关键取舍：当时有哪些方案，你为什么放弃其中一些，并最终选择现在的做法？',
+];
+const DEMO_SUGGESTED_REPLIES = [
+  ['我可以补充当时由我亲自负责的部分。', '我可以说明当时做出这个判断的依据。'],
+  ['我可以继续讲讲当时比较过的方案和取舍原因。', '我可以补充最后的结果和收到的反馈。'],
 ];
 
 function storageKey(demoMode: boolean, userId?: string) {
@@ -57,7 +66,10 @@ function modelTierStorageKey(demoMode: boolean, userId?: string) {
 function loadModelTier(demoMode: boolean, userId?: string): ProfileModelTier {
   if (typeof window === 'undefined') return 'balanced';
   const stored = window.localStorage.getItem(modelTierStorageKey(demoMode, userId));
-  return stored === 'fast' || stored === 'reasoning' ? stored : 'balanced';
+  if (stored === 'fast' || stored === 'balanced' || stored === 'comprehensive' || stored === 'thinking') {
+    return stored;
+  }
+  return stored === 'reasoning' ? 'comprehensive' : 'balanced';
 }
 
 function loadMessages(demoMode: boolean, userId?: string): CompanionMessage[] {
@@ -81,6 +93,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
   const [error, setError] = useState<string | null>(null);
   const [modelTier, setModelTier] = useState<ProfileModelTier>(() => loadModelTier(demoMode, userId));
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const demoReplyTimerRef = useRef<number | null>(null);
   const demoTypingTimerRef = useRef<number | null>(null);
@@ -130,17 +143,19 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
     setMessages(nextMessages); setInput(''); setError(null); setLoading(true);
     if (demoMode) {
       demoReplyTimerRef.current = window.setTimeout(() => {
-        const reply = DEMO_REPLIES[(nextMessages.filter(message => message.role === 'user').length - 1) % DEMO_REPLIES.length];
+        const replyIndex = (nextMessages.filter(message => message.role === 'user').length - 1) % DEMO_REPLIES.length;
+        const reply = DEMO_REPLIES[replyIndex];
+        const suggestedReplies = DEMO_SUGGESTED_REPLIES[replyIndex];
         const replyId = `companion-demo-${Date.now()}`;
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        setMessages(current => [...current, { id: replyId, role: 'assistant', content: reduceMotion ? reply : '' }].slice(-60));
+        setMessages(current => [...current, { id: replyId, role: 'assistant', content: reduceMotion ? reply : '', suggestedReplies: reduceMotion ? suggestedReplies : undefined }].slice(-60));
         if (reduceMotion) { setLoading(false); return; }
         let visible = 0;
         demoTypingTimerRef.current = window.setInterval(() => {
           visible = Math.min(visible + 2, reply.length);
           const complete = visible >= reply.length;
           setMessages(current => current.map(message => message.id === replyId ? {
-            ...message, content: reply.slice(0, visible), signals: complete ? ['证据边界', '下一步补充'] : undefined,
+            ...message, content: reply.slice(0, visible), suggestedReplies: complete ? suggestedReplies : undefined,
           } : message));
           if (!complete) return;
           if (demoTypingTimerRef.current !== null) window.clearInterval(demoTypingTimerRef.current);
@@ -170,12 +185,42 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
               : message)
             : [...current, { id: replyId, role: 'assistant', content: delta }].slice(-60));
         },
+        undefined,
+        () => {
+          setMessages(current => current.map(message => message.id === replyId
+            ? { ...message, content: '', reasoningContent: '', reasoningStatus: 'streaming' }
+            : message));
+        },
+        reasoningDelta => {
+          setStreamingReplyId(replyId);
+          setMessages(current => current.some(message => message.id === replyId)
+            ? current.map(message => message.id === replyId
+              ? {
+                  ...message,
+                  thinkingEnabled: true,
+                  reasoningContent: `${message.reasoningContent || ''}${reasoningDelta}`.slice(-24000),
+                  reasoningStatus: 'streaming',
+                }
+              : message)
+            : [...current, {
+                id: replyId,
+                role: 'assistant',
+                content: '',
+                thinkingEnabled: true,
+                reasoningContent: reasoningDelta,
+                reasoningStatus: 'streaming',
+              }].slice(-60));
+        },
       );
       const finalMessage: CompanionMessage = {
         id: replyId, role: 'assistant', content: response.reply,
-        signals: [response.evidence_found[0], response.evidence_gap].filter(Boolean).slice(0, 2),
+        suggestedReplies: response.suggested_replies,
         model: response.model || undefined,
         cacheHit: response.cache_hit,
+        reasoningContent: response.reasoning_content || undefined,
+        thinkingEnabled: response.thinking_enabled || false,
+        reasoningTokens: response.reasoning_tokens ?? undefined,
+        reasoningStatus: response.reasoning_status,
       };
       setMessages(current => current.some(message => message.id === replyId)
         ? current.map(message => message.id === replyId ? finalMessage : message)
@@ -183,6 +228,11 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '这次回复没有完成，请稍后再试。');
     } finally { setLoading(false); setStreamingReplyId(null); }
+  };
+
+  const fillSuggestedReply = (suggestion: string) => {
+    setInput(current => current.trim() ? `${current.trimEnd()}\n${suggestion}` : suggestion);
+    window.requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   return (
@@ -228,12 +278,12 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
                 </div>
               </div>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3" aria-live="polite">
-                {messages.map(message => <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] text-stone-400">{message.role === 'user' ? '你' : '成长陪伴'}</span><div className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[11px] leading-[1.65] ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-white' : 'rounded-tl-md border border-stone-200 bg-white text-stone-800 shadow-sm'}`}>{message.content}{streamingReplyId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</div>{message.signals?.length ? <div className="mt-1.5 flex max-w-[92%] flex-wrap gap-1">{message.signals.map(signal => <span key={signal} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] text-emerald-800">{signal}</span>)}</div> : null}{message.role === 'assistant' && message.model ? <span className="mt-1 px-1 text-[9px] text-stone-400">{message.model} · {message.cacheHit ? '缓存命中' : '实时生成'}</span> : null}</div>)}
+                {messages.map(message => <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] text-stone-400">{message.role === 'user' ? '你' : '成长陪伴'}</span>{message.role === 'assistant' && message.thinkingEnabled ? <details open className="mb-1.5 max-w-[92%] rounded-xl border border-emerald-100 bg-emerald-50/60 px-2.5 py-2 text-[9px] text-stone-600"><summary className="cursor-pointer font-medium text-emerald-800">思考过程{message.reasoningTokens ? ` · ${message.reasoningTokens} tokens` : ''}</summary><p className="mt-1 whitespace-pre-wrap leading-4">{message.reasoningContent || '正在接收思考过程…'}</p></details> : null}<div className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[11px] leading-[1.65] ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-white' : 'rounded-tl-md border border-stone-200 bg-white text-stone-800 shadow-sm'}`}>{message.content}{streamingReplyId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</div>{message.role === 'assistant' && message.suggestedReplies?.length ? <div className="mt-1.5 flex max-w-[92%] flex-col gap-1"><span className="px-1 text-[9px] text-stone-400">下一步回复建议 · 点击填入</span>{message.suggestedReplies.map(reply => <button key={reply} type="button" onClick={() => fillSuggestedReply(reply)} className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-left text-[9px] leading-4 text-stone-700 hover:bg-stone-50">{reply}</button>)}</div> : null}{message.role === 'assistant' && message.model ? <span className="mt-1 px-1 text-[9px] text-stone-400">{message.model} · {message.cacheHit ? '缓存命中' : '实时生成'}</span> : null}</div>)}
                 {loading && !streamingReplyId && <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-2.5 text-[10px] text-stone-500"><Loader2 className="h-3 w-3 animate-spin" />正在整理证据边界…</div>}<div ref={endRef} />
               </div>
               <div className="border-t border-stone-200/70 bg-white/90 p-2.5">
                 <div className="mb-2 space-y-1">{QUICK_PROMPTS.map(prompt => <button key={prompt} type="button" disabled={loading} onClick={() => void send(prompt)} className="flex min-h-8 w-full items-center justify-between rounded-lg bg-stone-50 px-2.5 text-left text-[10px] text-stone-700 hover:bg-stone-100 disabled:opacity-50"><span className="truncate">{prompt}</span><ArrowRight className="h-3 w-3 shrink-0" /></button>)}</div>
-                <div className="flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-50 p-1 focus-within:border-emerald-500 focus-within:bg-white"><input aria-label="向成长陪伴提问" value={input} disabled={loading} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') void send(); }} placeholder="向陪伴提问…" className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[11px] outline-none placeholder:text-stone-400" /><button type="button" aria-label="发送陪伴消息" onClick={() => void send()} disabled={!input.trim() || loading} className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#25765c] text-white disabled:bg-stone-200 disabled:text-stone-400"><Send className="h-3.5 w-3.5" /></button></div>
+                <div className="flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-50 p-1 focus-within:border-emerald-500 focus-within:bg-white"><input ref={inputRef} aria-label="向成长陪伴提问" value={input} disabled={loading} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') void send(); }} placeholder="向陪伴提问…" className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[11px] outline-none placeholder:text-stone-400" /><button type="button" aria-label="发送陪伴消息" onClick={() => void send()} disabled={!input.trim() || loading} className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#25765c] text-white disabled:bg-stone-200 disabled:text-stone-400"><Send className="h-3.5 w-3.5" /></button></div>
                 {error && <p role="alert" className="mt-1.5 text-[9px] text-rose-700">{error}</p>}
                 <button type="button" onClick={onContinue} className="mt-2 flex min-h-8 w-full items-center justify-center gap-1 text-[10px] font-medium text-stone-600 hover:text-stone-900">回到完整经历对话<ArrowRight className="h-3 w-3" /></button>
               </div>

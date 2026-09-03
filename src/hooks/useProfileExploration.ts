@@ -16,6 +16,8 @@ export function useProfileExploration() {
   const explore = useCallback((
     request: ProfileExplorationRequest,
     onDelta: (text: string) => void = () => {},
+    onReset: () => void = () => {},
+    onThinkingDelta: (text: string) => void = () => {},
   ) => {
     if (pendingRef.current) return pendingRef.current;
     const pending = (async () => {
@@ -34,7 +36,13 @@ export function useProfileExploration() {
       pollTimerRef.current = window.setInterval(() => void poll(), 800);
       window.setTimeout(() => void poll(), 120);
       try {
-        const response = await streamProfileExplorationMessage(request, onDelta, controller.signal);
+        const response = await streamProfileExplorationMessage(
+          request,
+          onDelta,
+          controller.signal,
+          onReset,
+          onThinkingDelta,
+        );
         setStatus('success');
         return response;
       } catch (cause) {

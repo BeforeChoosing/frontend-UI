@@ -31,6 +31,10 @@ export const TrialExperienceEndScreen: React.FC<TrialExperienceEndScreenProps> =
     const updatedIds = new Set(updatedCards.map(card => card.id));
     return [...allAccumulatedCards.filter(card => !updatedIds.has(card.id)), ...updatedCards];
   }, [allAccumulatedCards, updatedCards]);
+  const pendingAbilityResults = useMemo(
+    () => (evaluation?.ability_applications || []).filter(application => application.card_id.startsWith('pending:')),
+    [evaluation],
+  );
 
   return (
     <div className="relative mx-auto flex min-h-[calc(100vh-64px)] max-w-5xl flex-col justify-between px-4 py-6 sm:px-6 sm:py-8">
@@ -83,6 +87,35 @@ export const TrialExperienceEndScreen: React.FC<TrialExperienceEndScreenProps> =
               <p className="mt-1 text-xs leading-5 text-stone-700">{evaluation.next_step}</p>
             </div>
           </motion.div>
+        )}
+
+        {pendingAbilityResults.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.12 }}
+            className="rounded-2xl border border-amber-200 bg-amber-50/45 p-4 text-left sm:rounded-3xl sm:p-5"
+          >
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-stone-900">待验证能力的本轮结果</p>
+                <p className="mt-1 text-[11px] leading-5 text-stone-600">任务中出现了相关证据，但不会因为完成一次任务就自动写入长期能力库。</p>
+              </div>
+              <span className="rounded-full border border-amber-200 bg-white/70 px-2.5 py-1 text-[10px] text-amber-800">候选证据</span>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {pendingAbilityResults.map(application => (
+                <article key={application.card_id} className="rounded-2xl border border-amber-100 bg-white/80 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-stone-900">{application.card_title}</p>
+                    <span className="shrink-0 text-[10px] text-amber-800">{application.status}</span>
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-5 text-stone-600">{application.basis}</p>
+                  <p className="mt-1 text-[10px] leading-4 text-stone-500">下一步：{application.next_step}</p>
+                </article>
+              ))}
+            </div>
+          </motion.section>
         )}
 
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }} className="w-full py-2">

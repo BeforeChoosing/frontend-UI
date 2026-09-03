@@ -67,6 +67,10 @@ test('成长陪伴显示为 Demo 风格浮动入口，并提供辅助对话面�
   assert.match(source, /streamProfileExplorationMessage/);
   assert.match(source, /agent-stream-cursor/);
   assert.match(source, /profile-exploration.*evidence-v3/);
+  assert.match(source, /suggestedReplies: response\.suggested_replies/);
+  assert.match(source, /下一步回复建议 · 点击填入/);
+  assert.match(source, /setInput\(current => current\.trim\(\).*current\.trimEnd\(\).*suggestion/s);
+  assert.doesNotMatch(source, /message\.signals\.map/);
 });
 
 test('个人画像页采用 Demo 拱形卡、悬停详情与真实档案数量', () => {
@@ -146,7 +150,8 @@ test('完成 03 后自动更新能力卡并直接进入 Demo 卡池结果页', (
   const dynamicSource = readFileSync(new URL('../src/components/DynamicTrialTaskScreen.tsx', import.meta.url), 'utf8');
   const endSource = readFileSync(new URL('../src/components/TrialExperienceEndScreen.tsx', import.meta.url), 'utf8');
   assert.match(dynamicSource, /AutomaticTrialAbilityUpdate/);
-  assert.match(dynamicSource, /Promise\.resolve\(onUpdateCards\?\.\(updatedCards\)\)/);
+  assert.match(dynamicSource, /syncCards\(updatedCards\)/);
+  assert.match(dynamicSource, /Promise\.resolve\(onUpdateCards\?\.\(cards\)\)/);
   assert.match(dynamicSource, /onUpdateCards=\{onUpdateCardsFromTrial\}/);
   for (const label of ['能力库已成功同步更新', '进入我的档案', '继续探索其他职业']) assert.ok(endSource.includes(label));
   assert.doesNotMatch(endSource, /更新能力库|认可|待定|排除/);

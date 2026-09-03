@@ -52,6 +52,8 @@ export async function streamProfileExplorationMessage(
   request: ProfileExplorationRequest,
   onDelta: (text: string) => void,
   signal?: AbortSignal,
+  onReset: () => void = () => {},
+  onThinkingDelta: (text: string) => void = () => {},
 ): Promise<ProfileExplorationResponse> {
   const response = await apiStreamRequest('/profile/exploration/messages/stream', {
     method: 'POST',
@@ -77,6 +79,15 @@ export async function streamProfileExplorationMessage(
     if (event === 'delta') {
       const text = typeof payload.text === 'string' ? payload.text : '';
       if (text) onDelta(text);
+      return;
+    }
+    if (event === 'reset') {
+      onReset();
+      return;
+    }
+    if (event === 'thinking_delta') {
+      const text = typeof payload.text === 'string' ? payload.text : '';
+      if (text) onThinkingDelta(text);
       return;
     }
     if (event === 'done') {
@@ -173,5 +184,18 @@ export function updateProfileCard(
 export function deleteProfileCard(cardId: string): Promise<ProfileCardsResponse> {
   return apiRequest<ProfileCardsResponse>(`/profile/cards/${encodeURIComponent(cardId)}`, {
     method: 'DELETE',
+  });
+}
+
+export function clearProfileMemory(): Promise<{
+  cleared: true;
+  removed_records: number;
+  removed_files: number;
+  cancelled_requests: number;
+  version: string;
+}> {
+  return apiRequest('/profile/memory', {
+    method: 'DELETE',
+    body: JSON.stringify({ confirmation: 'CLEAR_ALL_MEMORY' }),
   });
 }
