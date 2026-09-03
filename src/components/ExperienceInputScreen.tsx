@@ -63,7 +63,6 @@ interface ExperienceInputScreenProps {
   demoExperienceText?: string;
   focusRequest?: number;
   newConversationRequest?: number;
-  onNewConversationHandled?: () => void;
 }
 
 export interface ChatMessage {
@@ -803,7 +802,6 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   demoExperienceText = '',
   focusRequest = 0,
   newConversationRequest = 0,
-  onNewConversationHandled,
 }) => {
   const [inputText, setInputText] = useState(() => (
     demoMode || userId ? window.localStorage.getItem(explorationStorageKey(demoMode, 'evidence', userId)) || '' : ''
@@ -873,6 +871,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const demoTypingTimerRef = useRef<number | null>(null);
   const demoTransitionTimerRef = useRef<number | null>(null);
+  const handledNewConversationRequestRef = useRef(0);
 
   useEffect(() => {
     if (!focusRequest) return;
@@ -1104,12 +1103,13 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   };
 
   useEffect(() => {
-    if (!newConversationRequest) return;
-    void handleNewBlankConversation().finally(() => onNewConversationHandled?.());
+    if (!newConversationRequest || handledNewConversationRequestRef.current === newConversationRequest) return;
+    handledNewConversationRequestRef.current = newConversationRequest;
+    void handleNewBlankConversation();
     // The monotonically increasing request is the event boundary. The handler
     // intentionally reads the latest conversation state when it runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newConversationRequest, onNewConversationHandled]);
+  }, [newConversationRequest]);
 
   const handleSendCoachMessage = async (textOverride?: string) => {
     const text = (textOverride ?? coachInput).trim();

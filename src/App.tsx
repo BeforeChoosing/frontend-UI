@@ -459,7 +459,6 @@ export default function App() {
                 demoExperienceText={DEMO_EXPERIENCE_TEXT}
                 focusRequest={profileFocusRequest}
                 newConversationRequest={profileNewConversationRequest}
-                onNewConversationHandled={() => setProfileNewConversationRequest(0)}
               />
             </StageTransition>
           )}

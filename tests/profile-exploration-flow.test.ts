@@ -67,6 +67,15 @@ test('演示模式固定回复后进入四轮成长陪伴追问且不调用模�
   assert.ok(experienceSource.indexOf('if (demoMode) {') < experienceSource.indexOf('const response = await exploreProfile'));
 });
 
+test('正式对话最多四轮 STAR 追问，恢复历史后仍保留边界', () => {
+  assert.match(experienceSource, /starDimension: response\.star_dimension/);
+  assert.match(experienceSource, /deriveStarHistory\(conversation\.messages\)/);
+  assert.match(experienceSource, /if \(starHistory\.length >= 4\)/);
+  assert.match(experienceSource, /继续整理当前经历/);
+  assert.match(experienceSource, /即刻生成能力卡/);
+  assert.doesNotMatch(experienceSource, /await handleStartAnalysis\(nextEvidenceText/);
+});
+
 test('01 首段提交后锁定页面，仅允许对话记录滚动', () => {
   assert.match(experienceSource, /focusedConversationActive/);
   assert.match(experienceSource, /document\.documentElement\.style\.overflow = 'hidden'/);
@@ -94,6 +103,13 @@ test('正式模式可新建真正空白对话，并从页面恢复账号内历�
   assert.match(experienceSource, /历史对话/);
   assert.match(experienceSource, /restoreConversation/);
   assert.match(experienceSource, /!demoMode && !userId/);
+});
+
+test('整理后由用户决定继续当前经历或保留历史并新建对话', () => {
+  assert.match(verificationSource, /继续当前经历/);
+  assert.match(verificationSource, /更换一段经历/);
+  assert.match(appSource, /setProfileNewConversationRequest\(value => value \+ 1\)/);
+  assert.match(experienceSource, /handledNewConversationRequestRef/);
 });
 
 test('正式对话同步服务器并展示本轮实际模型与缓存状态', () => {
