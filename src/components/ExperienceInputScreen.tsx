@@ -83,7 +83,7 @@ export interface ChatMessage {
 type ChatAction = {
   id: string;
   label: string;
-  kind: 'explore' | 'generate';
+  kind: 'explore' | 'continue' | 'generate';
   candidate?: AttachmentExperienceCandidate;
 };
 
@@ -1220,7 +1220,10 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           model: response.model || undefined,
           cacheHit: response.cache_hit,
           actions: response.next_action === 'summarize'
-            ? [{ id: 'summarize', label: '总结并生成能力卡', kind: 'generate' }]
+            ? [
+                { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },
+                { id: 'summarize', label: '即刻生成能力卡', kind: 'generate' },
+              ]
             : [{ id: `continue-${response.star_dimension || 'S'}`, label: `继续补充${STAR_DIMENSION_LABELS[response.star_dimension || 'S']}`, kind: 'explore' }],
         };
         return prev.some(message => message.id === replyId)
@@ -1229,12 +1232,6 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       });
       if (response.star_dimension && !starHistory.includes(response.star_dimension)) {
         setStarHistory(previous => [...previous, response.star_dimension!].slice(-4));
-      }
-      if (response.next_action === 'summarize') {
-        // The fourth STAR turn is the hand-off point: summarize immediately
-        // from the complete user transcript instead of waiting for another
-        // click. The current message is already in nextEvidenceText.
-        await handleStartAnalysis(nextEvidenceText, { replaceInput: true });
       }
     } catch {
       // The hook exposes the backend/Qwen error beside the exploration composer.
@@ -1258,6 +1255,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     const candidate = action.candidate;
     if (action.kind === 'generate') {
       void handleStartAnalysis(candidate?.excerpt || inputText);
+      return;
+    }
+    if (action.kind === 'continue') {
+      setCoachInput('');
+      textareaRef.current?.focus();
       return;
     }
     if (!candidate) return;
