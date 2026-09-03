@@ -17,6 +17,7 @@ export function useProfileExploration() {
     request: ProfileExplorationRequest,
     onDelta: (text: string) => void = () => {},
     onReset: () => void = () => {},
+    onThinkingDelta: (text: string) => void = () => {},
   ) => {
     if (pendingRef.current) return pendingRef.current;
     const pending = (async () => {
@@ -40,6 +41,7 @@ export function useProfileExploration() {
           onDelta,
           controller.signal,
           onReset,
+          onThinkingDelta,
         );
         setStatus('success');
         return response;

@@ -19,9 +19,14 @@ export type ProfileStarDimension = 'S' | 'T' | 'A' | 'R';
 export interface ProfileExplorationMessage {
   role: 'user' | 'assistant';
   content: string;
+  reasoning_content?: string;
+  thinking_enabled?: boolean;
+  thinking_model?: string | null;
+  reasoning_tokens?: number | null;
+  reasoning_status?: 'disabled' | 'streaming' | 'complete' | 'unavailable';
 }
 
-export type ProfileModelTier = 'fast' | 'balanced' | 'reasoning';
+export type ProfileModelTier = 'fast' | 'balanced' | 'comprehensive' | 'thinking' | 'reasoning';
 
 export interface ProfileExplorationRequest {
   experience_text: string;
@@ -52,6 +57,11 @@ export interface ProfileExplorationResponse {
   round_number?: number;
   next_action?: 'ask' | 'summarize';
   finalization_reason?: string | null;
+  reasoning_content?: string;
+  thinking_enabled?: boolean;
+  thinking_model?: string | null;
+  reasoning_tokens?: number | null;
+  reasoning_status?: 'disabled' | 'streaming' | 'complete' | 'unavailable';
 }
 
 export interface ProfileConversationSnapshotMessage {
@@ -64,6 +74,11 @@ export interface ProfileConversationSnapshotMessage {
   model?: string | null;
   cache_hit?: boolean | null;
   star_dimension?: ProfileStarDimension | null;
+  reasoning_content?: string;
+  thinking_enabled?: boolean;
+  thinking_model?: string | null;
+  reasoning_tokens?: number | null;
+  reasoning_status?: 'disabled' | 'streaming' | 'complete' | 'unavailable';
 }
 
 export interface ProfileConversationMaterial {

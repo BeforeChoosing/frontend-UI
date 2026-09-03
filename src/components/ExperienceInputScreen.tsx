@@ -74,6 +74,11 @@ export interface ChatMessage {
   model?: string;
   cacheHit?: boolean;
   starDimension?: ProfileStarDimension;
+  reasoningContent?: string;
+  thinkingEnabled?: boolean;
+  thinkingModel?: string;
+  reasoningTokens?: number;
+  reasoningStatus?: 'disabled' | 'streaming' | 'complete' | 'unavailable';
   actions?: ChatAction[];
   attachedFile?: {
     name: string;
@@ -144,6 +149,11 @@ function serverSnapshotToStored(snapshot: ProfileConversationSnapshot): StoredCo
       model: message.model || undefined,
       cacheHit: message.cache_hit ?? undefined,
       starDimension: message.star_dimension || undefined,
+      reasoningContent: message.reasoning_content || undefined,
+      thinkingEnabled: message.thinking_enabled || false,
+      thinkingModel: message.thinking_model || undefined,
+      reasoningTokens: message.reasoning_tokens ?? undefined,
+      reasoningStatus: message.reasoning_status || undefined,
     })),
     evidence: snapshot.evidence || '',
     materials: (snapshot.materials || []).map(material => ({
@@ -171,6 +181,11 @@ function storedConversationToServer(snapshot: StoredConversation): ProfileConver
       model: message.model,
       cache_hit: message.cacheHit,
       star_dimension: message.starDimension,
+      reasoning_content: message.reasoningContent || '',
+      thinking_enabled: message.thinkingEnabled || false,
+      thinking_model: message.thinkingModel,
+      reasoning_tokens: message.reasoningTokens,
+      reasoning_status: message.reasoningStatus || 'disabled',
     })),
     evidence: snapshot.evidence,
     materials: snapshot.materials.map(material => ({
@@ -266,6 +281,19 @@ function SuggestedReplyChoices({
   );
 }
 
+function ThinkingDisclosure({ message }: { message: ChatMessage }) {
+  if (!message.thinkingEnabled) return null;
+  const content = message.reasoningContent?.trim() || '正在接收思考过程…';
+  return (
+    <details open className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2 text-[10px] text-stone-600">
+      <summary className="cursor-pointer select-none font-medium text-emerald-800">
+        思考过程{message.reasoningTokens ? ` · ${message.reasoningTokens} tokens` : ''}
+      </summary>
+      <p className="mt-1.5 whitespace-pre-wrap leading-5">{content}</p>
+    </details>
+  );
+}
+
 function demoMaterialCandidates(fileName: string): AttachmentExperienceCandidate[] {
   return [
     {
@@ -353,7 +381,11 @@ function loadTargetRole(demoMode: boolean, userId?: string): string {
 function loadModelTier(demoMode: boolean, userId?: string): ProfileModelTier {
   if (typeof window === 'undefined') return 'balanced';
   const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'model-tier', userId));
-  return value === 'fast' || value === 'reasoning' ? value : 'balanced';
+  if (value === 'fast' || value === 'balanced' || value === 'comprehensive' || value === 'thinking') {
+    return value;
+  }
+  // Migrate the former single “思考” option to the new comprehensive tier.
+  return value === 'reasoning' ? 'comprehensive' : 'balanced';
 }
 
 function loadExplorationMessages(demoMode: boolean, userId?: string): ChatMessage[] {
@@ -1245,8 +1277,34 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         },
         () => {
           setMessages(prev => prev.map(message => message.id === replyId
-            ? { ...message, content: '' }
+            ? { ...message, content: '', reasoningContent: '', reasoningStatus: 'streaming' }
             : message));
+        },
+        reasoningDelta => {
+          setIsAiThinking(false);
+          setStreamingMessageId(replyId);
+          setMessages(prev => {
+            const existing = prev.some(message => message.id === replyId);
+            if (!existing) {
+              return [...prev, {
+                id: replyId,
+                role: 'ai',
+                content: '',
+                timestamp,
+                thinkingEnabled: true,
+                reasoningContent: reasoningDelta,
+                reasoningStatus: 'streaming',
+              }].slice(-60);
+            }
+            return prev.map(message => message.id === replyId
+              ? {
+                  ...message,
+                  thinkingEnabled: true,
+                  reasoningContent: `${message.reasoningContent || ''}${reasoningDelta}`.slice(-24000),
+                  reasoningStatus: 'streaming',
+                }
+              : message);
+          });
         },
       );
       setMessages(prev => {
@@ -1259,6 +1317,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           model: response.model || undefined,
           cacheHit: response.cache_hit,
           starDimension: response.star_dimension,
+          reasoningContent: response.reasoning_content || undefined,
+          thinkingEnabled: response.thinking_enabled || false,
+          thinkingModel: response.thinking_model || undefined,
+          reasoningTokens: response.reasoning_tokens ?? undefined,
+          reasoningStatus: response.reasoning_status,
           actions: response.next_action === 'summarize'
             ? [
                 { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },
@@ -1913,6 +1976,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-xs leading-6 shadow-sm sm:text-sm ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-stone-100' : 'rounded-tl-md border border-stone-200 bg-white text-stone-700'}`}>
                     {message.attachedFile && <p className="mb-2 border-b border-current/10 pb-2 text-[10px] opacity-70">附件 · {message.attachedFile.name}</p>}
                     <p>{message.content}{streamingMessageId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
+                    {message.role === 'ai' && <ThinkingDisclosure message={message} />}
                     {message.role === 'ai' && <SuggestedReplyChoices replies={message.suggestedReplies} onSelect={handleSuggestedReply} />}
                     {message.actions && message.actions.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3">
@@ -2048,6 +2112,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   <p className="max-w-3xl text-xs font-normal leading-6 text-stone-700 sm:text-sm">
                     {latestAiMessage.content}
                   </p>
+                  <ThinkingDisclosure message={latestAiMessage} />
                   <SuggestedReplyChoices replies={latestAiMessage.suggestedReplies} onSelect={handleSuggestedReply} />
                   {latestAiMessage.model && <p className="mt-2 text-[9px] text-stone-400">{latestAiMessage.model} · {latestAiMessage.cacheHit ? '缓存命中' : '实时生成'}</p>}
                 </div>
@@ -2072,6 +2137,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                           </div>
                         )}
                         <p>{msg.content}{streamingMessageId === msg.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
+                        {msg.role === 'ai' && <ThinkingDisclosure message={msg} />}
                         {msg.role === 'ai' && <SuggestedReplyChoices replies={msg.suggestedReplies} onSelect={handleSuggestedReply} />}
                         {msg.role === 'ai' && msg.model && <p className="mt-2 text-[9px] text-stone-400">{msg.model} · {msg.cacheHit ? '缓存命中' : '实时生成'}</p>}
                       </div>
@@ -2260,7 +2326,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 </AnimatePresence>
               </div>
               <div className="inline-flex items-center rounded-full bg-stone-100 p-0.5" aria-label="选择模型响应档位">
-                {([['fast', '快速'], ['balanced', '适中'], ['reasoning', '思考']] as const).map(([tier, label]) => (
+                {([['fast', '快速'], ['balanced', '适中'], ['comprehensive', '全面'], ['thinking', '思考']] as const).map(([tier, label]) => (
                   <button key={tier} type="button" disabled={explorationStatus === 'loading'} onClick={() => setModelTier(tier)} aria-pressed={modelTier === tier} className={`rounded-full px-2 py-1 text-[10px] transition ${modelTier === tier ? 'bg-white font-semibold text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'}`}>{label}</button>
                 ))}
               </div>

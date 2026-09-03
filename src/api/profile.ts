@@ -53,6 +53,7 @@ export async function streamProfileExplorationMessage(
   onDelta: (text: string) => void,
   signal?: AbortSignal,
   onReset: () => void = () => {},
+  onThinkingDelta: (text: string) => void = () => {},
 ): Promise<ProfileExplorationResponse> {
   const response = await apiStreamRequest('/profile/exploration/messages/stream', {
     method: 'POST',
@@ -82,6 +83,11 @@ export async function streamProfileExplorationMessage(
     }
     if (event === 'reset') {
       onReset();
+      return;
+    }
+    if (event === 'thinking_delta') {
+      const text = typeof payload.text === 'string' ? payload.text : '';
+      if (text) onThinkingDelta(text);
       return;
     }
     if (event === 'done') {

@@ -21,6 +21,10 @@ interface CompanionMessage {
   suggestedReplies?: string[];
   model?: string;
   cacheHit?: boolean;
+  reasoningContent?: string;
+  thinkingEnabled?: boolean;
+  reasoningTokens?: number;
+  reasoningStatus?: 'disabled' | 'streaming' | 'complete' | 'unavailable';
 }
 
 const INITIAL_MESSAGE: CompanionMessage = {
@@ -32,7 +36,8 @@ const QUICK_PROMPTS = ['帮我区分这段经历里的事实与推断', '我还�
 const MODEL_TIERS: Array<{ id: ProfileModelTier; label: string }> = [
   { id: 'fast', label: '快速' },
   { id: 'balanced', label: '适中' },
-  { id: 'reasoning', label: '思考' },
+  { id: 'comprehensive', label: '全面' },
+  { id: 'thinking', label: '思考' },
 ];
 const SCREEN_LABELS: Record<ScreenMode, string> = {
   landing: '开始认识自己', auth: '建立个人档案', 'input-experience': '阶段 01 · 经历解构',
@@ -61,7 +66,10 @@ function modelTierStorageKey(demoMode: boolean, userId?: string) {
 function loadModelTier(demoMode: boolean, userId?: string): ProfileModelTier {
   if (typeof window === 'undefined') return 'balanced';
   const stored = window.localStorage.getItem(modelTierStorageKey(demoMode, userId));
-  return stored === 'fast' || stored === 'reasoning' ? stored : 'balanced';
+  if (stored === 'fast' || stored === 'balanced' || stored === 'comprehensive' || stored === 'thinking') {
+    return stored;
+  }
+  return stored === 'reasoning' ? 'comprehensive' : 'balanced';
 }
 
 function loadMessages(demoMode: boolean, userId?: string): CompanionMessage[] {
@@ -180,8 +188,28 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
         undefined,
         () => {
           setMessages(current => current.map(message => message.id === replyId
-            ? { ...message, content: '' }
+            ? { ...message, content: '', reasoningContent: '', reasoningStatus: 'streaming' }
             : message));
+        },
+        reasoningDelta => {
+          setStreamingReplyId(replyId);
+          setMessages(current => current.some(message => message.id === replyId)
+            ? current.map(message => message.id === replyId
+              ? {
+                  ...message,
+                  thinkingEnabled: true,
+                  reasoningContent: `${message.reasoningContent || ''}${reasoningDelta}`.slice(-24000),
+                  reasoningStatus: 'streaming',
+                }
+              : message)
+            : [...current, {
+                id: replyId,
+                role: 'assistant',
+                content: '',
+                thinkingEnabled: true,
+                reasoningContent: reasoningDelta,
+                reasoningStatus: 'streaming',
+              }].slice(-60));
         },
       );
       const finalMessage: CompanionMessage = {
@@ -189,6 +217,10 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
         suggestedReplies: response.suggested_replies,
         model: response.model || undefined,
         cacheHit: response.cache_hit,
+        reasoningContent: response.reasoning_content || undefined,
+        thinkingEnabled: response.thinking_enabled || false,
+        reasoningTokens: response.reasoning_tokens ?? undefined,
+        reasoningStatus: response.reasoning_status,
       };
       setMessages(current => current.some(message => message.id === replyId)
         ? current.map(message => message.id === replyId ? finalMessage : message)
@@ -246,7 +278,7 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
                 </div>
               </div>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3" aria-live="polite">
-                {messages.map(message => <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] text-stone-400">{message.role === 'user' ? '你' : '成长陪伴'}</span><div className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[11px] leading-[1.65] ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-white' : 'rounded-tl-md border border-stone-200 bg-white text-stone-800 shadow-sm'}`}>{message.content}{streamingReplyId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</div>{message.role === 'assistant' && message.suggestedReplies?.length ? <div className="mt-1.5 flex max-w-[92%] flex-col gap-1"><span className="px-1 text-[9px] text-stone-400">下一步回复建议 · 点击填入</span>{message.suggestedReplies.map(reply => <button key={reply} type="button" onClick={() => fillSuggestedReply(reply)} className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-left text-[9px] leading-4 text-stone-700 hover:bg-stone-50">{reply}</button>)}</div> : null}{message.role === 'assistant' && message.model ? <span className="mt-1 px-1 text-[9px] text-stone-400">{message.model} · {message.cacheHit ? '缓存命中' : '实时生成'}</span> : null}</div>)}
+                {messages.map(message => <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] text-stone-400">{message.role === 'user' ? '你' : '成长陪伴'}</span><div className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[11px] leading-[1.65] ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-white' : 'rounded-tl-md border border-stone-200 bg-white text-stone-800 shadow-sm'}`}>{message.content}{streamingReplyId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</div>{message.role === 'assistant' && message.thinkingEnabled ? <details open className="mt-1.5 max-w-[92%] rounded-xl border border-emerald-100 bg-emerald-50/60 px-2.5 py-2 text-[9px] text-stone-600"><summary className="cursor-pointer font-medium text-emerald-800">思考过程{message.reasoningTokens ? ` · ${message.reasoningTokens} tokens` : ''}</summary><p className="mt-1 whitespace-pre-wrap leading-4">{message.reasoningContent || '正在接收思考过程…'}</p></details> : null}{message.role === 'assistant' && message.suggestedReplies?.length ? <div className="mt-1.5 flex max-w-[92%] flex-col gap-1"><span className="px-1 text-[9px] text-stone-400">下一步回复建议 · 点击填入</span>{message.suggestedReplies.map(reply => <button key={reply} type="button" onClick={() => fillSuggestedReply(reply)} className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-left text-[9px] leading-4 text-stone-700 hover:bg-stone-50">{reply}</button>)}</div> : null}{message.role === 'assistant' && message.model ? <span className="mt-1 px-1 text-[9px] text-stone-400">{message.model} · {message.cacheHit ? '缓存命中' : '实时生成'}</span> : null}</div>)}
                 {loading && !streamingReplyId && <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-2.5 text-[10px] text-stone-500"><Loader2 className="h-3 w-3 animate-spin" />正在整理证据边界…</div>}<div ref={endRef} />
               </div>
               <div className="border-t border-stone-200/70 bg-white/90 p-2.5">
