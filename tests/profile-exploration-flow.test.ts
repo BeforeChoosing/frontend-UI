@@ -126,6 +126,13 @@ test('03 试路地图采用 Demo 的八环节路径与三张直接启动任务�
   assert.match(trialScreenSource, /onStart=\{\(taskId\) =>/);
 });
 
+test('03 能力应用支持当前任务生成的待验证能力', () => {
+  assert.match(cardPlaySource, /answer\.pending_abilities/);
+  assert.match(cardPlaySource, /待验证能力/);
+  assert.match(cardPlaySource, /border-dashed border-amber-300/);
+  assert.match(cardPlaySource, /availableCards/);
+});
+
 test('进入 03 时先恢复三轮挑战，再由用户进入任务简报', () => {
   assert.match(trialScreenSource, /useState<'card-play' \| 'workbench'>\('card-play'\)/);
   assert.match(trialScreenSource, /initializedSessionRef/);

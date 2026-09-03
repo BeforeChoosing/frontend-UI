@@ -215,6 +215,14 @@ export function createDemoTrialAnswer(task: ApiTrialTaskDefinition): ApiDynamicT
     card_play_rounds: rounds,
     card_play_current_index: 0,
     card_play_rationale: '优先使用用户洞察和问题拆解识别系统性原因，再用数据验证确定修复顺序。',
+    pending_abilities: task.ability_challenges.map((challenge, index) => ({
+      id: `pending:${challenge.id}:1`,
+      challenge_id: challenge.id,
+      title: `${challenge.target_skills[0] || '任务判断'}能力`,
+      description: `当前画像中还没有足够证据证明这项能力，将通过挑战 ${index + 1} 的任务表现继续验证。`,
+      target_skills: challenge.target_skills.slice(0, 1),
+      status: 'pending' as const,
+    })),
     validation_hypothesis: '如果问题主要来自 Memory 与 Tool 链路，修复后任务成功率应提升，人工覆盖率应下降。',
     card_play_completed: false,
     step_answers: Object.fromEntries(task.steps.map(step => [

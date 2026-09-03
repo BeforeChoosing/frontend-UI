@@ -74,6 +74,7 @@ export interface ChatMessage {
   detectedSignals?: string[];
   model?: string;
   cacheHit?: boolean;
+  starDimension?: ProfileStarDimension;
   actions?: ChatAction[];
   attachedFile?: {
     name: string;
@@ -152,6 +153,7 @@ function serverSnapshotToStored(snapshot: ProfileConversationSnapshot): StoredCo
       detectedSignals: message.detected_signals,
       model: message.model || undefined,
       cacheHit: message.cache_hit ?? undefined,
+      starDimension: message.star_dimension || undefined,
     })),
     evidence: snapshot.evidence || '',
     materials: (snapshot.materials || []).map(material => ({
@@ -177,6 +179,7 @@ function storedConversationToServer(snapshot: StoredConversation): ProfileConver
       detected_signals: message.detectedSignals || [],
       model: message.model,
       cache_hit: message.cacheHit,
+      star_dimension: message.starDimension,
     })),
     evidence: snapshot.evidence,
     materials: snapshot.materials.map(material => ({
@@ -363,6 +366,14 @@ function loadExplorationMessages(demoMode: boolean, userId?: string): ChatMessag
   } catch {
     return [INITIAL_CHAT_MESSAGE];
   }
+}
+
+function deriveStarHistory(messages: ChatMessage[]): ProfileStarDimension[] {
+  return Array.from(new Set(
+    messages.map(message => message.starDimension).filter(
+      (dimension): dimension is ProfileStarDimension => Boolean(dimension),
+    ),
+  )).slice(0, 4);
 }
 
 function loadUploadedMaterials(demoMode: boolean, userId?: string): UploadedMaterial[] {
@@ -822,10 +833,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     question: string;
     answer: string;
   }>>([]);
-  const [starHistory, setStarHistory] = useState<ProfileStarDimension[]>([]);
-  
   // Real-time Chat Messages state
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode, userId));
+  const [starHistory, setStarHistory] = useState<ProfileStarDimension[]>(() => deriveStarHistory(messages));
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [modelTier, setModelTier] = useState<ProfileModelTier>(() => loadModelTier(demoMode, userId));
@@ -1053,7 +1063,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setDemoProbingRoundIndex(0);
     setDemoProbingInput('');
     setDemoProbingHistory([]);
-    setStarHistory([]);
+    setStarHistory(deriveStarHistory(conversation.messages));
     setStreamingMessageId(null);
     setIsChatExpanded(true);
     resetExploration();
@@ -1176,6 +1186,24 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       return;
     }
 
+    // Four model-led STAR questions are the hard boundary for one experience.
+    // After that the user may still add facts, but the Agent must not start a
+    // fifth guided question. Keep offering the explicit summary decision.
+    if (starHistory.length >= 4) {
+      setMessages(previous => [...previous, {
+        id: `ai-supplement-${Date.now()}`,
+        role: 'ai',
+        content: '这部分已经补充到当前经历。你可以继续整理，也可以现在生成能力卡。',
+        timestamp,
+        actions: [
+          { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },
+          { id: 'summarize', label: '即刻生成能力卡', kind: 'generate' },
+        ],
+      }].slice(-60));
+      setIsAiThinking(false);
+      return;
+    }
+
     try {
       const replyId = `ai-stream-${Date.now()}`;
       const conversation = messages.slice(-49).map(message => ({
@@ -1231,6 +1259,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           ],
           model: response.model || undefined,
           cacheHit: response.cache_hit,
+          starDimension: response.star_dimension,
           actions: response.next_action === 'summarize'
             ? [
                 { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },

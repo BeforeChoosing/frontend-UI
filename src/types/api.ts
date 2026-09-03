@@ -60,6 +60,7 @@ export interface ProfileConversationSnapshotMessage {
   detected_signals?: string[];
   model?: string | null;
   cache_hit?: boolean | null;
+  star_dimension?: ProfileStarDimension | null;
 }
 
 export interface ProfileConversationMaterial {
@@ -501,11 +502,21 @@ export interface ApiDynamicTrialCardPlayRound {
   feedback: string;
 }
 
+export interface ApiDynamicTrialPendingAbility {
+  id: string;
+  challenge_id: string;
+  title: string;
+  description: string;
+  target_skills: string[];
+  status: 'pending';
+}
+
 export interface ApiDynamicTrialAnswer {
   selected_card_ids: string[];
   card_play_rounds: ApiDynamicTrialCardPlayRound[];
   card_play_current_index: number;
   card_play_rationale: string;
+  pending_abilities: ApiDynamicTrialPendingAbility[];
   validation_hypothesis: string;
   card_play_completed: boolean;
   step_answers: Record<string, string>;

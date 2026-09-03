@@ -83,6 +83,9 @@ function normalizeDynamicSession(session: ApiDynamicTrialSession): ApiDynamicTri
         ? currentIndex
         : 0,
       card_play_rationale: typeof answer.card_play_rationale === 'string' ? answer.card_play_rationale : '',
+      pending_abilities: Array.isArray(answer.pending_abilities)
+        ? answer.pending_abilities.filter(item => item && typeof item.id === 'string')
+        : [],
       validation_hypothesis: typeof answer.validation_hypothesis === 'string' ? answer.validation_hypothesis : '',
       card_play_completed: Boolean(answer.card_play_completed),
       step_answers: answer.step_answers && typeof answer.step_answers === 'object' ? answer.step_answers : {},
