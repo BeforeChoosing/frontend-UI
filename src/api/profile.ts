@@ -180,3 +180,16 @@ export function deleteProfileCard(cardId: string): Promise<ProfileCardsResponse>
     method: 'DELETE',
   });
 }
+
+export function clearProfileMemory(): Promise<{
+  cleared: true;
+  removed_records: number;
+  removed_files: number;
+  cancelled_requests: number;
+  version: string;
+}> {
+  return apiRequest('/profile/memory', {
+    method: 'DELETE',
+    body: JSON.stringify({ confirmation: 'CLEAR_ALL_MEMORY' }),
+  });
+}

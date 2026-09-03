@@ -144,6 +144,17 @@ export function useProfileCards(enabled = true, accountId?: string) {
     }
   }, [accountId, applyCardsResponse, enabled, evidence]);
 
+  const reset = useCallback(() => {
+    requestGenerationRef.current += 1;
+    setCards([]);
+    setVersion(0);
+    setUpdatedAt(null);
+    setEvidence([]);
+    setOwnerId(accountId || null);
+    setStatus(enabled ? 'success' : 'idle');
+    setError(null);
+  }, [accountId, enabled]);
+
   return {
     cards,
     version,
@@ -156,5 +167,6 @@ export function useProfileCards(enabled = true, accountId?: string) {
     confirmCards,
     updateCard,
     removeCard,
+    reset,
   };
 }

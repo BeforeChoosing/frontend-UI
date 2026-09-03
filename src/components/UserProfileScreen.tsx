@@ -41,6 +41,7 @@ import {
 import { SkillCard, UserAuth, ScreenMode } from '../types';
 import type { ApiProfileEvidence, ProfileCardPatchRequest } from '../types/api';
 import { EvidenceChain } from './EvidenceChain';
+import { APP_VERSION } from '../version';
 
 interface UserProfileScreenProps {
   persistedCards?: SkillCard[];
@@ -52,6 +53,7 @@ interface UserProfileScreenProps {
   onOpenCardDetail: (card: SkillCard) => void;
   onUpdateCard?: (cardId: string, patch: ProfileCardPatchRequest) => Promise<void> | void;
   onDeleteCard?: (cardId: string) => Promise<void> | void;
+  onClearMemory?: () => Promise<void> | void;
   initialArchTab?: 'insight' | 'cards' | 'paths' | 'reports';
   readOnly?: boolean;
 }
@@ -66,6 +68,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onOpenCardDetail,
   onUpdateCard,
   onDeleteCard,
+  onClearMemory,
   initialArchTab = 'insight',
   readOnly = false,
 }) => {
@@ -97,6 +100,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [editCardDescription, setEditCardDescription] = useState('');
   const [isSavingCard, setIsSavingCard] = useState(false);
   const [cardActionError, setCardActionError] = useState<string | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isClearingMemory, setIsClearingMemory] = useState(false);
+  const [memoryResetError, setMemoryResetError] = useState<string | null>(null);
 
   const formatEvidenceDate = (value: string) => {
     const date = new Date(value);
@@ -229,6 +235,21 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setCardActionError(cause instanceof Error ? cause.message : '删除能力卡失败，请稍后重试。');
     } finally {
       setIsSavingCard(false);
+    }
+  };
+
+  const handleClearMemory = async () => {
+    if (!onClearMemory) return;
+    setIsClearingMemory(true);
+    setMemoryResetError(null);
+    try {
+      await onClearMemory();
+      setIsResetConfirmOpen(false);
+      setIsEditingProfile(false);
+    } catch (cause) {
+      setMemoryResetError(cause instanceof Error ? cause.message : '清空失败，现有记忆未变更。');
+    } finally {
+      setIsClearingMemory(false);
     }
   };
 
@@ -607,6 +628,65 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 </button>
               </div>
             </form>
+            {!readOnly && onClearMemory && (
+              <section className="border-t border-stone-200 pt-4">
+                <h4 className="text-xs font-bold text-rose-800">从零开始</h4>
+                <p className="mt-1 text-[11px] leading-5 text-stone-500">
+                  清除当前账号的能力卡、对话、任务记录和上传材料。账号本身不会被删除。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMemoryResetError(null);
+                    setIsResetConfirmOpen(true);
+                  }}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-semibold text-rose-800 transition hover:bg-rose-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  清空所有记忆
+                </button>
+              </section>
+            )}
+            <p className="border-t border-stone-100 pt-3 text-center font-mono text-[10px] text-stone-400">
+              BeforeChoosing · 版本 {APP_VERSION}
+            </p>
+          </motion.div>
+        </div>
+      )}
+
+      {isResetConfirmOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-stone-950/45 p-4 backdrop-blur-sm">
+          <motion.div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="memory-reset-title"
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl"
+          >
+            <h3 id="memory-reset-title" className="font-serif text-lg font-bold text-stone-950">确认从零开始？</h3>
+            <p className="mt-2 text-xs leading-6 text-stone-600">
+              能力卡、聊天记录、试路任务、职业推荐与上传材料都会永久清除，此操作无法撤销。你的账号和登录状态会保留。
+            </p>
+            {memoryResetError && <p role="alert" className="mt-3 text-xs leading-5 text-rose-700">{memoryResetError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={isClearingMemory}
+                onClick={() => setIsResetConfirmOpen(false)}
+                className="rounded-full bg-stone-100 px-4 py-2 text-xs font-medium text-stone-700 hover:bg-stone-200 disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={isClearingMemory}
+                onClick={() => void handleClearMemory()}
+                className="rounded-full bg-rose-700 px-4 py-2 text-xs font-bold text-white hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isClearingMemory ? '正在清空…' : '确认清空，从零开始'}
+              </button>
+            </div>
           </motion.div>
         </div>
       )}
