@@ -74,6 +74,7 @@ export function TrialWorkbenchScreen({
   const activeMaterial = task.materials.find(material => material.id === activeMaterialId) || task.materials[0];
   const previewMaterial = task.materials.find(material => material.id === previewMaterialId) || null;
   const completionCount = completedStepIds.length;
+  const latestCoachUsage = answer.coach_usage[answer.coach_usage.length - 1];
   const sourceSummary = useMemo(
     () => task.materials.map(material => material.title).join('、'),
     [task.materials],
@@ -254,7 +255,7 @@ export function TrialWorkbenchScreen({
         <aside className="hidden w-[30%] min-w-[300px] max-w-[420px] flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white lg:flex">
           <div className="flex items-center justify-between border-b border-stone-100 p-4"><div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-amber-300"><Sparkles className="h-4 w-4" /></span><div><h2 className="font-serif text-sm text-stone-950">任务教练</h2><p className="text-[10px] text-stone-400">资料分析与方案提示</p></div></div><span className="h-2 w-2 rounded-full bg-emerald-500" /></div>
           <div className="grid grid-cols-1 gap-2 border-b border-stone-100 p-3 xl:grid-cols-3"><button onClick={() => onCoach(1)} disabled={busy} className="rounded-xl border border-stone-200 bg-stone-50 p-2 text-[10px] text-stone-700">解释要求</button><button onClick={() => onCoach(2)} disabled={busy} className="rounded-xl border border-stone-200 bg-stone-50 p-2 text-[10px] text-stone-700">帮助拆解</button><button onClick={() => onCoach(3)} disabled={busy} className="rounded-xl border border-stone-200 bg-stone-50 p-2 text-[10px] text-stone-700">查看示例</button></div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4"><div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 text-xs leading-6 text-stone-700">{coachText || '先阅读资料并完成当前步骤。需要提示时使用上方分级按钮，提示记录会保留在本次任务中。'}</div><div className="mt-3 text-[10px] leading-5 text-stone-400">已使用 {answer.coach_usage.length} 次提示<br />资料范围：{sourceSummary}</div></div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4"><div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 text-xs leading-6 text-stone-700">{coachText || '先阅读资料并完成当前步骤。需要提示时使用上方分级按钮，提示记录会保留在本次任务中。'}</div><div className="mt-3 text-[10px] leading-5 text-stone-400">已使用 {answer.coach_usage.length} 次提示{latestCoachUsage?.model ? ` · ${latestCoachUsage.model}${latestCoachUsage.cache_hit ? ' · 缓存命中' : ' · 实时生成'}` : latestCoachUsage?.generation_mode === 'preset_fallback' ? ' · 预设提示兜底' : ''}<br />资料范围：{sourceSummary}</div></div>
           <div className="border-t border-stone-100 p-3"><div className="flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-2 text-[11px] text-stone-400"><Bot className="h-3.5 w-3.5" />使用上方按钮获取任务提示</div></div>
         </aside>
       </div>

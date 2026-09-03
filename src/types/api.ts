@@ -486,6 +486,10 @@ export interface ApiDynamicTrialCoachUsage {
   level: 1 | 2 | 3;
   prompt: string;
   used_at: string;
+  model?: string | null;
+  model_pool?: string | null;
+  cache_hit?: boolean;
+  generation_mode?: 'model' | 'preset_fallback';
 }
 
 export interface ApiDynamicTrialCardPlayRound {

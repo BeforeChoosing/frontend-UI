@@ -143,7 +143,22 @@ export async function revealDynamicTrialEvent(sessionId: string): Promise<ApiDyn
 export function useDynamicTrialCoach(
   sessionId: string,
   level: 1 | 2 | 3,
-): Promise<{ prompt: string; usage: { level: 1 | 2 | 3; prompt: string; used_at: string } }> {
+): Promise<{
+  prompt: string;
+  usage: {
+    level: 1 | 2 | 3;
+    prompt: string;
+    used_at: string;
+    model?: string | null;
+    model_pool?: string | null;
+    cache_hit?: boolean;
+    generation_mode?: 'model' | 'preset_fallback';
+  };
+  model?: string | null;
+  model_pool?: string | null;
+  cache_hit?: boolean;
+  generation_mode?: 'model' | 'preset_fallback';
+}> {
   return apiRequest(`/trial/workbench/sessions/${encodeURIComponent(sessionId)}/coach`, {
     method: 'POST',
     body: JSON.stringify({ level }),
