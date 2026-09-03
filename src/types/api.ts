@@ -38,6 +38,12 @@ export interface ProfileExplorationRequest {
   round_number?: number;
   star_history?: ProfileStarDimension[];
   stop_requested?: boolean;
+  /**
+   * After the four STAR prompts, users may keep adding facts to the same
+   * experience. This mode acknowledges the supplement without opening a
+   * fifth guided question; card generation remains an explicit user action.
+   */
+  supplement_only?: boolean;
 }
 
 export interface ProfileExplorationResponse {

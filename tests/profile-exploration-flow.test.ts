@@ -87,6 +87,23 @@ test('正式对话最多四轮 STAR 追问，恢复历史后仍保留边界', ()
   assert.doesNotMatch(experienceSource, /await handleStartAnalysis\(nextEvidenceText/);
 });
 
+test('思考过程在成长陪伴回答上方展示', () => {
+  assert.match(
+    experienceSource,
+    /\{message\.role === 'ai' && <ThinkingDisclosure message=\{message\} \/>}\s*<p>\{message\.content/s,
+  );
+  assert.match(
+    experienceSource,
+    /<ThinkingDisclosure message=\{latestAiMessage\} \/>\s*<p className="max-w-3xl/s,
+  );
+  assert.match(
+    experienceSource,
+    /\{msg\.role === 'ai' && <ThinkingDisclosure message=\{msg\} \/>}\s*<p>\{msg\.content/s,
+  );
+  const companionSource = readFileSync(new URL('../src/components/GrowthCompanionWidget.tsx', import.meta.url), 'utf8');
+  assert.match(companionSource, /message\.role === 'assistant' && message\.thinkingEnabled \? <details[\s\S]*?<\/details> : null\}<div className=\{`max-w-\[92%\]/);
+});
+
 test('01 首段提交后锁定页面，仅允许对话记录滚动', () => {
   assert.match(experienceSource, /focusedConversationActive/);
   assert.match(experienceSource, /document\.documentElement\.style\.overflow = 'hidden'/);

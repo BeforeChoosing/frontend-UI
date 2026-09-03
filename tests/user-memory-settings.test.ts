@@ -59,7 +59,7 @@ test('清空记忆只移除当前账号的正式业务状态', () => {
   assert.equal(isCurrentUserMemoryKey(retainedKeys[0], currentUser), false);
 });
 
-test('设置页提供清空记忆二次确认并显示 1.1.0', () => {
+test('设置页提供清空记忆二次确认并显示 1.1.2', () => {
   const settingsSource = readFileSync(
     new URL('../src/components/UserProfileScreen.tsx', import.meta.url),
     'utf8',
@@ -68,7 +68,7 @@ test('设置页提供清空记忆二次确认并显示 1.1.0', () => {
     readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   ) as { version: string };
 
-  assert.equal(packageJson.version, '1.1.0');
+  assert.equal(packageJson.version, '1.1.2');
   assert.match(settingsSource, /清空所有记忆/);
   assert.match(settingsSource, /确认清空，从零开始/);
   assert.match(settingsSource, /版本 \{APP_VERSION\}/);

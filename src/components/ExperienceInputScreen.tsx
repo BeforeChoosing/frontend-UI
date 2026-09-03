@@ -868,6 +868,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   // Real-time Chat Messages state
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode, userId));
   const [starHistory, setStarHistory] = useState<ProfileStarDimension[]>(() => deriveStarHistory(messages));
+  const [supplementingCurrentExperience, setSupplementingCurrentExperience] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [modelTier, setModelTier] = useState<ProfileModelTier>(() => loadModelTier(demoMode, userId));
@@ -1097,6 +1098,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setDemoProbingInput('');
     setDemoProbingHistory([]);
     setStarHistory(deriveStarHistory(conversation.messages));
+    setSupplementingCurrentExperience(false);
     setStreamingMessageId(null);
     setIsChatExpanded(true);
     resetExploration();
@@ -1128,6 +1130,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setDemoProbingInput('');
     setDemoProbingHistory([]);
     setStarHistory([]);
+    setSupplementingCurrentExperience(false);
     if (demoTypingTimerRef.current !== null) window.clearInterval(demoTypingTimerRef.current);
     if (demoTransitionTimerRef.current !== null) window.clearTimeout(demoTransitionTimerRef.current);
     setIsChatExpanded(true);
@@ -1148,6 +1151,10 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const handleSendCoachMessage = async (textOverride?: string) => {
     const text = (textOverride ?? coachInput).trim();
     if (!text || isDemoReplying || isAnalyzing || explorationStatus === 'loading') return;
+    const asksToContinueCurrentExperience = /继续(?:整理|补充).*当前经历/.test(text)
+      || /继续(?:整理|补充).*这段经历/.test(text);
+    const supplementOnly = supplementingCurrentExperience || asksToContinueCurrentExperience;
+    if (asksToContinueCurrentExperience) setSupplementingCurrentExperience(true);
     const nextEvidenceText = [inputText.trim(), text].filter(Boolean).join('\n\n').slice(0, 12000);
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMessage: ChatMessage = {
@@ -1224,18 +1231,20 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     // After that the user may still add facts, but the Agent must not start a
     // fifth guided question. Keep offering the explicit summary decision.
     if (starHistory.length >= 4) {
-      setMessages(previous => [...previous, {
-        id: `ai-supplement-${Date.now()}`,
-        role: 'ai',
-        content: '这部分已经补充到当前经历。你可以继续整理，也可以现在生成能力卡。',
-        timestamp,
-        actions: [
-          { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },
-          { id: 'summarize', label: '即刻生成能力卡', kind: 'generate' },
-        ],
-      }].slice(-60));
-      setIsAiThinking(false);
-      return;
+      if (!supplementOnly) {
+        setMessages(previous => [...previous, {
+          id: `ai-supplement-${Date.now()}`,
+          role: 'ai',
+          content: '这部分已经补充到当前经历。你可以继续整理，也可以现在生成能力卡。',
+          timestamp,
+          actions: [
+            { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },
+            { id: 'summarize', label: '即刻生成能力卡', kind: 'generate' },
+          ],
+        }].slice(-60));
+        setIsAiThinking(false);
+        return;
+      }
     }
 
     try {
@@ -1256,6 +1265,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           model_tier: modelTier,
           round_number: Math.min(4, Math.max(1, starHistory.length + 1)),
           star_history: starHistory,
+          supplement_only: supplementOnly,
         },
         delta => {
           setIsAiThinking(false);
@@ -1323,10 +1333,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           reasoningTokens: response.reasoning_tokens ?? undefined,
           reasoningStatus: response.reasoning_status,
           actions: response.next_action === 'summarize'
-            ? [
-                { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },
-                { id: 'summarize', label: '即刻生成能力卡', kind: 'generate' },
-              ]
+            ? supplementOnly
+              ? [{ id: 'summarize', label: '即刻生成能力卡', kind: 'generate' }]
+              : [
+                  { id: 'continue-current', label: '继续整理当前经历', kind: 'continue' },
+                  { id: 'summarize', label: '即刻生成能力卡', kind: 'generate' },
+                ]
             : [],
         };
         return prev.some(message => message.id === replyId)
@@ -1361,7 +1373,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       return;
     }
     if (action.kind === 'continue') {
-      setCoachInput('我想继续补充当前经历：');
+      setSupplementingCurrentExperience(true);
+      setCoachInput('');
       textareaRef.current?.focus();
       return;
     }
@@ -1975,8 +1988,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   {message.role === 'ai' && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-[11px] font-semibold text-stone-700 shadow-sm">AI</span>}
                   <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-xs leading-6 shadow-sm sm:text-sm ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-stone-100' : 'rounded-tl-md border border-stone-200 bg-white text-stone-700'}`}>
                     {message.attachedFile && <p className="mb-2 border-b border-current/10 pb-2 text-[10px] opacity-70">附件 · {message.attachedFile.name}</p>}
-                    <p>{message.content}{streamingMessageId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
                     {message.role === 'ai' && <ThinkingDisclosure message={message} />}
+                    <p>{message.content}{streamingMessageId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
                     {message.role === 'ai' && <SuggestedReplyChoices replies={message.suggestedReplies} onSelect={handleSuggestedReply} />}
                     {message.actions && message.actions.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3">
@@ -2109,10 +2122,10 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 </p>
               ) : !isChatExpanded ? (
                 <div className="space-y-2 pt-0.5">
+                  <ThinkingDisclosure message={latestAiMessage} />
                   <p className="max-w-3xl text-xs font-normal leading-6 text-stone-700 sm:text-sm">
                     {latestAiMessage.content}
                   </p>
-                  <ThinkingDisclosure message={latestAiMessage} />
                   <SuggestedReplyChoices replies={latestAiMessage.suggestedReplies} onSelect={handleSuggestedReply} />
                   {latestAiMessage.model && <p className="mt-2 text-[9px] text-stone-400">{latestAiMessage.model} · {latestAiMessage.cacheHit ? '缓存命中' : '实时生成'}</p>}
                 </div>
@@ -2136,8 +2149,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                             <span>{msg.attachedFile.name} ({msg.attachedFile.size})</span>
                           </div>
                         )}
-                        <p>{msg.content}{streamingMessageId === msg.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
                         {msg.role === 'ai' && <ThinkingDisclosure message={msg} />}
+                        <p>{msg.content}{streamingMessageId === msg.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
                         {msg.role === 'ai' && <SuggestedReplyChoices replies={msg.suggestedReplies} onSelect={handleSuggestedReply} />}
                         {msg.role === 'ai' && msg.model && <p className="mt-2 text-[9px] text-stone-400">{msg.model} · {msg.cacheHit ? '缓存命中' : '实时生成'}</p>}
                       </div>
