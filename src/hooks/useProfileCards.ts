@@ -14,7 +14,7 @@ import type { ApiProfileEvidence, ProfileOverviewResponse } from '../types/api';
 
 type ProfileCardsStatus = 'idle' | 'loading' | 'success' | 'error';
 
-export function useProfileCards() {
+export function useProfileCards(enabled = true) {
   const [cards, setCards] = useState<SkillCard[]>([]);
   const [version, setVersion] = useState(0);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -41,6 +41,15 @@ export function useProfileCards() {
   }, []);
 
   const refresh = useCallback(async () => {
+    if (!enabled) {
+      setCards([]);
+      setVersion(0);
+      setUpdatedAt(null);
+      setEvidence([]);
+      setStatus('idle');
+      setError(null);
+      return [];
+    }
     setStatus('loading');
     setError(null);
     try {
@@ -54,13 +63,14 @@ export function useProfileCards() {
       setError(message);
       return [];
     }
-  }, [applyOverview]);
+  }, [applyOverview, enabled]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (enabled) void refresh();
+  }, [enabled, refresh]);
 
   const confirmCards = useCallback(async (nextCards: SkillCard[]) => {
+    if (!enabled) throw new Error('正式模式需要先登录。');
     setStatus('loading');
     setError(null);
     try {
@@ -74,12 +84,13 @@ export function useProfileCards() {
       setError(message);
       throw cause;
     }
-  }, [applyCardsResponse, evidence]);
+  }, [applyCardsResponse, enabled, evidence]);
 
   const updateCard = useCallback(async (
     cardId: string,
     patch: Parameters<typeof updateProfileCard>[1],
   ) => {
+    if (!enabled) throw new Error('正式模式需要先登录。');
     setStatus('loading');
     setError(null);
     try {
@@ -93,9 +104,10 @@ export function useProfileCards() {
       setError(message);
       throw cause;
     }
-  }, [applyCardsResponse, evidence]);
+  }, [applyCardsResponse, enabled, evidence]);
 
   const removeCard = useCallback(async (cardId: string) => {
+    if (!enabled) throw new Error('正式模式需要先登录。');
     setStatus('loading');
     setError(null);
     try {
@@ -109,7 +121,7 @@ export function useProfileCards() {
       setError(message);
       throw cause;
     }
-  }, [applyCardsResponse, evidence]);
+  }, [applyCardsResponse, enabled, evidence]);
 
   return {
     cards,

@@ -45,6 +45,30 @@ export interface MaterialExtractResponse {
   notice: string;
 }
 
+export interface MultimodalEvidenceItem {
+  id: string;
+  source_ref: string;
+  page: number;
+  bbox: [number, number, number, number];
+  coordinate_space: 'normalized_1000';
+  label: string;
+  quote: string;
+  evidence_type: 'documented_fact' | 'self_report' | 'inference';
+  confidence: number;
+  status: 'candidate' | 'confirmed' | 'rejected';
+}
+
+export interface MultimodalEvidenceResponse {
+  file_name: string;
+  file_sha256: string;
+  mime_type: string;
+  page_count: number;
+  model: string;
+  items: MultimodalEvidenceItem[];
+  rejected_count: number;
+  notice: string;
+}
+
 export interface ApiExperienceSummary {
   title: string;
   actions: string[];
@@ -258,6 +282,8 @@ export interface ApiObservedEvidence {
   completed_steps: string[];
   evidence_refs: string[];
   caveats: string[];
+  evidence_items?: ApiTrialEvidenceItem[];
+  selected_card_ids?: string[];
   primary_ability?: string | null;
   observed_level?: 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | '证据不足' | null;
   level_reason?: string | null;
@@ -265,11 +291,43 @@ export interface ApiObservedEvidence {
   coach_dependency?: '独立完成' | '轻度提示' | '方向性提示' | '强提示' | null;
 }
 
+export interface ApiTrialEvidenceItem {
+  id: string;
+  source: 'ability_card' | 'card_play' | 'answer' | 'material' | 'event' | 'coach';
+  source_id: string;
+  kind: 'planned' | 'observed' | 'deliverable' | 'reference' | 'interaction';
+  label: string;
+  content: string;
+}
+
+export interface ApiTrialAbilityApplication {
+  card_id: string;
+  card_title: string;
+  challenge_ids: string[];
+  evidence_refs: string[];
+  status: '已应用' | '部分应用' | '未形成证据';
+  basis: string;
+  next_step: string;
+}
+
 export interface ApiTrialEvaluationDimension {
   dimension: string;
   weight: number;
   score: number;
   evidence: string;
+  evidence_refs?: string[];
+}
+
+export interface ApiTrialVerification {
+  status: 'accepted' | 'needs_review' | 'repaired';
+  triggered: boolean;
+  reason_codes: string[];
+  evidence_coverage: number;
+  invalid_evidence_ref_count: number;
+  missing_dimension_count: number;
+  score_without_evidence_count: number;
+  model_reviewed: boolean;
+  review_summary: string;
 }
 
 export interface ApiTrialEvaluation {
@@ -282,6 +340,7 @@ export interface ApiTrialEvaluation {
     ability: string;
     observed_level: 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | '证据不足';
     evidence: string;
+    evidence_refs?: string[];
   }>;
   process_evidence: string[];
   coach_dependency: '独立完成' | '轻度提示' | '方向性提示' | '强提示';
@@ -289,6 +348,10 @@ export interface ApiTrialEvaluation {
   gaps: string[];
   next_step: string;
   confidence: TrialConfidence;
+  evidence_refs?: string[];
+  ability_applications?: ApiTrialAbilityApplication[];
+  verification?: ApiTrialVerification | null;
+  evaluation_protocol?: string;
 }
 
 export interface ApiTrialTaskStep {

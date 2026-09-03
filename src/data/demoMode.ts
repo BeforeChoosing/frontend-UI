@@ -5,6 +5,8 @@ import type {
   ApiDynamicTrialCardPlayRound,
   ApiObservedEvidence,
   ApiProfileEvidence,
+  ApiTrialAbilityApplication,
+  ApiTrialEvidenceItem,
   ApiTrialAbilityChallenge,
   ApiTrialEvaluation,
   ApiTrialTaskDefinition,
@@ -228,7 +230,135 @@ export function createDemoTrialAnswer(task: ApiTrialTaskDefinition): ApiDynamicT
   };
 }
 
-export function createDemoTrialEvaluation(task: ApiTrialTaskDefinition): ApiTrialEvaluation {
+export function createDemoTrialEvaluation(
+  task: ApiTrialTaskDefinition,
+  answer: ApiDynamicTrialAnswer | null = null,
+  cards: SkillCard[] = DEMO_SKILL_CARDS,
+): ApiTrialEvaluation {
+  return createDemoTrialEvaluationForAnswer(task, answer, cards);
+}
+
+function createDemoEvidenceBundle(
+  task: ApiTrialTaskDefinition,
+  answer: ApiDynamicTrialAnswer | null,
+  cards: SkillCard[],
+): { items: ApiTrialEvidenceItem[]; selectedCardIds: string[]; applications: ApiTrialAbilityApplication[]; refs: string[] } {
+  const selectedCardIds = Array.from(new Set(answer?.selected_card_ids || []));
+  const cardsById = new Map(cards.map(card => [card.id, card]));
+  const items: ApiTrialEvidenceItem[] = [];
+  const seen = new Set<string>();
+  const add = (item: ApiTrialEvidenceItem) => {
+    if (seen.has(item.id) || !item.content.trim()) return;
+    seen.add(item.id);
+    items.push(item);
+  };
+
+  selectedCardIds.forEach(cardId => {
+    const card = cardsById.get(cardId);
+    if (!card) return;
+    add({
+      id: `card:${card.id}`,
+      source: 'ability_card',
+      source_id: card.id,
+      kind: 'planned',
+      label: '选择的能力卡',
+      content: `${card.title}：${card.description}`,
+    });
+  });
+
+  const rounds = answer?.card_play_rounds || [];
+  rounds.forEach(round => {
+    const challenge = task.ability_challenges.find(item => item.id === round.challenge_id);
+    if (!challenge) return;
+    round.selected_card_ids.forEach(cardId => {
+      const card = cardsById.get(cardId);
+      if (!card) return;
+      add({
+        id: `card_play:${round.challenge_id}:${cardId}`,
+        source: 'card_play',
+        source_id: round.challenge_id,
+        kind: 'planned',
+        label: `${challenge.title} · 能力应用`,
+        content: `选择「${card.title}」，本轮匹配结果为${round.match_level || '未评价'}。${round.feedback}`,
+      });
+    });
+  });
+
+  const answerRefs: string[] = [];
+  task.steps.forEach(step => {
+    const content = answer?.step_answers[step.id]?.trim();
+    if (!content) return;
+    const id = `answer:${step.id}`;
+    answerRefs.push(id);
+    add({ id, source: 'answer', source_id: step.id, kind: 'deliverable', label: step.title, content });
+  });
+
+  const materialRefs: string[] = [];
+  const materialIds = Array.from(new Set([...(answer?.viewed_material_ids || []), ...(answer?.evidence_refs || [])]));
+  materialIds.forEach(materialId => {
+    const material = task.materials.find(item => item.id === materialId);
+    if (!material) return;
+    const id = `material:${material.id}`;
+    materialRefs.push(id);
+    add({ id, source: 'material', source_id: material.id, kind: 'reference', label: material.title, content: material.content });
+  });
+
+  const eventRefs: string[] = [];
+  if (answer?.event_decision) {
+    eventRefs.push('event:decision');
+    add({ id: 'event:decision', source: 'event', source_id: 'event_decision', kind: 'observed', label: '事件后处理决定', content: answer.event_decision });
+  }
+  if (answer?.event_response?.trim()) {
+    eventRefs.push('event:response');
+    add({ id: 'event:response', source: 'event', source_id: 'event_response', kind: 'deliverable', label: '事件后调整依据', content: answer.event_response });
+  }
+
+  const applications = selectedCardIds.flatMap(cardId => {
+    const card = cardsById.get(cardId);
+    if (!card) return [];
+    const cardRounds = rounds.filter(round => round.selected_card_ids.includes(cardId));
+    const levels = cardRounds.map(round => round.match_level);
+    const status = levels.includes('high') && answerRefs.length >= 3
+      ? '已应用'
+      : cardRounds.length > 0
+        ? '部分应用'
+        : '未形成证据';
+    const basis = status === '已应用'
+      ? `在${cardRounds.length}轮能力应用中得到直接匹配，且五步工作台已保存${answerRefs.length}条作答。`
+      : status === '部分应用'
+        ? '能力卡已出现在能力应用阶段，但交付物中仍缺少足够的对应行为证据。'
+        : '能力卡已被选择，但能力应用记录中没有使用它。';
+    return [{
+      card_id: card.id,
+      card_title: card.title,
+      challenge_ids: cardRounds.map(round => round.challenge_id),
+      evidence_refs: Array.from(new Set([`card:${card.id}`, ...cardRounds.flatMap(round => [`card_play:${round.challenge_id}:${card.id}`]), ...answerRefs.slice(0, 3), ...eventRefs.slice(0, 1)])).slice(0, 8),
+      status,
+      basis,
+      next_step: status === '已应用'
+        ? '在下一项任务中记录该能力带来的具体结果，检验跨场景稳定性。'
+        : status === '部分应用'
+          ? '在下一次作答中明确写出该能力如何影响判断和结果。'
+          : '在任务交付物中补充该能力对应的具体行为和结果。',
+    } satisfies ApiTrialAbilityApplication];
+  });
+
+  const refs = Array.from(new Set([
+    ...selectedCardIds.map(cardId => `card:${cardId}`),
+    ...answerRefs,
+    ...eventRefs,
+    ...materialRefs.slice(0, 1),
+    ...items.filter(item => item.source === 'card_play').map(item => item.id).slice(0, 2),
+  ])).slice(0, 12);
+  return { items, selectedCardIds, applications, refs };
+}
+
+function createDemoTrialEvaluationForAnswer(
+  task: ApiTrialTaskDefinition,
+  answer: ApiDynamicTrialAnswer | null,
+  cards: SkillCard[],
+): ApiTrialEvaluation {
+  const evidence = createDemoEvidenceBundle(task, answer, cards);
   return {
     summary: '本次作答完成了 Bad Case 分层、Top 2 选择、证据引用和验证计划，并在新增约束下调整了验证顺序。',
     dimensions: task.rubric.map((criterion, index) => ({
@@ -236,6 +366,7 @@ export function createDemoTrialEvaluation(task: ApiTrialTaskDefinition): ApiTria
       weight: criterion.weight,
       score: Math.max(78, 91 - index * 2),
       evidence: criterion.observable_behavior,
+      evidence_refs: evidence.refs.slice(0, 5),
     })),
     primary_ability: task.primary_skill,
     observed_level: 'L3',
@@ -251,16 +382,26 @@ export function createDemoTrialEvaluation(task: ApiTrialTaskDefinition): ApiTria
     gaps: ['仍需在后续任务中补充跨场景过程证据'],
     next_step: '继续完成同类任务，验证该能力在不同约束下的稳定性。',
     confidence: '中',
+    evidence_refs: evidence.refs,
+    ability_applications: evidence.applications,
+    evaluation_protocol: 'trial-evidence-v1',
   };
 }
 
-export function createDemoObservedEvidence(task: ApiTrialTaskDefinition): ApiObservedEvidence {
+export function createDemoObservedEvidence(
+  task: ApiTrialTaskDefinition,
+  answer: ApiDynamicTrialAnswer | null = null,
+  cards: SkillCard[] = DEMO_SKILL_CARDS,
+): ApiObservedEvidence {
+  const evidence = createDemoEvidenceBundle(task, answer, cards);
   return {
     task_id: task.id,
     statement: '本次作答展示了从 Bad Case 现象到系统性归因、优先级和验证动作的完整过程。',
     completed_steps: task.steps.map(step => step.id),
-    evidence_refs: task.materials.slice(0, 3).map(material => material.id),
+    evidence_refs: evidence.refs,
     caveats: ['本次结果仅基于当前任务表现', '能力等级需要通过后续任务持续验证'],
+    evidence_items: evidence.items,
+    selected_card_ids: evidence.selectedCardIds,
     primary_ability: task.primary_skill,
     observed_level: 'L3',
     level_reason: '能够形成结构化归因和验证计划。',

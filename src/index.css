@@ -103,6 +103,100 @@
     inset 0 1px 1px rgba(255, 255, 255, 1);
 }
 
+.profile-interactive {
+  flex: 0 0 auto;
+  margin-top: clamp(12px, 2vh, 24px);
+}
+
+.profile-hover-panel {
+  flex: 1 1 0%;
+  min-width: 300px;
+  height: 210px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1rem;
+  border: 1px solid rgba(253, 186, 116, 0.65);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 28px -14px rgba(124, 45, 18, 0.2);
+}
+
+.profile-archive-dialog::backdrop {
+  background: rgba(12, 10, 9, 0.35);
+  backdrop-filter: blur(4px);
+}
+
+/* Preserve the Demo's expanding row on desktop; keep every panel reachable on touch screens. */
+@media (max-width: 1023px), (max-height: 650px) {
+  .profile-dashboard {
+    height: auto;
+    max-height: none;
+    min-height: calc(100dvh - 64px);
+    overflow: visible;
+  }
+
+  .profile-dashboard-content { height: auto; }
+
+  .profile-interactive {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    margin-top: 1.5rem;
+    padding-block: 0.75rem;
+  }
+
+  .profile-interactive .profile-arch-card { width: 100%; order: 0; }
+
+  .profile-interactive .profile-hover-panel {
+    grid-column: 1 / -1;
+    order: 1;
+    min-width: 0;
+    min-height: 240px;
+    height: auto;
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .profile-hover-panel {
+    height: 236px;
+    padding: 1.25rem;
+    border-radius: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 651px) {
+  .profile-interactive {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(142px, 180px)) minmax(300px, 1fr);
+    align-items: stretch;
+    column-gap: clamp(12px, 1.25vw, 18px);
+  }
+
+  .profile-interactive .profile-arch-card {
+    grid-row: 1;
+    width: 100%;
+  }
+
+  .profile-interactive .profile-hover-panel {
+    grid-column: 4;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .profile-interactive .profile-hover-panel,
+  .profile-interactive .profile-arch-card {
+    height: clamp(260px, 32vh, 320px);
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 650px) {
+  .profile-interactive .profile-hover-panel { height: auto; }
+}
+
 /* Craft Editorial Note Block */
 .craft-note-block {
   background: rgba(255, 255, 255, 0.75);
@@ -256,7 +350,157 @@ select:focus-visible {
   }
 }
 
+/* The first submitted experience opens a single viewport-bound conversation.
+   The existing navigation remains unchanged; only the transcript scrolls. */
+#root > div:has(.experience-screen[data-focused="true"]) {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#root > div:has(.experience-screen[data-focused="true"]) > header {
+  flex-shrink: 0;
+}
+
+main:has(.experience-screen[data-focused="true"]),
+main > div:has(> .experience-screen[data-focused="true"]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.experience-screen[data-focused="true"] {
+  flex: 1 1 0%;
+  min-height: 0;
+  width: 100%;
+  max-width: 1152px;
+  padding-top: 20px;
+  padding-bottom: 64px;
+}
+
+.experience-screen[data-focused="true"] .experience-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.experience-screen[data-focused="true"] .experience-layout > * {
+  margin-block: 0;
+}
+
+.experience-screen[data-focused="true"] .profile-chat-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 2px 8px 16px 2px;
+}
+
+.experience-screen[data-focused="true"] .profile-intro {
+  margin-bottom: 20px;
+}
+
+.experience-screen[data-focused="true"] .profile-composer {
+  position: relative;
+  z-index: 20;
+  flex: 0 0 auto;
+  border: 1px solid #e7e5e4;
+  border-radius: 24px;
+  padding: 12px 16px;
+  background: #fff;
+  box-shadow: 0 -4px 24px rgba(28, 26, 24, .04), 0 8px 20px rgba(28, 26, 24, .07);
+}
+
+.experience-screen[data-focused="true"] .profile-composer-card {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: none;
+}
+
+.experience-screen[data-focused="true"] .profile-intro:hover {
+  transform: none;
+}
+
+.experience-screen[data-focused="true"] .profile-composer-input {
+  height: 64px;
+  min-height: 64px;
+  flex: none;
+}
+
+.profile-composer-input:focus-visible {
+  outline: 2px solid #a7d8bf;
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.experience-screen[data-focused="true"] .profile-composer-note {
+  display: none;
+}
+
+.experience-screen[data-focused="true"] .profile-composer-footer {
+  margin-top: 8px;
+}
+
+@media (min-width: 1280px) {
+  .experience-screen[data-focused="true"] { padding-bottom: 16px; }
+}
+
+.candidate-card-turn {
+  transition: transform 280ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.candidate-card-face {
+  background: #fff;
+  border-color: #dededb;
+  box-shadow: 0 4px 16px rgb(25 40 32 / 4%);
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.candidate-card-face[data-selected="true"] {
+  background: #f2f9f5;
+  border-color: #83b69f;
+  box-shadow: 0 6px 20px rgb(37 118 92 / 7%);
+}
+.candidate-ability-card button:active { transform: scale(.97); }
+@media (pointer: coarse) {
+  .candidate-ability-card button { min-height: 44px; }
+  .candidate-selection { min-width: 44px; }
+}
+
+.candidate-verification button:focus-visible,
+.growth-companion-widget button:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 3px;
+}
+
+.candidate-ability-card input:focus-visible,
+.candidate-ability-card textarea:focus-visible {
+  outline: 2px solid #a7d8bf;
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .candidate-card-turn { transition: none; }
+}
+
 /* Custom smooth scrollbar */
+.trial-map-screen { min-height: calc(100dvh - 64px); }
+
+@media (min-width: 768px) {
+  .trial-map-screen {
+    height: calc(100dvh - 64px);
+    min-height: 640px;
+    max-height: 880px;
+  }
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;

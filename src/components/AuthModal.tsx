@@ -7,6 +7,8 @@ import {
   ArrowRight,
   Sparkles,
 } from 'lucide-react';
+import { login as loginAccount, register as registerAccount } from '../api/auth';
+import type { AuthSession } from '../api/auth';
 
 /* =========================
    登录页背景卡
@@ -82,7 +84,9 @@ const backgroundCards = [
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: (email: string) => void;
+  onLoginSuccess: (session: AuthSession) => void;
+  formalMode?: boolean;
+  required?: boolean;
 }
 
 /* =========================
@@ -93,50 +97,90 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onLoginSuccess,
+  formalMode = false,
+  required = false,
 }) => {
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  /* 登录 */
-  const handleLogin = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    setLoading(true);
+  const completeDemoLogin = (email: string) => {
+    onLoginSuccess({
+      access_token: '',
+      token_type: 'bearer',
+      expires_at: '',
+      user: {
+        id: 'demo-user',
+        email,
+        display_name: email.split('@')[0] || '探索者',
+      },
+    });
+    onClose();
+  };
 
-    setTimeout(() => {
-      setLoading(false);
-      onLoginSuccess(
-        account || 'user@craft.beforechoice.ai'
-      );
+  /* 登录 */
+  const handleLogin = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setError(null);
+    if (!account.trim() || !password) {
+      setError('请输入邮箱和密码。');
+      return;
+    }
+    setLoading(true);
+    if (!formalMode) {
+      window.setTimeout(() => {
+        setLoading(false);
+        completeDemoLogin(account.trim());
+      }, 350);
+      return;
+    }
+    try {
+      const session = await loginAccount(account.trim(), password);
+      onLoginSuccess(session);
       onClose();
-    }, 500);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '登录失败，请稍后重试。');
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* 注册 */
-  const handleRegister = () => {
+  const handleRegister = async () => {
+    setError(null);
+    if (!account.trim() || !password) {
+      setError('请输入邮箱和密码后再注册。');
+      return;
+    }
     setLoading(true);
-
-    setTimeout(() => {
-      setLoading(false);
-      onLoginSuccess(
-        account || 'newuser@craft.beforechoice.ai'
-      );
+    if (!formalMode) {
+      window.setTimeout(() => {
+        setLoading(false);
+        completeDemoLogin(account.trim());
+      }, 350);
+      return;
+    }
+    try {
+      const session = await registerAccount(account.trim(), password);
+      onLoginSuccess(session);
       onClose();
-    }, 500);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '注册失败，请稍后重试。');
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* 第三方登录 */
   const handleSocialLogin = () => {
     setLoading(true);
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setLoading(false);
-      onLoginSuccess(
-        'explorer.demo@beforechoice.ai'
-      );
-      onClose();
+      completeDemoLogin('explorer.demo@beforechoice.ai');
     }, 400);
   };
 
@@ -156,7 +200,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={onClose}
+        onClick={required ? undefined : onClose}
         className="
           absolute inset-0
           bg-stone-950/45
@@ -419,7 +463,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         />
 
         {/* 关闭 */}
-        <button
+        {!required && <button
           onClick={onClose}
           title="关闭"
           className="
@@ -440,7 +484,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           "
         >
           <X className="w-4 h-4" />
-        </button>
+        </button>}
 
         {/* ======================
             Logo
@@ -538,7 +582,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           >
             在选择之前，看见更多可能
           </p>
+          {formalMode && (
+            <p className="mt-3 text-xs leading-relaxed text-stone-500">
+              正式模式需要先登录。账号仅用于关联本机操作记录。
+            </p>
+          )}
         </div>
+
+        {error && (
+          <div className="relative z-10 mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-relaxed text-rose-800" role="alert">
+            {error}
+          </div>
+        )}
 
         {/* ======================
             表单
@@ -579,7 +634,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               onChange={(e) =>
                 setAccount(e.target.value)
               }
-              placeholder="手机号 / 电子邮箱 (name@example.com)"
+              placeholder="电子邮箱 (name@example.com)"
               className="
                 w-full
                 pl-12
@@ -747,6 +802,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         </form>
 
+        {!formalMode && <>
         {/* ======================
             分隔线
         ====================== */}
@@ -836,11 +892,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             使用其他社交媒体账号继续
           </span>
         </motion.button>
+        </>}
       </motion.div>
     </div>
   );
 };
 export default AuthModal;
-
-
-

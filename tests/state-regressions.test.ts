@@ -69,3 +69,27 @@ test('演示确认卡池不读取或修改正式模式能力卡状态', () => {
     /if \(appMode === 'demo'\) \{\s*setUnlockedCards\(prev => mergeCardsById\(prev, newCards\)\)/,
   );
 });
+
+test('演示探索方向初始为空，由一键装配填充能力卡', () => {
+  assert.doesNotMatch(appSource, /careerSelectedCardIds: demoSelectedCards\.map\(card => card\.id\)/);
+  assert.match(appSource, /setCareerSelectedCardIds\(\[\]\)/);
+  const exploreSource = readFileSync(new URL('../src/components/CareerExploreScreen.tsx', import.meta.url), 'utf8');
+  assert.match(exploreSource, /const \[deckSlots, setDeckSlots\] = useState[\s\S]*?null,\s*null,\s*null,\s*null/);
+  assert.match(exploreSource, /const handleFastEquip = \(\) => \{/);
+});
+
+test('03 末步字段对齐，提交评价使用同步弹簧过渡', () => {
+  const workbenchSource = readFileSync(new URL('../src/components/TrialWorkbenchScreen.tsx', import.meta.url), 'utf8');
+  const trialSource = readFileSync(new URL('../src/components/DynamicTrialTaskScreen.tsx', import.meta.url), 'utf8');
+
+  assert.match(workbenchSource, /grid items-start gap-3 sm:grid-cols-\[180px_minmax\(0,1fr\)\]/);
+  assert.match(workbenchSource, /select[\s\S]*?className="mt-2 h-14 w-full/);
+  assert.match(workbenchSource, /textarea[\s\S]*?rows=\{2\}[\s\S]*?h-14 min-h-14/);
+  assert.match(trialSource, /<AnimatePresence initial=\{false\} mode="sync">/);
+  assert.match(trialSource, /key="evaluation"[\s\S]*?type: 'spring'/);
+});
+
+test('示例体验入口使用弹窗约定的启动回调', () => {
+  assert.match(appSource, /<ExampleShowcaseModal[\s\S]*?onStartExample=\{\(\) =>/);
+  assert.doesNotMatch(appSource, /<ExampleShowcaseModal[\s\S]*?onTryExperience=/);
+});

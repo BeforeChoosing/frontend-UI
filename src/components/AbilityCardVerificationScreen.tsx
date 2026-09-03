@@ -22,6 +22,8 @@ import {
   ChevronRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { Layers } from 'lucide-react';
+import { CandidateAbilityCard, getCandidateEvidenceLabel } from './CandidateAbilityCard';
 import type { ApiExperienceSummary } from '../types/api';
 
 interface AbilityCardVerificationScreenProps {
@@ -88,6 +90,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
 
   // Status handlers
   const handleSetStatus = (cardId: string, status: VerificationStatus) => {
+    if (status === 'rejected') setMergeSelection(current => current.filter(id => id !== cardId));
     setCardStatuses(prev => ({
       ...prev,
       [cardId]: status
@@ -116,6 +119,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
   };
 
   const handleToggleMergeSelection = (cardId: string) => {
+    if (cardStatuses[cardId] === 'rejected') return;
     setMergeSelection(current => current.includes(cardId)
       ? current.filter(id => id !== cardId)
       : current.length < 2 ? [...current, cardId] : current);
@@ -124,6 +128,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
   const handleMergeSelected = () => {
     if (mergeSelection.length !== 2) return;
     const selectedCards = mergeSelection
+      .filter(cardId => cardStatuses[cardId] !== 'rejected')
       .map(cardId => cards.find(card => card.id === cardId))
       .filter((card): card is SkillCard => Boolean(card));
     if (selectedCards.length !== 2) return;
@@ -226,86 +231,40 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
 
   const totalCardCount = totalPoolCards.length > 0 ? totalPoolCards.length : (allAccumulatedCards.length + confirmedCount);
 
-  // Derive Evidence Type tag based on card category/attributes
-  const getEvidenceTypeTag = (card: SkillCard, idx: number) => {
-    if (card.matchReason?.includes('事实') || idx === 0) return '来自明确事实';
-    if (card.matchReason?.includes('行动') || idx === 1) return '来自你做过的事';
-    return '这是推测，待你确认';
-  };
-
-  // =========================================================================
-  // VIEW 1: VERIFICATION SCREEN (Strictly matching Low-Fi Wireframe Image 1)
-  // =========================================================================
+  // Candidate confirmation follows the Demo's collectible cards and collection bar.
+  // Keep candidate controls and evidence ownership separate from the saved-card pool.
   if (viewMode === 'verify') {
+    const isAllSelected = cards.length > 0 && confirmedCount === cards.length;
     return (
-      <div className="min-h-[calc(100vh-64px)] flex flex-col justify-between max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 relative">
-        
-        {/* Background Soft Glow */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-amber-50/40 blur-3xl" />
-          <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-stone-100/60 blur-3xl" />
+      <div id="ability-card-verification-screen" className="candidate-verification mx-auto w-full max-w-[1240px] px-4 py-5 sm:px-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-stone-800 bg-stone-900 shadow-sm">
+            <Sparkles className="h-4 w-4 text-emerald-400" />
+            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
+          </div>
+          <div className="flex-1 rounded-2xl border border-stone-200 bg-white px-5 py-4 text-center shadow-sm">
+            <h2 className="font-serif text-base font-medium text-stone-900 sm:text-lg">结合你的经历，我发现了几项值得关注的能力线索。</h2>
+            <p className="mt-1 text-xs text-stone-500">所有内容目前都是候选项。只有确认保存的卡片才能进入后续职业推荐。</p>
+          </div>
         </div>
 
-        <div className="space-y-5 sm:space-y-6 relative z-10">
-          
-          {/* 候选能力线索说明 */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="craft-card w-full rounded-2xl sm:rounded-3xl p-4 sm:p-5 bg-white/85 backdrop-blur-xl border border-stone-200/50 flex flex-col sm:flex-row items-center gap-3 sm:gap-5 text-center sm:text-left"
-          >
-            {/* Agent Avatar Circle */}
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-stone-100 text-stone-700 flex items-center justify-center shrink-0 border border-stone-200/60 group-hover:scale-105 transition-transform relative">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-stone-900 text-amber-300 flex items-center justify-center shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300" />
-              </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
-            </div>
-
-            {/* Agent Speech Text */}
-            <div className="space-y-1 flex-1">
-              <div className="flex items-center justify-center sm:justify-start gap-2">
-                <span className="craft-chip-yellow text-[10px] font-mono font-medium px-2 py-0.5 rounded-full">
-                  01 · 候选确认
-                </span>
-                <span className="text-[10px] text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full flex items-center gap-1 border border-stone-200/60">
-                  根据已上传材料整理
-                </span>
-              </div>
-              <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight">
-                以下是根据材料提炼的候选项目经历和能力线索，请逐项核对。
-              </h2>
-            </div>
-          </motion.div>
-
-          {/* Subtitle instruction */}
-          <p className="text-center text-[11px] sm:text-xs text-stone-500 font-normal">
-            所有内容目前都是候选项。只有确认保存的卡片才能进入后续职业推荐。
-          </p>
-
-          {experienceCard && (
-            <motion.section
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: experienceStatus === 'rejected' ? 0.55 : 1, y: 0 }}
-              className="craft-card rounded-3xl border border-stone-200/70 bg-white/92 p-5 sm:p-6"
-            >
-              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                <div>
-                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-mono text-[10px] text-emerald-800">候选项目经历卡</span>
-                  <p className="mt-2 text-[11px] text-stone-500">来源：{experienceCard.source_refs.join('、') || '已上传材料'}</p>
-                </div>
+        {experienceCard && (
+          <details className="mt-4 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-stone-800">
+            <summary className="cursor-pointer text-xs marker:text-emerald-600">
+              <span className="mr-3 font-medium text-emerald-800">候选项目经历卡</span>
+              <span className="font-serif">{experienceCard.title}</span>
+              <span className="ml-3 text-stone-500">{experienceStatus === 'rejected' ? '已排除 · 可恢复' : '展开核对来源与关键行动'}</span>
+            </summary>
+            <div className="mt-3 border-t border-stone-100 pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-stone-500">来源：{experienceCard.source_refs.join('、') || '当前对话与材料'}</p>
                 <div className="flex gap-2">
-                  <button onClick={() => setIsEditingExperience(value => !value)} className="craft-btn-secondary px-3 py-2 text-[11px]">修改</button>
-                  <button
-                    onClick={() => setExperienceStatus(current => current === 'confirmed' ? 'rejected' : 'confirmed')}
-                    className={experienceStatus === 'confirmed' ? 'craft-btn-secondary px-3 py-2 text-[11px]' : 'craft-btn-black px-3 py-2 text-[11px]'}
-                  >
+                  <button type="button" onClick={() => setIsEditingExperience(value => !value)} className="rounded-full border border-stone-200 px-3 py-1.5 text-xs">{isEditingExperience ? '完成修改' : '修改'}</button>
+                  <button type="button" onClick={() => setExperienceStatus(current => current === 'confirmed' ? 'rejected' : 'confirmed')} className="rounded-full border border-stone-200 px-3 py-1.5 text-xs">
                     {experienceStatus === 'confirmed' ? '删除候选' : '恢复候选'}
                   </button>
                 </div>
               </div>
-
               {isEditingExperience ? (
                 <div className="mt-4 grid gap-3">
                   <input
@@ -342,232 +301,58 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
                   </div>
                 </div>
               )}
-            </motion.section>
-          )}
 
-          {/* 
-            ======================================================================
-            2. MIDDLE: 3 ABILITY CARDS (Image 1 Wireframe Layout)
-            ======================================================================
-          */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 w-full">
-            {cards.map((card, idx) => {
-              const status = cardStatuses[card.id] || 'confirmed';
-              const isEditing = editingCardId === card.id;
+            </div>
+          </details>
+        )}
 
-              return (
-                <div key={card.id} className="flex flex-col gap-2.5">
-                  
-                  {/* The Card Board */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ 
-                      opacity: status === 'rejected' ? 0.45 : status === 'unsure' ? 0.8 : 1,
-                      y: status === 'confirmed' ? -4 : 0,
-                    }}
-                    className={`min-h-[290px] rounded-2xl sm:rounded-3xl p-5 flex flex-col justify-between border transition-all duration-200 ${
-                      status === 'confirmed'
-                        ? 'craft-card bg-white/95 border-stone-300/80 shadow-md ring-1 ring-amber-400/20'
-                        : status === 'unsure'
-                        ? 'craft-card bg-stone-50/90 border-stone-200/80 shadow-2xs'
-                        : 'bg-stone-100/70 border-stone-200/60 grayscale opacity-45'
-                    }`}
-                  >
-                    {/* Upper Area: Title & Summary */}
-                    <div className="space-y-3">
-                      {isEditing ? (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            value={editTitle}
-                            onChange={(e) => setEditTitle(e.target.value)}
-                            className="w-full text-sm font-medium text-stone-900 bg-white rounded-xl px-2.5 py-1.5 outline-none border border-stone-300 shadow-inner"
-                            placeholder="能力名称"
-                            autoFocus
-                          />
-                          <textarea
-                            value={editDesc}
-                            onChange={(e) => setEditDesc(e.target.value)}
-                            rows={3}
-                            className="w-full text-xs text-stone-700 bg-white rounded-xl p-2 outline-none resize-none border border-stone-300 shadow-inner"
-                            placeholder="能力一句话描述"
-                          />
-                          <div className="flex justify-end gap-1.5">
-                            <button
-                              onClick={() => setEditingCardId(null)}
-                              className="text-[10px] px-2.5 py-1 rounded-full bg-stone-100 text-stone-700 hover:bg-stone-200 cursor-pointer font-medium"
-                            >
-                              取消
-                            </button>
-                            <button
-                              onClick={() => handleSaveEdit(card.id)}
-                              className="text-[10px] px-3 py-1 rounded-full bg-stone-900 text-white font-medium cursor-pointer shadow-xs"
-                            >
-                              保存
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5 text-center">
-                          {/* Title: 能力名称 */}
-                          <div className="flex items-center justify-center gap-1.5">
-                            <h3 className="text-base sm:text-lg font-normal text-stone-900 font-serif craft-serif">
-                              {card.title}
-                            </h3>
-                            <button
-                              onClick={() => handleStartEdit(card)}
-                              className="text-stone-400 hover:text-stone-800 transition cursor-pointer p-0.5"
-                              title="编辑能力内容"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          {/* Subhead: 【能力描述】一句话概括 */}
-                          <p className="text-xs text-stone-600 font-normal leading-relaxed px-1">
-                            {card.description}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Body List Lines: 卡牌上的内容 */}
-                      {!isEditing && (
-                        <div className="pt-2 text-center space-y-1 text-xs text-stone-500 leading-relaxed font-normal">
-                          <p>• {card.detail || '在复杂情境中快速定位核心矛盾并组织资源'}</p>
-                          <p>• {card.workplaceApplication ? `职场落地：${card.workplaceApplication}` : '具备敏捷试错与闭环度量意识'}</p>
-                          <p>• 这张卡怎么来的：{card.matchReason || '来自材料中的行动和结果'}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Bottom Badge: 证据类型 */}
-                    <div className="pt-4 flex justify-center">
-                      <span className="py-1 px-3 rounded-full bg-stone-100 text-stone-700 text-[10px] font-mono border border-stone-200/60">
-                        {getEvidenceTypeTag(card, idx)}
-                      </span>
-                    </div>
-                  </motion.div>
-
-                  {/* 3 Status Pill Selection Buttons below each card (符合经历 | 暂不确定 | 不属于我) */}
-                  <div className="grid grid-cols-3 gap-1.5 px-0.5">
-                    {/* 符合经历 */}
-                    <button
-                      onClick={() => handleSetStatus(card.id, 'confirmed')}
-                      className={`py-1.5 px-1 rounded-full text-xs font-normal transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer border ${
-                        status === 'confirmed'
-                          ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
-                          : 'bg-white/80 hover:bg-white text-stone-700 border-stone-200/70'
-                      }`}
-                    >
-                      <Check className="w-3 h-3 shrink-0" />
-                      <span>这像我</span>
-                    </button>
-
-                    {/* 暂不确定 */}
-                    <button
-                      onClick={() => handleSetStatus(card.id, 'unsure')}
-                      className={`py-1.5 px-1 rounded-full text-xs font-normal transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer border ${
-                        status === 'unsure'
-                          ? 'bg-stone-800 text-amber-200 border-stone-800 shadow-xs'
-                          : 'bg-white/80 hover:bg-white text-stone-600 border-stone-200/70'
-                      }`}
-                    >
-                      <HelpCircle className="w-3 h-3 shrink-0" />
-                      <span>还不确定</span>
-                    </button>
-
-                    {/* 不属于我 */}
-                    <button
-                      onClick={() => handleSetStatus(card.id, 'rejected')}
-                      className={`py-1.5 px-1 rounded-full text-xs font-normal transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer border ${
-                        status === 'rejected'
-                          ? 'bg-stone-600 text-stone-200 border-stone-600 shadow-xs'
-                          : 'bg-white/80 hover:bg-white text-stone-500 border-stone-200/70'
-                      }`}
-                    >
-                      <X className="w-3 h-3 shrink-0" />
-                      <span>不像我</span>
-                    </button>
-                  </div>
-
-                  {status !== 'rejected' && (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleMergeSelection(card.id)}
-                      className={`mx-auto text-[10px] underline underline-offset-2 ${mergeSelection.includes(card.id) ? 'font-medium text-amber-800' : 'text-stone-400'}`}
-                    >
-                      {mergeSelection.includes(card.id) ? '已选择合并' : '选择合并'}
-                    </button>
-                  )}
-
-                </div>
-              );
-            })}
+        <section className="mt-5" aria-label="本轮候选能力卡">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-3">
+              <h3 className="font-serif text-sm font-semibold text-stone-800">本轮已提取能力卡片（{cards.length}）</h3>
+              <button type="button" onClick={() => setCardStatuses(Object.fromEntries(cards.map(card => [card.id, isAllSelected ? 'unsure' : 'confirmed'])))} className="text-xs text-stone-500 underline underline-offset-2">{isAllSelected ? '取消全选' : '全选'}</button>
+            </div>
+            <button type="button" onClick={onModifyExperience} className="flex items-center gap-1 text-xs text-stone-600"><Edit3 className="h-3.5 w-3.5" />修改经历</button>
           </div>
-
-        </div>
-
-        {/* 
-          ======================================================================
-          3. BOTTOM SUMMARY & 3 ACTION BUTTONS (修改经历 | 重新生成 | 加入能力库)
-          ======================================================================
-        */}
-        <div className="pt-6 pb-2 space-y-3 relative z-10">
-          {/* Summary Text: 已确认 X/3 张卡牌 */}
-          <div className="text-center text-xs text-stone-500 font-normal">
-            已选择 <strong className="text-stone-900 font-bold font-mono">{confirmedCount}</strong>/{cards.length} 张卡
+          <div className="flex flex-wrap justify-center gap-5 py-1 sm:gap-6">
+            {cards.map((card, index) => (
+              <CandidateAbilityCard key={card.id} card={card} index={index}
+                status={cardStatuses[card.id] || 'unsure'} evidenceLabel={getCandidateEvidenceLabel(card)}
+                flipped={!!flippedCardIds[card.id]} editing={editingCardId === card.id}
+                editTitle={editTitle} editDesc={editDesc} mergeSelected={mergeSelection.includes(card.id)}
+                onStatus={status => handleSetStatus(card.id, status)} onFlip={() => handleToggleFlip(card.id)}
+                onEdit={() => handleStartEdit(card)} onEditTitle={setEditTitle} onEditDesc={setEditDesc}
+                onSave={() => handleSaveEdit(card.id)} onCancel={() => setEditingCardId(null)}
+                onMerge={() => handleToggleMergeSelection(card.id)}
+              />
+            ))}
+            {cards.length === 0 && <p className="py-12 text-sm text-stone-500">还没有候选能力卡，请返回经历对话补充材料。</p>}
           </div>
-
           {mergeSelection.length > 0 && (
-            <div className="flex items-center justify-center gap-3 text-xs text-stone-600">
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-xs text-stone-600">
               <span>已选择 {mergeSelection.length}/2 张候选能力卡</span>
-              <button
-                type="button"
-                onClick={handleMergeSelected}
-                disabled={mergeSelection.length !== 2}
-                className="craft-btn-secondary px-3 py-1.5 text-[11px] disabled:opacity-40"
-              >
-                合并所选卡片
-              </button>
+              <button type="button" onClick={handleMergeSelected} disabled={mergeSelection.length !== 2} className="rounded-full border border-stone-200 bg-white px-3 py-2 disabled:opacity-40">合并所选卡片</button>
             </div>
           )}
+        </section>
 
-          {/* 3 Buttons in a Row */}
-          <div className="flex items-center justify-center gap-3 sm:gap-4 max-w-xl mx-auto">
-            {/* 修改经历 */}
-            <button
-              onClick={onModifyExperience}
-              className="craft-btn-secondary flex-1 py-2.5 px-4 text-xs sm:text-sm text-center"
-            >
-              返回材料
-            </button>
-
-            {/* 重新生成 */}
-            <button
-              onClick={handleTriggerRegenerate}
-              disabled={isRegenerating}
-              className="craft-btn-secondary flex-1 py-2.5 px-4 text-xs sm:text-sm flex items-center justify-center gap-1.5"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin text-stone-900' : 'text-stone-600'}`} />
-              <span>{isRegenerating ? '整理中…' : '重新整理'}</span>
-            </button>
-
-            {/* 加入能力库 */}
-            <button
-              onClick={handleConfirmAndAdd}
-              disabled={isSaving}
-              className="craft-btn-black flex-1 py-2.5 px-4 text-xs sm:text-sm text-center disabled:opacity-60 disabled:cursor-wait"
-            >
-              {isSaving ? '保存中…' : '保存这些卡'}
+        <section aria-label="收录能力卡" className="mt-6 flex flex-col justify-between gap-4 rounded-3xl border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-stone-100"><Layers className="h-4 w-4 text-stone-700" /></div>
+            <div>
+              <h3 className="font-serif text-sm font-semibold text-stone-900">收录至个人长期能力卡库</h3>
+              <p className="mt-1 text-xs text-stone-500">已选 <strong className="text-stone-900">{confirmedCount}</strong> / {cards.length} 张能力卡 · 待确认与排除的卡片不会收录</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={handleTriggerRegenerate} disabled={isRegenerating || isSaving} className="flex items-center gap-1 rounded-full border border-stone-200 px-3 py-2.5 text-xs text-stone-700 disabled:opacity-40"><RefreshCw className="h-3.5 w-3.5" />{isRegenerating ? '整理中…' : '重新整理'}</button>
+            <button type="button" id="btn-save-cards-to-pool" onClick={handleConfirmAndAdd} disabled={isSaving || confirmedCount === 0 || !!editingCardId || isEditingExperience} className="flex items-center justify-center gap-2 rounded-full bg-stone-900 px-5 py-2.5 text-xs font-medium text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-40">
+              <Layers className="h-3.5 w-3.5 text-stone-300" />{isSaving ? '保存中…' : `收录所选能力（${confirmedCount} 张）`}<ArrowRight className="h-3 w-3" />
             </button>
           </div>
-          {saveError && (
-            <p role="alert" className="text-center text-xs text-rose-700">
-              {saveError}
-            </p>
-          )}
-        </div>
-
+        </section>
+        {(editingCardId || isEditingExperience) && <p className="mt-3 text-center text-xs text-stone-500">请先完成当前修改，再收录能力卡。</p>}
+        {saveError && <p role="alert" className="mt-3 text-center text-xs text-rose-700">{saveError}</p>}
       </div>
     );
   }

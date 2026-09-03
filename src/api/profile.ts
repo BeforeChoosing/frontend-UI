@@ -2,6 +2,7 @@ import { apiFormRequest, apiRequest } from './client';
 import type {
   ApiCardProposal,
   MaterialExtractResponse,
+  MultimodalEvidenceResponse,
   ProfileExplorationRequest,
   ProfileExplorationResponse,
   ProfileCardPatchRequest,
@@ -24,6 +25,12 @@ export function extractProfileMaterial(file: File): Promise<MaterialExtractRespo
   const form = new FormData();
   form.append('file', file);
   return apiFormRequest<MaterialExtractResponse>('/profile/materials/extract', form);
+}
+
+export function extractProfileMultimodalEvidence(file: File): Promise<MultimodalEvidenceResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiFormRequest<MultimodalEvidenceResponse>('/profile/materials/multimodal-extract', form);
 }
 
 export function createProfileProposal(

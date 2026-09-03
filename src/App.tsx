@@ -14,6 +14,7 @@ import { FigmaGuideModal } from './components/FigmaGuideModal';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { StageTransition } from './components/StageTransition';
 import { AppModeSwitcher } from './components/AppModeSwitcher';
+import { GrowthCompanionWidget } from './components/GrowthCompanionWidget';
 import { useProfileCards } from './hooks/useProfileCards';
 import type { ApiCareerRecommendation, ApiExperienceSummary, ProfileCardPatchRequest, TrialTaskId } from './types/api';
 import { loadDemoProgress, saveDemoProgress } from './services/demoProgress';
@@ -28,6 +29,9 @@ import {
   DEMO_SKILL_CARDS,
 } from './data/demoMode';
 import { AnimatePresence, MotionConfig } from 'motion/react';
+import { auditEvent, clearAccessToken, getAccessToken } from './api/client';
+import { getCurrentUser, logout as logoutAccount } from './api/auth';
+import type { AuthSession } from './api/auth';
 
 function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard[] {
   const cardsById = new Map(existing.map(card => [card.id, card]));
@@ -37,12 +41,10 @@ function mergeCardsById(existing: SkillCard[], incoming: SkillCard[]): SkillCard
 
 export default function App() {
   const [initialAppMode] = useState(loadAppMode);
-  const demoSelectedCards = DEMO_SKILL_CARDS.slice(0, 4);
   const [initialProgress] = useState(() => loadDemoProgress(
     initialAppMode,
     initialAppMode === 'demo'
       ? {
-          careerSelectedCardIds: demoSelectedCards.map(card => card.id),
           draftCards: DEMO_SKILL_CARDS.slice(0, 3),
         }
       : {},
@@ -58,11 +60,16 @@ export default function App() {
   const [draftCards, setDraftCards] = useState<SkillCard[]>(initialProgress.draftCards);
   const [draftExperience, setDraftExperience] = useState<ApiExperienceSummary | null>(initialProgress.draftExperience);
   const [demoReplayId, setDemoReplayId] = useState(0);
+  const [profileFocusRequest, setProfileFocusRequest] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
   const [isFigmaGuideOpen, setIsFigmaGuideOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<SkillCard | null>(null);
+  const [auth, setAuth] = useState<UserAuth>({
+    isLoggedIn: false,
+  });
+  const [authChecking, setAuthChecking] = useState(initialAppMode === 'use');
   const {
     cards: persistedCards,
     version: profileVersion,
@@ -73,7 +80,7 @@ export default function App() {
     confirmCards,
     updateCard,
     removeCard,
-  } = useProfileCards();
+  } = useProfileCards(appMode !== 'use' || auth.isLoggedIn);
 
   useEffect(() => {
     if (persistedCards.length > 0) {
@@ -93,6 +100,99 @@ export default function App() {
     }, appMode);
   }, [appMode, careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, draftCards, draftExperience, selectedTrialTaskId]);
 
+  useEffect(() => {
+    if (appMode !== 'use') return undefined;
+    const describe = (element: Element) => {
+      const target = element as HTMLElement;
+      const label = target.dataset.auditAction || target.getAttribute('aria-label') || target.textContent?.trim() || target.tagName;
+      return { label: label.slice(0, 120), target: target.id || target.getAttribute('name') || target.dataset.auditTarget || target.tagName.toLowerCase() };
+    };
+    const onClick = (event: Event) => {
+      const element = (event.target as Element | null)?.closest('button,a,[role="button"]');
+      if (!element) return;
+      const info = describe(element);
+      void auditEvent('ui_click', info.target, { label: info.label });
+    };
+    const onChange = (event: Event) => {
+      const element = (event.target as Element | null)?.closest('input,select,textarea');
+      if (!element) return;
+      const info = describe(element);
+      void auditEvent('ui_change', info.target, { label: info.label, control: element.tagName.toLowerCase() });
+    };
+    const onSubmit = (event: Event) => {
+      const form = (event.target as Element | null)?.closest('form');
+      if (!form) return;
+      const info = describe(form);
+      void auditEvent('ui_submit', info.target, { label: info.label });
+    };
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('change', onChange, true);
+    document.addEventListener('submit', onSubmit, true);
+    return () => {
+      document.removeEventListener('click', onClick, true);
+      document.removeEventListener('change', onChange, true);
+      document.removeEventListener('submit', onSubmit, true);
+    };
+  }, [appMode]);
+
+  useEffect(() => {
+    if (appMode !== 'use') {
+      setAuthChecking(false);
+      setIsAuthOpen(false);
+      return;
+    }
+    let active = true;
+    setAuthChecking(true);
+    const token = getAccessToken();
+    if (!token) {
+      setAuth({ isLoggedIn: false });
+      setUnlockedCards([]);
+      setAuthChecking(false);
+      setIsAuthOpen(true);
+      return () => {
+        active = false;
+      };
+    }
+    void getCurrentUser()
+      .then((user) => {
+        if (!active) return;
+        setAuth({
+          isLoggedIn: true,
+          user: {
+            id: user.id,
+            name: user.display_name,
+            email: user.email,
+            unlockedCards: unlockedCards,
+          },
+        });
+        setIsAuthOpen(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        clearAccessToken();
+        setAuth({ isLoggedIn: false });
+        setUnlockedCards([]);
+        setIsAuthOpen(true);
+      })
+      .finally(() => {
+        if (active) setAuthChecking(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [appMode]);
+
+  useEffect(() => {
+    const onAuthRequired = () => {
+      if (appMode !== 'use') return;
+      setAuth({ isLoggedIn: false });
+      setUnlockedCards([]);
+      setIsAuthOpen(true);
+    };
+    window.addEventListener('before-choosing:auth-required', onAuthRequired);
+    return () => window.removeEventListener('before-choosing:auth-required', onAuthRequired);
+  }, [appMode]);
+
   const handleAppModeChange = (nextMode: AppMode) => {
     if (nextMode === appMode) return;
     saveDemoProgress({
@@ -106,12 +206,20 @@ export default function App() {
     }, appMode);
     saveAppMode(nextMode);
     setAppMode(nextMode);
+    if (nextMode === 'use' && !getAccessToken()) {
+      setAuth({ isLoggedIn: false });
+      setIsAuthOpen(true);
+      setAuthChecking(false);
+    }
+    if (nextMode === 'demo') {
+      setAuthChecking(false);
+      setIsAuthOpen(false);
+    }
     setIsStageTwoFocusMode(false);
     const progress = loadDemoProgress(
       nextMode,
       nextMode === 'demo'
         ? {
-            careerSelectedCardIds: demoSelectedCards.map(card => card.id),
             draftCards: DEMO_SKILL_CARDS.slice(0, 3),
           }
         : {},
@@ -131,7 +239,7 @@ export default function App() {
     setIsStageTwoFocusMode(false);
     setCurrentScreen('landing');
     setSelectedTrialTaskId('A-02');
-    setCareerSelectedCardIds(demoSelectedCards.map(card => card.id));
+    setCareerSelectedCardIds([]);
     setCareerRecommendation(null);
     setCareerRecommendationCardSignature(null);
     setUnlockedCards(persistedCards);
@@ -158,21 +266,29 @@ export default function App() {
     await removeCard(cardId);
     setUnlockedCards(prev => prev.filter(card => card.id !== cardId));
   };
-  
-  const [auth, setAuth] = useState<UserAuth>({
-    isLoggedIn: false,
-  });
 
-
-  const handleLoginSuccess = (email: string) => {
+  const handleLoginSuccess = (session: AuthSession) => {
     setAuth({
       isLoggedIn: true,
       user: {
-        name: email.split('@')[0] || '探索者',
-        email: email,
+        id: session.user.id,
+        name: session.user.display_name,
+        email: session.user.email,
         unlockedCards: unlockedCards,
       },
     });
+    setAuthChecking(false);
+    setIsAuthOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutAccount();
+    } finally {
+      setAuth({ isLoggedIn: false });
+      setUnlockedCards([]);
+      if (appMode === 'use') setIsAuthOpen(true);
+    }
   };
 
   const [isStageTwoFocusMode, setIsStageTwoFocusMode] = useState<boolean>(false);
@@ -222,6 +338,7 @@ export default function App() {
             }
           }}
           onOpenAuth={() => setIsAuthOpen(true)}
+          onLogout={handleLogout}
           onOpenFigmaGuide={() => setIsFigmaGuideOpen(true)}
           isLoggedIn={auth.isLoggedIn}
           unlockedCardCount={activeCards.length}
@@ -257,6 +374,7 @@ export default function App() {
                 demoMode={appMode === 'demo'}
                 demoCards={DEMO_SKILL_CARDS.slice(0, 3)}
                 demoExperienceText={DEMO_EXPERIENCE_TEXT}
+                focusRequest={profileFocusRequest}
               />
             </StageTransition>
           )}
@@ -328,7 +446,16 @@ export default function App() {
                 onBackToExplore={() => setCurrentScreen('career-explore')}
                 onEnterProfile={() => setCurrentScreen('profile')}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
+                onTaskChange={setSelectedTrialTaskId}
                 onTrialComplete={refreshProfile}
+                onUpdateCardsFromTrial={async (cards) => {
+                  if (appMode === 'demo') {
+                    setDemoUnlockedCards(prev => mergeCardsById(prev, cards));
+                    return;
+                  }
+                  const storedCards = await confirmCards(cards);
+                  setUnlockedCards(prev => mergeCardsById(prev, storedCards));
+                }}
                 onFocusModeChange={setIsStageTwoFocusMode}
               />
             </StageTransition>
@@ -373,11 +500,28 @@ export default function App() {
         </AnimatePresence>
       </main>
 
+      {!isStageTwoFocusMode && (appMode === 'demo' || auth.isLoggedIn) && (
+        <GrowthCompanionWidget
+          key={`growth-companion-${appMode}-${currentScreen}`}
+          demoMode={appMode === 'demo'}
+          currentScreen={currentScreen}
+          existingCardTitles={activeCards.map(card => card.title)}
+          onContinue={() => {
+            setCurrentScreen('input-experience');
+            setProfileFocusRequest(value => value + 1);
+          }}
+        />
+      )}
+
       {/* Modals & Overlays */}
       <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
+        isOpen={isAuthOpen || (appMode === 'use' && !authChecking && !auth.isLoggedIn)}
+        onClose={() => {
+          if (appMode !== 'use' || auth.isLoggedIn) setIsAuthOpen(false);
+        }}
         onLoginSuccess={handleLoginSuccess}
+        formalMode={appMode === 'use'}
+        required={appMode === 'use' && !auth.isLoggedIn}
       />
 
       <CareerWikiModal
@@ -392,7 +536,7 @@ export default function App() {
       <ExampleShowcaseModal
         isOpen={isExampleOpen}
         onClose={() => setIsExampleOpen(false)}
-        onTryExperience={() => {
+        onStartExample={() => {
           setIsExampleOpen(false);
           setCurrentScreen('input-experience');
         }}

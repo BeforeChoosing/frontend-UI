@@ -24,12 +24,23 @@ import {
   FolderArchive,
   Award,
   ShieldCheck,
+  Briefcase,
+  Compass,
+  Target,
+  Zap,
+  BookOpen,
+  Check,
+  Pencil,
+  Sprout,
+  MessageSquare,
 } from 'lucide-react';
 import { SkillCard } from '../types';
 import { mapProfileProposalToSkillCards } from '../features/profile/profileAdapter';
 import { useExperienceAnalysis } from '../hooks/useExperienceAnalysis';
 import { useProfileExploration } from '../hooks/useProfileExploration';
-import { extractProfileMaterial } from '../api/profile';
+import { extractProfileMaterial, extractProfileMultimodalEvidence } from '../api/profile';
+import { auditEvent } from '../api/client';
+import { findProfileSkill, PROFILE_SKILLS, type ProfileSkillId } from '../features/profile/profileSkills';
 import type { ApiExperienceSummary } from '../types/api';
 
 interface ExperienceInputScreenProps {
@@ -38,6 +49,7 @@ interface ExperienceInputScreenProps {
   demoMode?: boolean;
   demoCards?: SkillCard[];
   demoExperienceText?: string;
+  focusRequest?: number;
 }
 
 export interface ChatMessage {
@@ -77,6 +89,62 @@ type UploadedMaterial = {
   type: 'resume' | 'portfolio' | 'link';
 };
 
+type TargetCareerState = 'unselected' | 'has_target' | 'no_target';
+
+const DEFAULT_TARGET_ROLE = 'AI 产品经理';
+
+type DemoProbingRound = {
+  title: string;
+  question: string;
+  options: string[];
+  clues: string[];
+};
+
+const DEMO_PROBING_REPLY = '这段经历已经包含清晰的问题识别、方案取舍、协作推进和结果验证。接下来我会通过四轮追问，补齐你的判断依据与可迁移能力。';
+
+const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
+  {
+    title: '情境与动机下钻',
+    question: '在当时着手解决这个问题的最初阶段，最直接触发你去推进它的痛点或契机是什么？当时大家普遍的反应是怎样的？',
+    options: [
+      '大家都在抱怨但没人动手，我发现核心矛盾是信任和履约成本',
+      '信息极度不对称，迫切需要一个统一透明的流转规则',
+      '最初只是帮身边朋友解决麻烦，后来发现是普遍刚需',
+    ],
+    clues: ['底层问题归因', '敏锐痛点捕捉'],
+  },
+  {
+    title: '关键行动与决策权衡',
+    question: '面对实际落地中的具体阻力，你采取了哪些最关键的行动？在多种可能中你放弃了什么、坚守了什么？',
+    options: [
+      '主动找舍管沟通，用标准交接单化解安全顾虑',
+      '放弃复杂的线上支付，用最轻量的面对面转交快速验证',
+      '建立履约评价机制，让表现稳定的用户获得更高优先级',
+    ],
+    clues: ['关键路径决策', '利益协同破局'],
+  },
+  {
+    title: '成效度量与客观反馈',
+    question: '这些行动最终带来了哪些可验证的结果？团队或用户的反馈如何？',
+    options: [
+      '首月完成 800 余笔书籍流转，交易双方的沟通成本明显降低',
+      '模式获得辅导员和社团骨干认可，随后扩展到其他宿舍楼',
+      '团队形成了可复用的交接文档与数据复盘方法',
+    ],
+    clues: ['闭环交付度量', '长期价值沉淀'],
+  },
+  {
+    title: '胜任力模式提炼',
+    question: '结合这段经历，最能代表你做事方式的核心优势是什么？',
+    options: [
+      '能快速穿透表象，找到最小成本的高杠杆解法',
+      '擅长站在他人角度沟通，把阻力转化为可协作的条件',
+      '会主动建立指标与复盘机制，让方案在真实结果中得到验证',
+    ],
+    clues: ['高阶胜任力画像', '自我认知清晰度'],
+  },
+];
+
 const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
   title: '校园二手书流转产品实践',
   actions: ['访谈学生并归纳信任成本与碰面效率问题', '推动集中交接点与评分机制上线'],
@@ -86,7 +154,7 @@ const DEMO_EXPERIENCE_SUMMARY: ApiExperienceSummary = {
 
 function explorationStorageKey(
   demoMode: boolean,
-  field: 'evidence' | 'messages' | 'materials' | 'consent',
+  field: 'evidence' | 'messages' | 'materials' | 'consent' | 'target-state' | 'target-role',
 ): string {
   const versionedField = field === 'messages'
     ? 'messages-v3'
@@ -96,6 +164,17 @@ function explorationStorageKey(
         ? 'attachments-v3'
         : field;
   return `before-choosing:profile-exploration:${demoMode ? 'demo' : 'use'}:${versionedField}`;
+}
+
+function loadTargetCareerState(demoMode: boolean): TargetCareerState {
+  const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'target-state'));
+  if (value === 'has_target' || value === 'no_target' || value === 'unselected') return value;
+  return demoMode ? 'has_target' : 'unselected';
+}
+
+function loadTargetRole(demoMode: boolean): string {
+  const value = window.localStorage.getItem(explorationStorageKey(demoMode, 'target-role'))?.trim();
+  return value || (demoMode ? DEFAULT_TARGET_ROLE : '');
 }
 
 function loadExplorationMessages(demoMode: boolean): ChatMessage[] {
@@ -141,6 +220,19 @@ function upsertMaterialEvidence(
     .filter(Boolean)
     .join('\n\n')
     .slice(0, 12000);
+}
+
+function formatMultimodalEvidence(
+  items: Array<{
+    source_ref: string;
+    page: number;
+    bbox: number[];
+    quote: string;
+  }>,
+): string {
+  return items
+    .map(item => `[${item.source_ref} | 第${item.page}页 | bbox:${item.bbox.join(',')}] ${item.quote}`)
+    .join('\n');
 }
 
 interface QuickPreset {
@@ -522,6 +614,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   demoMode = false,
   demoCards = [],
   demoExperienceText = '',
+  focusRequest = 0,
 }) => {
   const [inputText, setInputText] = useState(() => (
     window.localStorage.getItem(explorationStorageKey(demoMode, 'evidence')) || ''
@@ -534,6 +627,23 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState('');
+  const [targetCareerState, setTargetCareerState] = useState<TargetCareerState>(() => (
+    loadTargetCareerState(demoMode)
+  ));
+  const [targetRole, setTargetRole] = useState(() => loadTargetRole(demoMode));
+  const [targetRoleDraft, setTargetRoleDraft] = useState(() => loadTargetRole(demoMode));
+  const [isEditingTargetRole, setIsEditingTargetRole] = useState(false);
+  const [showCommandsMenu, setShowCommandsMenu] = useState(false);
+  const [commandNotice, setCommandNotice] = useState<string | null>(null);
+  const [demoProbingActive, setDemoProbingActive] = useState(false);
+  const [isDemoReplying, setIsDemoReplying] = useState(false);
+  const [demoProbingRoundIndex, setDemoProbingRoundIndex] = useState(0);
+  const [demoProbingInput, setDemoProbingInput] = useState('');
+  const [demoProbingHistory, setDemoProbingHistory] = useState<Array<{
+    round: number;
+    question: string;
+    answer: string;
+  }>>([]);
   
   // Real-time Chat Messages state
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadExplorationMessages(demoMode));
@@ -565,13 +675,42 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const demoTypingTimerRef = useRef<number | null>(null);
+  const demoTransitionTimerRef = useRef<number | null>(null);
 
-  // Auto-scroll chat inside the top bubble when new messages arrive
   useEffect(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-    }
-  }, [messages, isAiThinking]);
+    if (!focusRequest) return;
+    const frame = window.requestAnimationFrame(() => textareaRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequest]);
+
+  const focusedConversationActive = messages.some(message => message.role === 'user');
+
+  useEffect(() => {
+    if (!focusedConversationActive) return;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [focusedConversationActive]);
+
+  useEffect(() => {
+    if (!focusedConversationActive || !chatScrollRef.current) return;
+    chatScrollRef.current.scrollTo({
+      top: chatScrollRef.current.scrollHeight,
+      behavior: 'instant',
+    });
+  }, [focusedConversationActive, demoProbingHistory, demoProbingRoundIndex, messages]);
+
+  useEffect(() => () => {
+    if (demoTypingTimerRef.current !== null) window.clearInterval(demoTypingTimerRef.current);
+    if (demoTransitionTimerRef.current !== null) window.clearTimeout(demoTransitionTimerRef.current);
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem(explorationStorageKey(demoMode, 'evidence'), inputText);
@@ -591,6 +730,20 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     );
   }, [demoMode, uploadedFiles]);
 
+  useEffect(() => {
+    window.localStorage.setItem(
+      explorationStorageKey(demoMode, 'target-state'),
+      targetCareerState,
+    );
+  }, [demoMode, targetCareerState]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      explorationStorageKey(demoMode, 'target-role'),
+      targetRole.trim(),
+    );
+  }, [demoMode, targetRole]);
+
   const handleRestartDemoConversation = () => {
     if (!demoMode || explorationStatus === 'loading') return;
     setInputText('');
@@ -602,6 +755,19 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setLinkInput('');
     setUploadError(null);
     setVoiceNotice(null);
+    setTargetCareerState('has_target');
+    setTargetRole(DEFAULT_TARGET_ROLE);
+    setTargetRoleDraft(DEFAULT_TARGET_ROLE);
+    setIsEditingTargetRole(false);
+    setShowCommandsMenu(false);
+    setCommandNotice(null);
+    setDemoProbingActive(false);
+    setIsDemoReplying(false);
+    setDemoProbingRoundIndex(0);
+    setDemoProbingInput('');
+    setDemoProbingHistory([]);
+    if (demoTypingTimerRef.current !== null) window.clearInterval(demoTypingTimerRef.current);
+    if (demoTransitionTimerRef.current !== null) window.clearTimeout(demoTransitionTimerRef.current);
     setIsChatExpanded(true);
     resetExploration();
     textareaRef.current?.focus();
@@ -609,7 +775,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
   const handleSendCoachMessage = async () => {
     const text = coachInput.trim();
-    if (!text || explorationStatus === 'loading') return;
+    if (!text || isDemoReplying || isAnalyzing || explorationStatus === 'loading') return;
     const nextEvidenceText = [inputText.trim(), text].filter(Boolean).join('\n\n').slice(0, 12000);
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMessage: ChatMessage = {
@@ -624,6 +790,57 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     setSelectedPresetId(null);
     setIsChatExpanded(true);
     setIsAiThinking(true);
+
+    if (demoMode) {
+      setIsDemoReplying(true);
+      const replyId = `ai-demo-${Date.now()}`;
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      setMessages(prev => [...prev, {
+        id: replyId,
+        role: 'ai',
+        content: prefersReducedMotion ? DEMO_PROBING_REPLY : '',
+        timestamp,
+        detectedSignals: prefersReducedMotion ? ['判断依据', '行动取舍', '可迁移能力'] : [],
+      }].slice(-30));
+      setIsAiThinking(false);
+
+      const enterProbing = () => {
+        setIsDemoReplying(false);
+        setDemoProbingActive(true);
+        setDemoProbingRoundIndex(0);
+        setDemoProbingInput('');
+        setDemoProbingHistory([]);
+        setIsChatExpanded(false);
+      };
+
+      if (prefersReducedMotion) {
+        demoTransitionTimerRef.current = window.setTimeout(enterProbing, 240);
+        return;
+      }
+
+      let visibleCharacters = 0;
+      demoTypingTimerRef.current = window.setInterval(() => {
+        visibleCharacters = Math.min(visibleCharacters + 2, DEMO_PROBING_REPLY.length);
+        const completed = visibleCharacters >= DEMO_PROBING_REPLY.length;
+        setMessages(prev => prev.map(message => (
+          message.id === replyId
+            ? {
+                ...message,
+                content: DEMO_PROBING_REPLY.slice(0, visibleCharacters),
+                detectedSignals: completed ? ['判断依据', '行动取舍', '可迁移能力'] : [],
+              }
+            : message
+        )));
+        if (!completed) return;
+        if (demoTypingTimerRef.current !== null) {
+          window.clearInterval(demoTypingTimerRef.current);
+          demoTypingTimerRef.current = null;
+        }
+        demoTransitionTimerRef.current = window.setTimeout(enterProbing, 420);
+      }, 24);
+      return;
+    }
+
     try {
       const conversation = messages.slice(-11).map(message => ({
         role: message.role === 'ai' ? 'assistant' as const : 'user' as const,
@@ -633,7 +850,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       const response = await exploreProfile({
         experience_text: nextEvidenceText,
         messages: conversation,
-        target_role: 'AI Native 产品经理',
+        target_role: targetCareerState === 'has_target'
+          ? (targetRole.trim() || DEFAULT_TARGET_ROLE)
+          : undefined,
         request_id: `profile-${Date.now()}`,
       });
       setMessages(prev => [...prev, {
@@ -688,7 +907,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           const transcript = Array.from(event.results)
             .map((res: any) => res[0].transcript)
             .join('');
-          setCoachInput(prev => prev + transcript);
+          if (demoMode && demoProbingActive) {
+            setDemoProbingInput(prev => prev + transcript);
+          } else {
+            setCoachInput(prev => prev + transcript);
+          }
         };
 
         recognition.onerror = () => {
@@ -724,33 +947,74 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    if (uploadTab === 'resume' && !file.name.toLowerCase().endsWith('.pdf')) {
-      setUploadError('个人简历需要使用包含可复制文本的 PDF 文件。');
+    const extension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+    const allowedExtensions = uploadTab === 'resume'
+      ? ['.pdf', '.png', '.jpg', '.jpeg', '.webp']
+      : ['.pdf', '.docx', '.txt', '.md', '.png', '.jpg', '.jpeg', '.webp'];
+    if (!allowedExtensions.includes(extension)) {
+      setUploadError(uploadTab === 'resume'
+        ? '个人简历支持 PDF、PNG、JPG 和 WebP。'
+        : '项目补充材料支持 PDF、Word、Markdown、TXT、PNG、JPG 和 WebP。');
       e.target.value = '';
       return;
     }
     setUploadError(null);
     setIsParsingFile(true);
-    setParsingStep('正在读取文档中的可复制文本...');
+    setParsingStep('正在读取材料中的文字与页面证据...');
     try {
-      const extracted = await extractProfileMaterial(file);
       const fileSize = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
       const materialType = uploadTab === 'resume' ? 'resume' : 'portfolio';
-      const newFile: UploadedMaterial = { name: extracted.file_name, size: fileSize, type: materialType };
+      const newFile: UploadedMaterial = { name: file.name, size: fileSize, type: materialType };
       setUploadedFiles(prev => [...prev.filter(item => item.type !== materialType), newFile]);
-      setInputText(prev => upsertMaterialEvidence(prev, materialType, extracted.file_name, extracted.text));
+      const isImage = file.type.startsWith('image/') || ['.png', '.jpg', '.jpeg', '.webp'].includes(extension);
+      let extractedText = '';
+      let extractionNotice = '';
+      let detectedSignals: string[] = ['文字已读出', '等你确认', '还没有保存到档案'];
+      if (isImage) {
+        setParsingStep('正在定位图片中的项目行动与结果...');
+        const evidence = await extractProfileMultimodalEvidence(file);
+        extractedText = formatMultimodalEvidence(evidence.items);
+        extractionNotice = `已用 ${evidence.model} 定位 ${evidence.items.length} 条候选证据，保留页码与区域引用。`;
+        detectedSignals = evidence.items.length > 0
+          ? [`${evidence.items.length} 条区域证据`, '等待你核对', '还没有保存到档案']
+          : ['未定位到可核对片段', '等待你补充', '还没有保存到档案'];
+      } else {
+        try {
+          const extracted = await extractProfileMaterial(file);
+          extractedText = extracted.text;
+          extractionNotice = `已提取 ${extracted.char_count} 字可复制文本${extracted.truncated ? '（内容较长，已截取前 12000 字）' : ''}。`;
+        } catch (cause) {
+          // Scanned PDFs have no text layer. Only this known case falls back
+          // to one Qwen-VL call; network and format errors are not retried.
+          const message = cause instanceof Error ? cause.message : '';
+          if (extension !== '.pdf' || !message.includes('没有可复制文本')) throw cause;
+          setParsingStep('未发现文字层，正在用 Qwen-VL 定位扫描页证据...');
+          const evidence = await extractProfileMultimodalEvidence(file);
+          extractedText = formatMultimodalEvidence(evidence.items);
+          extractionNotice = `已用 ${evidence.model} 定位 ${evidence.items.length} 条扫描页候选证据，保留页码与区域引用。`;
+          detectedSignals = evidence.items.length > 0
+            ? [`${evidence.items.length} 条页面证据`, '等待你核对', '还没有保存到档案']
+            : ['未定位到可核对片段', '等待你补充', '还没有保存到档案'];
+        }
+      }
+      setInputText(prev => upsertMaterialEvidence(
+        prev,
+        materialType,
+        file.name,
+        extractedText || '材料中暂未定位到可引用文字，请补充说明。',
+      ));
       setMessages(prev => [...prev, {
         id: `user-upload-${Date.now()}`,
         role: 'user',
-        content: `【上传了${materialType === 'resume' ? '个人简历' : '项目补充材料'}】${extracted.file_name}`,
+        content: `【上传了${materialType === 'resume' ? '个人简历' : '项目补充材料'}】${file.name}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         attachedFile: newFile,
       }, {
         id: `ai-upload-${Date.now()}`,
         role: 'ai',
-        content: `已提取 ${extracted.char_count} 字可复制文本${extracted.truncated ? '（内容较长，已截取前 12000 字）' : ''}。材料内容目前仅作为候选证据，确认前不会进入职业推荐。`,
+        content: `${extractionNotice} 材料内容目前仅作为候选证据，确认前不会进入职业推荐。`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        detectedSignals: ['文字已读出', '等你确认', '还没有保存到档案'],
+        detectedSignals,
       }].slice(-30));
       setIsChatExpanded(true);
       setShowUploadModal(false);
@@ -863,9 +1127,24 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
 
   // Trigger the real ProfileAgent flow. UI components only consume the domain result;
   // the API contract and backend DTO mapping live outside this screen.
-  const handleStartAnalysis = async () => {
-    const combinedContent = inputText.trim().slice(0, 12000);
+  const handleStartAnalysis = async (pendingEvidence = '') => {
+    const normalizedPendingEvidence = pendingEvidence.trim();
+    const combinedContent = [inputText.trim(), normalizedPendingEvidence]
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, 12000);
     if (!combinedContent || isAnalyzing) return;
+
+    if (normalizedPendingEvidence) {
+      setInputText(combinedContent);
+      setCoachInput('');
+      setMessages(prev => [...prev, {
+        id: `user-extract-${Date.now()}`,
+        role: 'user',
+        content: normalizedPendingEvidence,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }].slice(-30));
+    }
 
     setIsAnalyzing(true);
     setIsAiThinking(true);
@@ -885,7 +1164,9 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       }
       const proposal = await analyzeExperience({
         experience_text: combinedContent,
-        target_role: 'AI Native 产品经理',
+        target_role: targetCareerState === 'has_target'
+          ? (targetRole.trim() || DEFAULT_TARGET_ROLE)
+          : undefined,
       });
       const cards = mapProfileProposalToSkillCards(proposal);
       const aiMsg: ChatMessage = {
@@ -906,10 +1187,222 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     }
   };
 
+  const openTargetRoleEditor = () => {
+    const currentRole = targetRole.trim() || DEFAULT_TARGET_ROLE;
+    setTargetCareerState('has_target');
+    setTargetRole(currentRole);
+    setTargetRoleDraft(currentRole);
+    setIsEditingTargetRole(true);
+    setCommandNotice(null);
+  };
+
+  const confirmTargetRoleEditor = () => {
+    const nextRole = targetRoleDraft.trim() || DEFAULT_TARGET_ROLE;
+    setTargetRole(nextRole);
+    setTargetRoleDraft(nextRole);
+    setIsEditingTargetRole(false);
+  };
+
+  const cancelTargetRoleEditor = () => {
+    setTargetRoleDraft(targetRole.trim() || DEFAULT_TARGET_ROLE);
+    setIsEditingTargetRole(false);
+  };
+
+  const executeProfileSkill = (skillId: ProfileSkillId) => {
+    const activeInput = demoProbingActive ? demoProbingInput : coachInput;
+    const inputMethod = activeInput.trim().startsWith('/') ? 'typed' : 'menu';
+    const skill = PROFILE_SKILLS.find(item => item.id === skillId);
+    if (!skill) return;
+    void auditEvent('profile_skill_invoked', skillId, {
+      input_method: inputMethod,
+      target_state: targetCareerState,
+      command: skill.command,
+      outcome: skill.outcome,
+    });
+    setShowCommandsMenu(false);
+    setCommandNotice(null);
+
+    if (skillId === 'experience') {
+      setUploadTab('portfolio');
+      setShowUploadModal(true);
+      if (coachInput.trim().startsWith('/')) setCoachInput('');
+      return;
+    }
+
+    if (skillId === 'target') {
+      openTargetRoleEditor();
+      if (coachInput.trim().startsWith('/')) setCoachInput('');
+      return;
+    }
+
+    const pendingEvidence = activeInput.trim().startsWith('/') ? '' : activeInput;
+    if (skill.requiresEvidence && !inputText.trim() && !pendingEvidence.trim()) {
+      setCommandNotice('请先提供一段经历或引用项目材料。');
+      if (coachInput.trim().startsWith('/')) setCoachInput('');
+      return;
+    }
+    void handleStartAnalysis(pendingEvidence);
+  };
+
+  const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter' || event.shiftKey) return;
+
+    const commandText = coachInput.trim().toLowerCase();
+    if (commandText.startsWith('/')) {
+      event.preventDefault();
+      const skill = findProfileSkill(commandText);
+      if (skill) {
+        executeProfileSkill(skill.id);
+      } else {
+        setShowCommandsMenu(true);
+        setCommandNotice('请从列表中选择有效 Skill。');
+      }
+      return;
+    }
+
+    event.preventDefault();
+    void handleSendCoachMessage();
+  };
+
+  const currentDemoRound = DEMO_PROBING_ROUNDS[demoProbingRoundIndex] || DEMO_PROBING_ROUNDS[0];
+
+  const handleDemoProbingSubmit = (answerOverride?: string) => {
+    const answer = (answerOverride ?? demoProbingInput).trim();
+    if (!answer || !currentDemoRound) return;
+    const evidenceLine = `【第 ${demoProbingRoundIndex + 1} 轮追问：${currentDemoRound.title}】${answer}`;
+
+    setDemoProbingHistory(prev => [...prev, {
+      round: demoProbingRoundIndex + 1,
+      question: currentDemoRound.question,
+      answer,
+    }]);
+    setDemoProbingInput('');
+
+    if (demoProbingRoundIndex < DEMO_PROBING_ROUNDS.length - 1) {
+      setInputText(prev => [prev.trim(), evidenceLine].filter(Boolean).join('\n\n').slice(0, 12000));
+      setDemoProbingRoundIndex(index => index + 1);
+      return;
+    }
+
+    void handleStartAnalysis(evidenceLine);
+  };
+
+  const handleExperienceComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    const activeInput = demoProbingActive ? demoProbingInput : coachInput;
+    if (event.key === 'Enter' && !event.shiftKey && activeInput.trim().startsWith('/')) {
+      event.preventDefault();
+      const skill = findProfileSkill(activeInput.trim().toLowerCase());
+      if (skill) {
+        executeProfileSkill(skill.id);
+        if (demoProbingActive) setDemoProbingInput('');
+      } else {
+        setShowCommandsMenu(true);
+        setCommandNotice('请从列表中选择有效 Skill。');
+      }
+      return;
+    }
+    if (demoMode && demoProbingActive) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        handleDemoProbingSubmit();
+      }
+      return;
+    }
+    handleComposerKeyDown(event);
+  };
+
   const latestAiMessage = [...messages].reverse().find(m => m.role === 'ai') || messages[0];
+  const submittedExperience = messages.find(message => message.role === 'user')?.content || inputText;
+  const focusedConversationMessages = (() => {
+    const firstUserIndex = messages.findIndex(message => message.role === 'user');
+    return firstUserIndex >= 0 ? messages.slice(firstUserIndex + 1) : messages;
+  })();
+
+  const handleModifySubmittedExperience = () => {
+    const experience = submittedExperience.trim();
+    setCoachInput(experience);
+    if (demoProbingActive) setDemoProbingInput(experience);
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
+  };
+
+  const conversationThread = (
+        <section aria-label="成长陪伴对话记录">
+          <div className="mx-auto max-w-5xl space-y-5 py-2">
+            <div className="ml-auto max-w-[92%] rounded-2xl rounded-tr-md bg-stone-900 px-5 py-4 text-stone-100 shadow-sm sm:max-w-[88%]">
+              <div className="mb-2 flex items-center justify-between border-b border-white/10 pb-2 text-[10px] text-stone-400">
+                <span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />已提交自述经历</span>
+                <button type="button" onClick={handleModifySubmittedExperience} className="transition hover:text-white">补充自述</button>
+              </div>
+              <p className="text-xs leading-6 sm:text-sm">{submittedExperience}</p>
+            </div>
+
+            {demoProbingActive ? <>
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-[11px] font-semibold text-stone-700 shadow-sm">AI</span>
+              <div className="max-w-[86%] rounded-2xl rounded-tl-md border border-stone-200 bg-white px-4 py-3 text-xs leading-6 text-stone-700 shadow-sm sm:text-sm">{DEMO_PROBING_REPLY}</div>
+            </div>
+
+            {demoProbingHistory.map(item => {
+              const round = DEMO_PROBING_ROUNDS[item.round - 1];
+              return (
+                <div key={item.round} className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-[11px] font-semibold text-stone-700 shadow-sm">AI</span>
+                    <div className="max-w-[86%] rounded-2xl rounded-tl-md border border-stone-200 bg-white px-4 py-3 shadow-sm">
+                      <p className="font-mono text-[10px] text-stone-500">第 {item.round} 轮追问 · {round?.title}</p>
+                      <p className="mt-1 text-xs leading-6 text-stone-800 sm:text-sm">{item.question}</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <div className="max-w-[82%] rounded-2xl rounded-tr-md bg-stone-900 px-4 py-3 text-xs leading-6 text-stone-100 shadow-sm sm:text-sm">{item.answer}</div>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-stone-100 text-[11px] font-semibold text-stone-700">我</span>
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-stone-900 text-emerald-300 shadow-sm"><Sprout className="h-4 w-4" /></span>
+              <div className="min-w-0 flex-1 rounded-3xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif text-sm text-stone-900">第 {demoProbingRoundIndex + 1} 轮 · {currentDemoRound.title}</h3>
+                    <span className="rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5 font-mono text-[9px] text-stone-600">进度 {demoProbingRoundIndex + 1}/4</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-stone-500"><span>线索捕获：</span>{currentDemoRound.clues.map(clue => <span key={clue} className="rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5">◆ {clue}</span>)}</div>
+                </div>
+                <p className="py-4 text-sm leading-7 text-stone-800">{currentDemoRound.question}</p>
+                <div className="space-y-2 border-t border-stone-100 pt-3">
+                  <p className="flex items-center gap-1.5 text-[10px] text-stone-500"><MessageSquare className="h-3 w-3" />点击参考思路填入，双击直接提交</p>
+                  {currentDemoRound.options.map(option => (
+                    <button key={option} type="button" onClick={() => setDemoProbingInput(option)} onDoubleClick={() => handleDemoProbingSubmit(option)} className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs transition ${demoProbingInput === option ? 'border-emerald-300 bg-emerald-50 text-emerald-950' : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300 hover:bg-stone-50'}`}>
+                      <span>{option}</span><ArrowRight className="h-3.5 w-3.5 shrink-0 text-stone-400" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            </> : <>
+              {focusedConversationMessages.map(message => (
+                <div key={message.id} className={`flex items-start gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}>
+                  {message.role === 'ai' && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-[11px] font-semibold text-stone-700 shadow-sm">AI</span>}
+                  <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-xs leading-6 shadow-sm sm:text-sm ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-stone-100' : 'rounded-tl-md border border-stone-200 bg-white text-stone-700'}`}>
+                    {message.attachedFile && <p className="mb-2 border-b border-current/10 pb-2 text-[10px] opacity-70">附件 · {message.attachedFile.name}</p>}
+                    <p>{message.content}</p>
+                    {message.detectedSignals && message.detectedSignals.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{message.detectedSignals.map(signal => <span key={signal} className="rounded-md bg-stone-100 px-2 py-0.5 text-[9px] text-stone-600">{signal}</span>)}</div>}
+                  </div>
+                  {message.role === 'user' && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-stone-100 text-[11px] font-semibold text-stone-700">我</span>}
+                </div>
+              ))}
+              {isAiThinking && <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-[11px] font-semibold text-stone-700 shadow-sm">AI</span><span className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-xs text-stone-500"><RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600" />正在梳理经历中的行动与证据…</span></div>}
+            </>}
+          </div>
+        </section>
+  );
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col justify-between max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 relative">
+    <div className="experience-screen min-h-[calc(100vh-64px)] flex flex-col justify-between max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 relative" data-focused={focusedConversationActive}>
       
       {/* Background Soft Glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -917,14 +1410,15 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-stone-100/60 blur-3xl" />
       </div>
 
-      <div className="space-y-4 sm:space-y-6 relative z-10">
+      <div className="experience-layout space-y-4 sm:space-y-6 relative z-10">
+        <div ref={chatScrollRef} className="profile-chat-scroll" tabIndex={focusedConversationActive ? 0 : undefined} aria-label="经历对话滚动区域">
         
         {/* Profile assistant conversation */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="craft-card relative flex w-full flex-col gap-4 rounded-2xl border border-stone-200/50 bg-white/88 p-4 backdrop-blur-xl sm:rounded-3xl sm:p-6"
+          className="profile-intro craft-card relative flex w-full flex-col gap-4 rounded-2xl border border-stone-200/50 bg-white/88 p-4 backdrop-blur-xl sm:rounded-3xl sm:p-6"
         >
           {/* Main Top Header Line */}
           <div className="flex items-start gap-3.5 sm:gap-5">
@@ -937,7 +1431,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             <div className="min-w-0 flex-1 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm sm:text-base font-normal text-stone-900 font-serif craft-serif tracking-tight flex items-center gap-2">
-                  <span>潜能挖掘助手</span>
+                  <span>成长陪伴 Agent · 经历深度挖掘</span>
                   <span className="craft-chip-green text-[10px] font-medium px-2 py-0.5 rounded-full font-mono">
                     01 · 认识自己
                   </span>
@@ -955,7 +1449,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                       <span>重新开始对话</span>
                     </button>
                   )}
-                  {messages.length > 2 && (
+                  {!focusedConversationActive && messages.length > 2 && (
                     <button
                       type="button"
                       onClick={() => setIsChatExpanded(!isChatExpanded)}
@@ -968,7 +1462,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 </div>
               </div>
 
-              {!isChatExpanded ? (
+              {focusedConversationActive ? (
+                <p className="max-w-3xl text-xs font-normal leading-6 text-stone-700 sm:text-sm">
+                  通过多轮交流还原经历中的行动、判断与结果，整理可核验的能力线索。
+                </p>
+              ) : !isChatExpanded ? (
                 <div className="space-y-2 pt-0.5">
                   <p className="max-w-3xl text-xs font-normal leading-6 text-stone-700 sm:text-sm">
                     {latestAiMessage.content}
@@ -993,7 +1491,6 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 </div>
               ) : (
                 <div 
-                  ref={chatScrollRef}
                   className="max-h-64 space-y-3 overflow-y-auto pr-1 scrollbar-thin"
                 >
                   {messages.map((msg) => (
@@ -1038,8 +1535,112 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3 text-xs">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-stone-600">
+              <Target className="h-3.5 w-3.5" />
+              探索目标：
+            </span>
+
+            <div className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-100 p-1 shadow-inner">
+              <button
+                type="button"
+                onClick={() => {
+                  const currentRole = targetRole.trim() || DEFAULT_TARGET_ROLE;
+                  setTargetCareerState('has_target');
+                  setTargetRole(currentRole);
+                  setTargetRoleDraft(currentRole);
+                  setCommandNotice(null);
+                }}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                  targetCareerState === 'has_target'
+                    ? 'bg-stone-900 text-white shadow-sm'
+                    : 'text-stone-600 hover:bg-white hover:text-stone-900'
+                }`}
+                aria-pressed={targetCareerState === 'has_target'}
+              >
+                <Briefcase className="h-3.5 w-3.5" />
+                我有目标职业
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetCareerState('no_target');
+                  setIsEditingTargetRole(false);
+                  setCommandNotice(null);
+                }}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                  targetCareerState === 'no_target'
+                    ? 'bg-stone-900 text-white shadow-sm'
+                    : 'text-stone-600 hover:bg-white hover:text-stone-900'
+                }`}
+                aria-pressed={targetCareerState === 'no_target'}
+              >
+                <Compass className="h-3.5 w-3.5" />
+                我还没有明确方向
+              </button>
+            </div>
+
+            {targetCareerState === 'has_target' && (
+              isEditingTargetRole ? (
+                <div className="flex min-h-9 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/70 px-2.5 text-[11px] shadow-sm ring-2 ring-emerald-100/60">
+                  <span className="shrink-0 font-medium text-emerald-900">目标岗位</span>
+                  <input
+                    type="text"
+                    value={targetRoleDraft}
+                    onChange={event => setTargetRoleDraft(event.target.value)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        confirmTargetRoleEditor();
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        cancelTargetRoleEditor();
+                      }
+                    }}
+                    onFocus={event => event.currentTarget.select()}
+                    maxLength={40}
+                    autoFocus
+                    aria-label="目标岗位"
+                    className="w-32 min-w-0 border-0 bg-transparent px-1 py-1 font-semibold text-stone-900 outline-none"
+                  />
+                  <span className="h-4 w-px bg-emerald-200" />
+                  <button
+                    type="button"
+                    onClick={confirmTargetRoleEditor}
+                    aria-label="确认目标岗位"
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-white transition hover:bg-emerald-800"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelTargetRoleEditor}
+                    aria-label="取消修改目标岗位"
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-stone-400 transition hover:bg-white hover:text-stone-700"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openTargetRoleEditor}
+                  className="group flex min-h-8 items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 text-[11px] text-stone-600 transition hover:border-emerald-200 hover:bg-emerald-50/50"
+                >
+                  <span>目标岗位：</span>
+                  <span className="font-semibold text-stone-900">{targetRole.trim() || DEFAULT_TARGET_ROLE}</span>
+                  <span className="ml-0.5 flex items-center gap-0.5 text-stone-400 transition group-hover:text-emerald-700">
+                    <Pencil className="h-3 w-3" />
+                    修改
+                  </span>
+                </button>
+              )
+            )}
+          </div>
+
           {/* Quick upload guide prompt bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-stone-100 text-[11px] text-stone-600">
+          {!focusedConversationActive && <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-stone-100 text-[11px] text-stone-600">
             <div className="flex items-center gap-1.5">
               <span className="text-stone-400">💡 提示：</span>
               <span>可以在下方连续交流，也可以通过附件补充简历或项目材料。</span>
@@ -1054,19 +1655,79 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               <span>引导上传简历 / 项目材料</span>
               <ExternalLink className="w-3 h-3" />
             </button>
-          </div>
+          </div>}
 
         </motion.div>
+
+        {focusedConversationActive && conversationThread}
+        </div>
 
         {/* Single chat composer with inline attachments */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.05 }}
-          className="space-y-3"
+          className="profile-composer space-y-3"
         >
-          <div className="craft-card flex min-h-[220px] w-full items-stretch gap-3.5 rounded-3xl border border-stone-200/50 bg-white/90 p-4 backdrop-blur-xl sm:p-5">
-            <div className="flex shrink-0 flex-col items-center gap-2 border-r border-stone-100 pr-3.5 pt-0.5">
+          <div className="profile-composer-card craft-card relative flex min-h-[220px] w-full flex-col gap-3 rounded-3xl border border-stone-200/50 bg-white/90 p-4 backdrop-blur-xl sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-2">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCommandsMenu(current => !current);
+                    setCommandNotice(null);
+                  }}
+                  className="flex items-center gap-1.5 rounded-full bg-stone-900 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-black"
+                  aria-expanded={showCommandsMenu}
+                  aria-controls="profile-skill-menu"
+                >
+                  <Zap className="h-3.5 w-3.5 text-emerald-300" />
+                  Skills
+                  <ChevronDown className={`h-3 w-3 transition-transform ${showCommandsMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {showCommandsMenu && (
+                    <motion.div
+                      id="profile-skill-menu"
+                      initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                      transition={{ duration: 0.16 }}
+                      className="absolute bottom-full left-0 z-40 mb-2 w-72 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl"
+                    >
+                      <p className="px-2 py-1 text-[10px] font-semibold tracking-wide text-stone-500">成长陪伴 Agent · Profile Skills</p>
+                      {PROFILE_SKILLS.map(skill => {
+                        const Icon = skill.command === '/extract'
+                          ? Sparkles
+                          : skill.command === '/experience'
+                            ? BookOpen
+                            : Briefcase;
+                        return (
+                          <button
+                            key={skill.command}
+                            type="button"
+                            onClick={() => executeProfileSkill(skill.id)}
+                            className="flex w-full items-start gap-2 rounded-xl p-2 text-left transition hover:bg-stone-50"
+                          >
+                            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-stone-600" />
+                            <span className="min-w-0">
+                              <span className="block font-mono text-[11px] font-semibold text-stone-900">{skill.command}</span>
+                              <span className="block text-[10px] text-stone-500">{skill.name} · {skill.description}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <span className="text-[10px] text-stone-400">输入 / 调用已定义 Skill，Skill 不作为对话发送</span>
+            </div>
+
+            <div className="flex min-h-0 flex-1 items-stretch gap-3.5">
+              <div className="flex shrink-0 flex-col items-center gap-2 border-r border-stone-100 pr-3.5 pt-0.5">
               <button
                 type="button"
                 onClick={handleTriggerUpload}
@@ -1084,50 +1745,75 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               >
                 {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </button>
-            </div>
-
-            <div className="flex min-w-0 flex-1 flex-col">
-              {voiceNotice && <p className="mb-2 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs text-emerald-900">{voiceNotice}</p>}
-              <textarea
-                ref={textareaRef}
-                value={coachInput}
-                onChange={event => {
-                  setCoachInput(event.target.value);
-                  if (selectedPresetId) setSelectedPresetId(null);
-                }}
-                onKeyDown={event => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    void handleSendCoachMessage();
-                  }
-                }}
-                rows={6}
-                maxLength={3000}
-                placeholder={'分享一次印象深刻的经历。\n可以写项目、实习、比赛或长期兴趣。\nEnter 发送，Shift+Enter 换行。'}
-                className="min-h-[150px] w-full flex-1 resize-none bg-transparent px-1 text-sm leading-6 text-stone-900 outline-none placeholder:text-stone-400"
-              />
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3 text-[10px] text-stone-400">
-                <span>{uploadedFiles.length > 0 ? `本轮对话已附加 ${uploadedFiles.length} 份材料` : '附件和文字都会进入当前对话记录'}</span>
-                <div className="flex items-center gap-2">
-                  <span>Enter 发送</span>
-                  <button
-                    type="button"
-                    onClick={() => void handleSendCoachMessage()}
-                    disabled={!coachInput.trim() || explorationStatus === 'loading'}
-                    className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {explorationStatus === 'loading' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                    发送交流
-                  </button>
-                </div>
               </div>
-              {explorationError && <p role="alert" className="mt-2 text-[10px] text-rose-700">{explorationError}</p>}
+
+              <div className="flex min-w-0 flex-1 flex-col">
+                {voiceNotice && <p className="mb-2 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs text-emerald-900">{voiceNotice}</p>}
+                {commandNotice && <p className="mb-2 rounded-lg bg-amber-50 px-2.5 py-1 text-xs text-amber-900">{commandNotice}</p>}
+                <textarea
+                  ref={textareaRef}
+                  value={demoMode && demoProbingActive ? demoProbingInput : coachInput}
+                  onChange={event => {
+                    const value = event.target.value;
+                    if (demoMode && demoProbingActive) {
+                      setDemoProbingInput(value);
+                      setShowCommandsMenu(value.trimStart().startsWith('/'));
+                      setCommandNotice(null);
+                      return;
+                    }
+                    setCoachInput(value);
+                    setShowCommandsMenu(value.trimStart().startsWith('/'));
+                    setCommandNotice(null);
+                    if (selectedPresetId) setSelectedPresetId(null);
+                  }}
+                  onKeyDown={handleExperienceComposerKeyDown}
+                  rows={6}
+                  maxLength={3000}
+                  placeholder={demoMode && demoProbingActive
+                    ? '随心输入'
+                    : '分享一次印象深刻的经历。\n可以写项目、实习、比赛或长期兴趣。\n输入 / 使用 Skills。'}
+                  aria-label="经历对话输入"
+                  className="profile-composer-input min-h-[150px] w-full flex-1 resize-none bg-transparent px-1 text-sm leading-6 text-stone-900 outline-none placeholder:text-stone-400"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3 text-[10px] text-stone-400">
+                  <span>{demoMode && demoProbingActive
+                    ? `第 ${demoProbingRoundIndex + 1}/4 轮追问`
+                    : uploadedFiles.length > 0
+                      ? `本轮对话已附加 ${uploadedFiles.length} 份材料`
+                      : '附件和文字都会进入当前对话记录'}</span>
+                  <div className="flex items-center gap-2">
+                    <span>Enter {demoMode && demoProbingActive ? '提交' : '发送'}·Shift+Enter 换行</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (demoMode && demoProbingActive) {
+                          handleDemoProbingSubmit();
+                        } else {
+                          void handleSendCoachMessage();
+                        }
+                      }}
+                      disabled={demoMode && demoProbingActive
+                        ? !demoProbingInput.trim() || demoProbingInput.trim().startsWith('/') || isAnalyzing
+                        : !coachInput.trim() || coachInput.trim().startsWith('/') || explorationStatus === 'loading' || isDemoReplying || isAnalyzing}
+                      className="craft-btn-black flex items-center gap-1.5 px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {explorationStatus === 'loading' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      {demoMode && demoProbingActive ? '提交' : '发送交流'}
+                    </button>
+                  </div>
+                </div>
+                {explorationError && <p role="alert" className="mt-2 text-[10px] text-rose-700">{explorationError}</p>}
+              </div>
             </div>
           </div>
 
-          <p className="text-center text-[11px] text-stone-500">整段用户对话和附件正文共同构成候选卡的证据来源。</p>
+          <p className="profile-composer-note text-center text-[11px] text-stone-500">
+            {demoMode && demoProbingActive
+              ? '每轮回答都会并入当前经历证据，四轮完成后生成候选能力卡。'
+              : '整段用户对话和附件正文共同构成候选卡的证据来源。'}
+          </p>
 
-          <div className="space-y-2 pt-1 text-center">
+          {!focusedConversationActive && <div className="space-y-2 pt-1 text-center">
             <p className="font-serif text-sm text-stone-900">快速开始</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {PRESET_EXPERIENCES.map(preset => (
@@ -1141,7 +1827,24 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
+
+          {focusedConversationActive && (
+            <div className="profile-composer-footer flex items-center justify-between pt-1 text-[11px] text-stone-500">
+              <span>{demoProbingActive ? `第 ${demoProbingRoundIndex + 1}/4 轮追问` : `已交流 ${messages.filter(message => message.role === 'user').length} 轮`}</span>
+              <button
+                type="button"
+                onClick={() => void handleStartAnalysis(demoProbingActive ? demoProbingInput : coachInput.trim().startsWith('/') ? '' : coachInput)}
+                disabled={isAnalyzing || explorationStatus === 'loading' || isDemoReplying}
+                className="font-medium text-stone-800 transition hover:text-black"
+              >
+                提前生成能力卡 →
+              </button>
+            </div>
+          )}
+          {focusedConversationActive && analysisError && (
+            <p role="alert" className="mt-2 text-xs text-rose-800">{analysisError}</p>
+          )}
         </motion.div>
 
       </div>
@@ -1151,14 +1854,14 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         4. BOTTOM CENTER CALL-TO-ACTION BUTTON (分析经历)
         ======================================================================
       */}
-      <motion.div
+      {!focusedConversationActive && <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.15 }}
         className="pt-6 pb-2 flex flex-col items-center justify-center gap-3 relative z-10"
       >
         <button
-          onClick={handleStartAnalysis}
+          onClick={() => void handleStartAnalysis()}
           disabled={!inputText.trim() || isAnalyzing}
           className={`w-full sm:w-64 py-3.5 px-8 rounded-full font-medium text-sm sm:text-base transition-all duration-200 cursor-pointer shadow-sm flex items-center justify-center gap-2 ${
             inputText.trim() && !isAnalyzing
@@ -1197,7 +1900,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         >
           ← 返回首页
         </button>
-      </motion.div>
+      </motion.div>}
 
       {/* 
         ======================================================================
@@ -1216,6 +1919,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               {/* Close Button */}
               <button
                 onClick={() => setShowUploadModal(false)}
+                aria-label="关闭附件弹窗"
                 className="absolute top-5 right-5 text-stone-400 hover:text-stone-800 p-1 rounded-full hover:bg-stone-200/60 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -1267,7 +1971,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     <input 
                       ref={fileInputRef}
                       type="file" 
-                      accept={uploadTab === 'resume' ? '.pdf' : '.pdf,.docx,.txt,.md'}
+                      accept={uploadTab === 'resume' ? '.pdf,.png,.jpg,.jpeg,.webp' : '.pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp'}
                       className="hidden" 
                       onChange={handleFileUpload}
                     />
@@ -1280,8 +1984,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                       </p>
                       <p className="text-[11px] text-stone-500 mt-0.5">
                         {uploadTab === 'resume'
-                          ? '仅支持包含可复制文本的 PDF 简历，扫描件暂不支持 OCR'
-                          : '支持 PDF、Word、Markdown 和 TXT，扫描件暂不支持 OCR'}
+                          ? '支持 PDF、PNG、JPG 和 WebP；扫描 PDF 会保留页码与区域证据'
+                          : '支持 PDF、Word、Markdown、TXT 及常见图片；扫描材料可定位候选证据'}
                       </p>
                     </div>
                   </div>

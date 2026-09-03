@@ -32,6 +32,7 @@ interface TrialCardPlayScreenProps {
   onEvaluate: () => void;
   onSelectChallenge: (index: number) => void;
   onEnterWorkbench: () => void;
+  onBackToMap?: () => void;
   onBack: () => void;
   onOpenCardDetail: (card: SkillCard) => void;
 }
@@ -63,6 +64,7 @@ export function TrialCardPlayScreen({
   onEvaluate,
   onSelectChallenge,
   onEnterWorkbench,
+  onBackToMap,
   onBack,
   onOpenCardDetail,
 }: TrialCardPlayScreenProps) {
@@ -147,7 +149,7 @@ export function TrialCardPlayScreen({
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-center">
           <button
-            onClick={onBack}
+            onClick={onBackToMap || onBack}
             className="craft-card group flex min-w-0 items-center gap-4 rounded-3xl border border-stone-200/70 bg-white/90 px-5 py-4 text-left shadow-xs backdrop-blur-xl"
           >
             <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-stone-900 text-amber-300">
@@ -164,7 +166,7 @@ export function TrialCardPlayScreen({
               </span>
             </span>
             <span className="hidden items-center gap-1 rounded-full border border-stone-200 bg-stone-100 px-3 py-1.5 text-[10px] text-stone-600 sm:flex">
-              <ArrowLeft className="h-3 w-3" />返回方向建议
+              <ArrowLeft className="h-3 w-3" />{onBackToMap ? '返回任务地图' : '返回方向建议'}
             </span>
           </button>
 

@@ -6,6 +6,7 @@ interface HeaderProps {
   currentScreen: ScreenMode;
   onNavigate: (screen: ScreenMode) => void;
   onOpenAuth: () => void;
+  onLogout?: () => void;
   onOpenFigmaGuide: () => void;
   isLoggedIn: boolean;
   unlockedCardCount: number;
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentScreen,
   onNavigate,
   onOpenAuth,
+  onLogout,
   onOpenFigmaGuide,
   isLoggedIn,
   unlockedCardCount,
@@ -134,23 +136,34 @@ export const Header: React.FC<HeaderProps> = ({
               <span>登录 / 注册</span>
             </button>
           ) : (
-            <button
-              onClick={() => onNavigate('profile')}
-              className={`flex items-center gap-1.5 text-xs font-medium transition cursor-pointer px-2.5 py-1 rounded-full ${
-                currentScreen === 'profile' 
-                  ? 'bg-stone-900 text-white font-medium shadow-xs' 
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/60'
-              }`}
-              id="user-profile-btn"
-              title="进入个人成长文档"
-            >
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                currentScreen === 'profile' ? 'bg-white text-stone-950' : 'bg-stone-200 text-stone-800'
-              }`}>
-                U
-              </div>
-              <span className="hidden sm:inline">成长文档</span>
-            </button>
+            <>
+              <button
+                onClick={() => onNavigate('profile')}
+                className={`flex items-center gap-1.5 text-xs font-medium transition cursor-pointer px-2.5 py-1 rounded-full ${
+                  currentScreen === 'profile'
+                    ? 'bg-stone-900 text-white font-medium shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/60'
+                }`}
+                id="user-profile-btn"
+                title="进入个人成长文档"
+              >
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  currentScreen === 'profile' ? 'bg-white text-stone-950' : 'bg-stone-200 text-stone-800'
+                }`}>
+                  U
+                </div>
+                <span className="hidden sm:inline">成长文档</span>
+              </button>
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="hidden sm:inline-flex items-center rounded-full px-2 py-1 text-[11px] text-stone-500 transition hover:bg-stone-100 hover:text-stone-900"
+                  id="header-logout-btn"
+                >
+                  退出
+                </button>
+              )}
+            </>
           )}
 
           {/* Craft Black Tactile Pill Button */}

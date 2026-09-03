@@ -104,6 +104,11 @@ export async function getDynamicTrialTask(taskId: TrialTaskId): Promise<ApiTrial
   return normalizeDynamicTask(task);
 }
 
+export async function getDynamicTrialCatalog(): Promise<ApiTrialTaskDefinition[]> {
+  const tasks = await apiRequest<ApiTrialTaskDefinition[]>('/trial/catalog');
+  return tasks.map(normalizeDynamicTask);
+}
+
 export async function createDynamicTrialSession(taskId: TrialTaskId): Promise<ApiDynamicTrialSession> {
   const session = await apiRequest<ApiDynamicTrialSession>('/trial/workbench/sessions', {
     method: 'POST',
