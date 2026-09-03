@@ -7,7 +7,12 @@ import {
   ArrowRight,
   Sparkles,
 } from 'lucide-react';
-import { login as loginAccount, register as registerAccount } from '../api/auth';
+import {
+  confirmPasswordReset,
+  login as loginAccount,
+  register as registerAccount,
+  requestPasswordReset,
+} from '../api/auth';
 import type { AuthSession } from '../api/auth';
 
 /* =========================
@@ -86,7 +91,6 @@ interface AuthModalProps {
   onClose: () => void;
   onLoginSuccess: (session: AuthSession) => void;
   formalMode?: boolean;
-  required?: boolean;
 }
 
 /* =========================
@@ -98,10 +102,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   onLoginSuccess,
   formalMode = false,
-  required = false,
 }) => {
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [resetStep, setResetStep] = useState<'login' | 'request' | 'confirm'>('login');
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -174,6 +180,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  const handleRequestReset = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+    setError(null);
+    setNotice(null);
+    if (!account.trim()) {
+      setError('请输入注册邮箱。');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await requestPasswordReset(account.trim());
+      setNotice(response.detail);
+      setResetStep('confirm');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '验证码发送失败，请稍后重试。');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmReset = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+    setError(null);
+    setNotice(null);
+    if (!account.trim() || resetCode.trim().length !== 6 || password.length < 8) {
+      setError('请输入 6 位验证码和至少 8 位的新密码。');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await confirmPasswordReset(account.trim(), resetCode.trim(), password);
+      setNotice(response.detail);
+      setResetStep('login');
+      setResetCode('');
+      setPassword('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '密码重置失败，请稍后重试。');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   /* 第三方登录 */
   const handleSocialLogin = () => {
     setLoading(true);
@@ -200,7 +248,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={required ? undefined : onClose}
+        onClick={onClose}
         className="
           absolute inset-0
           bg-stone-950/45
@@ -463,7 +511,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         />
 
         {/* 关闭 */}
-        {!required && <button
+        <button
           onClick={onClose}
           title="关闭"
           className="
@@ -484,7 +532,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           "
         >
           <X className="w-4 h-4" />
-        </button>}
+        </button>
 
         {/* ======================
             Logo
@@ -595,11 +643,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
+        {notice && (
+          <div className="relative z-10 mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-800" role="status">
+            {notice}
+          </div>
+        )}
+
         {/* ======================
             表单
         ====================== */}
         <form
-          onSubmit={handleLogin}
+          onSubmit={resetStep === 'request' ? handleRequestReset : resetStep === 'confirm' ? handleConfirmReset : handleLogin}
           className="
             space-y-3.5
             relative
@@ -656,7 +710,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             />
           </div>
 
+          {resetStep === 'confirm' && (
+            <div className="relative group">
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={resetCode}
+                onChange={event => setResetCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="6 位邮箱验证码"
+                className="w-full rounded-2xl border border-stone-200/50 bg-stone-50/90 px-4 py-3 text-xs text-stone-900 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-amber-500/30 sm:text-sm"
+              />
+            </div>
+          )}
+
           {/* 密码 */}
+          {resetStep !== 'request' && (
           <div className="relative group">
             <div
               className="
@@ -688,7 +757,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               onChange={(e) =>
                 setPassword(e.target.value)
               }
-              placeholder="账户密码"
+              placeholder={resetStep === 'confirm' ? '设置新密码（至少 8 位）' : '账户密码'}
               className="
                 w-full
                 pl-12
@@ -709,9 +778,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               "
             />
           </div>
+          )}
 
           {/* 登录 / 注册 */}
-          <div
+          {resetStep === 'login' ? <div
             className="
               grid
               grid-cols-2
@@ -800,6 +870,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               注册
             </motion.button>
           </div>
+          : (
+            <div className="grid grid-cols-2 gap-3 pt-1.5">
+              <button
+                type="submit"
+                disabled={loading}
+                className="rounded-2xl bg-stone-900 px-4 py-3 text-xs font-bold text-white transition hover:bg-black disabled:opacity-50 sm:text-sm"
+              >
+                {loading ? '处理中…' : resetStep === 'request' ? '发送验证码' : '确认重置'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setResetStep('login');
+                  setError(null);
+                  setNotice(null);
+                }}
+                className="rounded-2xl border border-stone-200 bg-white px-4 py-3 text-xs font-bold text-stone-700 transition hover:bg-stone-50 sm:text-sm"
+              >
+                返回登录
+              </button>
+            </div>
+          )}
+
+          {formalMode && resetStep === 'login' && (
+            <button
+              type="button"
+              onClick={() => {
+                setResetStep('request');
+                setError(null);
+                setNotice(null);
+              }}
+              className="mx-auto block text-xs font-medium text-stone-500 transition hover:text-stone-900"
+            >
+              忘记密码？
+            </button>
+          )}
         </form>
 
         {!formalMode && <>

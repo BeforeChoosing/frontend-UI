@@ -6,6 +6,19 @@ import type {
   ProfileProposalResponse,
 } from '../../types/api';
 
+/**
+ * Model proposals are displayed as compact, editable ability labels.  Keep
+ * persisted cards untouched so a user can freely revise a title later; this
+ * adapter only normalizes newly generated proposals for the first render.
+ */
+export function normalizeGeneratedAbilityTitle(value: string): string {
+  const cleaned = value.replace(/[\s\n\r，。！？、,:：；;.!?]+/g, '').trim();
+  if (!cleaned) return '待验证能力';
+  const withoutSuffix = cleaned.endsWith('能力') ? cleaned.slice(0, -2) : cleaned;
+  const compactCore = withoutSuffix.slice(0, 8);
+  return `${compactCore || '待验证'}能力`.slice(0, 10);
+}
+
 export function mapApiCardToSkillCard(card: ApiCardProposal | ApiProfileCard): SkillCard {
   return {
     id: card.id,
@@ -29,7 +42,10 @@ export function mapApiCardToSkillCard(card: ApiCardProposal | ApiProfileCard): S
 export function mapProfileProposalToSkillCards(
   proposal: ProfileProposalResponse,
 ): SkillCard[] {
-  return proposal.card_proposals.map(mapApiCardToSkillCard);
+  return proposal.card_proposals.map(card => mapApiCardToSkillCard({
+    ...card,
+    title: normalizeGeneratedAbilityTitle(card.title),
+  }));
 }
 
 export function mapProfileCardsToSkillCards(

@@ -2,12 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Award, Compass, Crosshair, Eye, Layers, RotateCw, Sparkles } from 'lucide-react';
 import type { SkillCard } from '../types';
+import type { ApiTrialEvaluation } from '../types/api';
 
 interface TrialExperienceEndScreenProps {
   updatedCards: SkillCard[];
   allAccumulatedCards: SkillCard[];
   onEnterProfile: () => void;
   onContinueExplore: () => void;
+  evaluation?: ApiTrialEvaluation | null;
 }
 
 const CARD_ICONS = { Layers, Eye, Award, Crosshair, Compass } as const;
@@ -22,6 +24,7 @@ export const TrialExperienceEndScreen: React.FC<TrialExperienceEndScreenProps> =
   allAccumulatedCards,
   onEnterProfile,
   onContinueExplore,
+  evaluation,
 }) => {
   const [flippedCardIds, setFlippedCardIds] = useState<Record<string, boolean>>({});
   const totalPoolCards = useMemo(() => {
@@ -50,13 +53,37 @@ export const TrialExperienceEndScreen: React.FC<TrialExperienceEndScreenProps> =
           </div>
           <div className="flex-1 space-y-1.5">
             <h2 className="craft-serif font-serif text-base font-normal tracking-tight text-stone-900 sm:text-lg">
-              很好，这一轮我已经从你的实战推演中确认了 <span className="font-mono font-bold">{updatedCards.length}</span> 张能力卡。
+              {evaluation?.summary || `本轮任务总结已生成，形成 ${updatedCards.length} 张能力卡更新。`}
             </h2>
             <p className="text-xs font-normal leading-relaxed text-stone-600 sm:text-sm">
-              你的能力库已成功同步更新，实战证据将持续丰富你的职业画像与岗位适配度。
+              {updatedCards.length > 0
+                ? `能力库已成功同步更新 ${updatedCards.length} 张卡片，实战证据将持续丰富你的职业画像。`
+                : '本次结果已保留。当前没有足够的能力应用证据，因此不会改写已有能力卡。'}
             </p>
           </div>
         </motion.div>
+
+        {evaluation && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.08 }}
+            className="grid gap-3 rounded-2xl border border-stone-200 bg-white p-4 text-left shadow-xs sm:grid-cols-3 sm:rounded-3xl sm:p-5"
+          >
+            <div>
+              <p className="text-[10px] font-medium text-stone-400">本轮表现</p>
+              <p className="mt-1 text-sm text-stone-800">{evaluation.observed_level} · {evaluation.confidence}置信度</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-medium text-stone-400">做得比较好的地方</p>
+              <p className="mt-1 text-xs leading-5 text-stone-700">{evaluation.strengths?.[0] || '暂未形成明确优势证据'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-medium text-stone-400">下一步</p>
+              <p className="mt-1 text-xs leading-5 text-stone-700">{evaluation.next_step}</p>
+            </div>
+          </motion.div>
+        )}
 
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }} className="w-full py-2">
           <div className={`mx-auto grid max-w-4xl justify-center gap-4 sm:gap-5 ${totalPoolCards.length <= 2 ? 'max-w-lg grid-cols-1 sm:grid-cols-2' : totalPoolCards.length === 3 ? 'max-w-3xl grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'}`}>

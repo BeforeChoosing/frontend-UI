@@ -70,6 +70,24 @@ test('演示确认卡池不读取或修改正式模式能力卡状态', () => {
   );
 });
 
+test('演示业务不复用正式账号身份或能力库', () => {
+  assert.match(appSource, /useProfileCards\(appMode === 'use' && auth\.isLoggedIn, auth\.user\?\.id\)/);
+  assert.match(appSource, /isLoggedIn=\{appMode === 'use' && auth\.isLoggedIn\}/);
+  assert.match(appSource, /userId=\{appMode === 'use' \? auth\.user\?\.id : undefined\}/);
+  assert.match(appSource, /const visibleAuth: UserAuth = appMode === 'use' \? auth : \{ isLoggedIn: false \}/);
+});
+
+test('退出时先清理前端账号态，再等待服务端撤销', () => {
+  const logoutStart = appSource.indexOf('const handleLogout = async () =>');
+  const logoutEnd = appSource.indexOf('\n  };', logoutStart);
+  const logoutSource = appSource.slice(logoutStart, logoutEnd);
+
+  assert.ok(logoutStart >= 0);
+  assert.ok(logoutSource.indexOf('setAuth({ isLoggedIn: false })') < logoutSource.indexOf('await logoutRequest'));
+  assert.match(logoutSource, /setUnlockedCards\(\[\]\)/);
+  assert.match(logoutSource, /setPendingScreen\(null\)/);
+});
+
 test('演示探索方向初始为空，由一键装配填充能力卡', () => {
   assert.doesNotMatch(appSource, /careerSelectedCardIds: demoSelectedCards\.map\(card => card\.id\)/);
   assert.match(appSource, /setCareerSelectedCardIds\(\[\]\)/);
@@ -78,13 +96,13 @@ test('演示探索方向初始为空，由一键装配填充能力卡', () => {
   assert.match(exploreSource, /const handleFastEquip = \(\) => \{/);
 });
 
-test('03 末步字段对齐，提交评价使用同步弹簧过渡', () => {
+test('03 末步使用单一作答框，提交评价使用同步弹簧过渡', () => {
   const workbenchSource = readFileSync(new URL('../src/components/TrialWorkbenchScreen.tsx', import.meta.url), 'utf8');
   const trialSource = readFileSync(new URL('../src/components/DynamicTrialTaskScreen.tsx', import.meta.url), 'utf8');
 
-  assert.match(workbenchSource, /grid items-start gap-3 sm:grid-cols-\[180px_minmax\(0,1fr\)\]/);
-  assert.match(workbenchSource, /select[\s\S]*?className="mt-2 h-14 w-full/);
-  assert.match(workbenchSource, /textarea[\s\S]*?rows=\{2\}[\s\S]*?h-14 min-h-14/);
+  assert.doesNotMatch(workbenchSource, /处理决定|调整依据|onEventDecisionChange|onEventResponseChange/);
+  assert.doesNotMatch(trialSource, /onEventDecisionChange|onEventResponseChange/);
+  assert.match(workbenchSource, /提交任务并评价/);
   assert.match(trialSource, /<AnimatePresence initial=\{false\} mode="sync">/);
   assert.match(trialSource, /key="evaluation"[\s\S]*?type: 'spring'/);
 });

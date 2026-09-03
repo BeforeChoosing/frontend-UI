@@ -13,10 +13,14 @@ export type ProfileExplorationFocus =
   | 'transfer'
   | 'evidence';
 
+export type ProfileStarDimension = 'S' | 'T' | 'A' | 'R';
+
 export interface ProfileExplorationMessage {
   role: 'user' | 'assistant';
   content: string;
 }
+
+export type ProfileModelTier = 'fast' | 'balanced' | 'reasoning';
 
 export interface ProfileExplorationRequest {
   experience_text: string;
@@ -24,6 +28,10 @@ export interface ProfileExplorationRequest {
   target_role?: string;
   existing_card_titles?: string[];
   request_id?: string;
+  model_tier?: ProfileModelTier;
+  round_number?: number;
+  star_history?: ProfileStarDimension[];
+  stop_requested?: boolean;
 }
 
 export interface ProfileExplorationResponse {
@@ -34,7 +42,47 @@ export interface ProfileExplorationResponse {
   evidence_gap: string;
   potential_hypotheses: string[];
   ready_for_proposal: boolean;
+  model?: string | null;
+  model_pool?: string | null;
+  cache_hit: boolean;
   notice: string;
+  star_dimension?: ProfileStarDimension;
+  round_number?: number;
+  next_action?: 'ask' | 'summarize';
+  finalization_reason?: string | null;
+}
+
+export interface ProfileConversationSnapshotMessage {
+  id: string;
+  role: 'user' | 'ai';
+  content: string;
+  timestamp?: string;
+  detected_signals?: string[];
+  model?: string | null;
+  cache_hit?: boolean | null;
+}
+
+export interface ProfileConversationMaterial {
+  name: string;
+  size?: string;
+  type: 'resume' | 'portfolio' | 'link';
+  server_file_id?: string | null;
+}
+
+export interface ProfileConversationSnapshotUpsert {
+  title: string;
+  messages: ProfileConversationSnapshotMessage[];
+  evidence?: string;
+  materials?: ProfileConversationMaterial[];
+  target_career_state?: 'unselected' | 'has_target' | 'no_target';
+  target_role?: string;
+  model_tier?: ProfileModelTier;
+}
+
+export interface ProfileConversationSnapshot extends ProfileConversationSnapshotUpsert {
+  id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MaterialExtractResponse {
@@ -42,6 +90,34 @@ export interface MaterialExtractResponse {
   text: string;
   char_count: number;
   truncated: boolean;
+  stored_material_id: string;
+  notice: string;
+}
+
+export interface AttachmentExperienceCandidate {
+  id: string;
+  title: string;
+  excerpt: string;
+  why_worth_exploring: string;
+  suggested_focus: ProfileStarDimension;
+  source_refs: string[];
+}
+
+export interface MaterialUnderstandingRequest {
+  file_name: string;
+  text: string;
+  stored_material_id?: string | null;
+}
+
+export interface MaterialUnderstandingResponse {
+  trace_id: string;
+  file_name: string;
+  summary: string;
+  experience_candidates: AttachmentExperienceCandidate[];
+  suggested_action: 'explore' | 'generate';
+  model?: string | null;
+  model_pool?: string | null;
+  cache_hit: boolean;
   notice: string;
 }
 
@@ -66,6 +142,7 @@ export interface MultimodalEvidenceResponse {
   model: string;
   items: MultimodalEvidenceItem[];
   rejected_count: number;
+  stored_material_id?: string | null;
   notice: string;
 }
 

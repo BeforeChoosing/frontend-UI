@@ -13,19 +13,22 @@ const trialMapSource = readFileSync(new URL('../src/components/TrialTaskMapScree
 const styleSource = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 const cardPlaySource = readFileSync(new URL('../src/components/TrialCardPlayScreen.tsx', import.meta.url), 'utf8');
 const verificationSource = readFileSync(new URL('../src/components/AbilityCardVerificationScreen.tsx', import.meta.url), 'utf8');
+const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+const authModalSource = readFileSync(new URL('../src/components/AuthModal.tsx', import.meta.url), 'utf8');
 
 test('01 使用完整聊天记录、单一输入框和对话附件建立候选证据', () => {
   assert.match(experienceSource, /const \[coachInput, setCoachInput\]/);
   assert.equal(experienceSource.match(/<textarea/g)?.length, 1);
-  assert.match(experienceSource, /Enter \{demoMode && demoProbingActive \? '提交' : '发送'\}/);
-  assert.match(experienceSource, /Shift\+Enter 换行/);
+  assert.match(experienceSource, /event\.key === 'Enter' && !event\.shiftKey/);
+  assert.match(experienceSource, /profile-composer-main flex items-end gap-2/);
   assert.doesNotMatch(experienceSource, /handleSendMessage/);
-  assert.match(experienceSource, /整段用户对话和附件正文/);
-  assert.match(experienceSource, /和你一起把其中的行动与能力线索理清/);
+  assert.match(experienceSource, /uploadedFiles\.length/);
+  assert.match(experienceSource, /我会用几个问题陪你把细节补完整/);
   assert.match(explorationHookSource, /你刚才发送的内容已经保留/);
+  assert.match(explorationHookSource, /cause instanceof Error \? cause\.message/);
   assert.match(experienceSource, /handleTriggerUpload/);
   assert.match(experienceSource, /发送交流/);
-  assert.match(experienceSource, /分析经历/);
+  assert.match(experienceSource, /直接根据材料生成候选能力卡/);
   assert.doesNotMatch(experienceSource, />\s*助手\s*</);
   assert.match(profileApiSource, /\/profile\/exploration\/messages/);
   assert.match(verificationSource, /候选项目经历卡/);
@@ -34,7 +37,7 @@ test('01 使用完整聊天记录、单一输入框和对话附件建立候选�
   assert.match(verificationSource, /onWithdrawConfirmedCard/);
 });
 
-test('01 探索目标与英文斜杠 Skills 接入现有分析链路', () => {
+test('01 探索目标与斜杠快捷指令接入现有分析链路', () => {
   assert.match(experienceSource, /我有目标职业/);
   assert.match(experienceSource, /我还没有明确方向/);
   assert.match(experienceSource, /target_role: targetCareerState === 'has_target'/);
@@ -45,13 +48,16 @@ test('01 探索目标与英文斜杠 Skills 接入现有分析链路', () => {
   assert.match(profileSkillsSource, /outcome: 'candidate-cards'/);
   assert.match(experienceSource, /executeProfileSkill/);
   assert.match(experienceSource, /auditEvent\('profile_skill_invoked'/);
-  assert.match(experienceSource, /Skill 不作为对话发送/);
+  assert.match(experienceSource, /快捷指令/);
   assert.match(experienceSource, /coachInput\.trim\(\)\.startsWith\('\/'\)/);
 });
 
 test('演示模式固定回复后进入四轮成长陪伴追问且不调用模型', () => {
   assert.match(experienceSource, /const DEMO_PROBING_REPLY/);
   assert.match(experienceSource, /const DEMO_PROBING_ROUNDS/);
+  assert.match(experienceSource, /defaultAnswer:/);
+  assert.match(experienceSource, /setDemoProbingInput\(DEMO_PROBING_ROUNDS\[0\]\.defaultAnswer\)/);
+  assert.match(experienceSource, /setDemoProbingInput\(DEMO_PROBING_ROUNDS\[nextRoundIndex\]\.defaultAnswer\)/);
   assert.match(experienceSource, /window\.setInterval/);
   assert.match(experienceSource, /prefers-reduced-motion/);
   assert.match(experienceSource, /if \(demoMode\) \{/);
@@ -66,11 +72,47 @@ test('01 首段提交后锁定页面，仅允许对话记录滚动', () => {
   assert.match(experienceSource, /document\.documentElement\.style\.overflow = 'hidden'/);
   assert.match(styleSource, /height: 100dvh/);
   assert.match(styleSource, /\.profile-chat-scroll \{[\s\S]*?overflow-y: auto;[\s\S]*?overscroll-behavior: contain;/);
-  assert.match(styleSource, /\.profile-composer \{[\s\S]*?flex: 0 0 auto;/);
+  assert.match(experienceSource, /className="profile-composer z-20 shrink-0"/);
   assert.doesNotMatch(experienceSource, /React\.createElement\('textarea'/);
   assert.doesNotMatch(experienceSource, /if \(focusedConversationActive\) \{\s*return/);
   assert.match(experienceSource, /\{showUploadModal &&/);
   assert.match(experienceSource, /成长陪伴对话记录/);
+  assert.match(experienceSource, /当前正在处理/);
+  assert.doesNotMatch(experienceSource, /已轮到你，Agent 正在处理/);
+  assert.match(styleSource, /\.experience-screen \{[\s\S]*?max-width: 896px;/);
+  assert.doesNotMatch(styleSource, /--profile-composer-height/);
+  assert.match(experienceSource, /profile-composer-main flex items-end gap-2/);
+  assert.match(experienceSource, /flex h-8 shrink-0 items-center justify-center/);
+  assert.doesNotMatch(styleSource, /\.experience-screen \.profile-composer-input[\s\S]*?max-height: 64px/);
+});
+
+test('正式模式可新建真正空白对话，并从页面恢复账号内历史', () => {
+  assert.match(experienceSource, /setCoachInput\(demoMode \? demoExperienceText : ''\)/);
+  assert.match(experienceSource, /setTargetCareerState\(demoMode \? 'has_target' : 'unselected'\)/);
+  assert.match(experienceSource, /setTargetRole\(demoMode \? DEFAULT_TARGET_ROLE : ''\)/);
+  assert.match(experienceSource, /conversations-v1/);
+  assert.match(experienceSource, /历史对话/);
+  assert.match(experienceSource, /restoreConversation/);
+  assert.match(experienceSource, /!demoMode && !userId/);
+});
+
+test('正式对话同步服务器并展示本轮实际模型与缓存状态', () => {
+  assert.match(experienceSource, /messages\.slice\(-49\)/);
+  assert.match(experienceSource, /listProfileConversationSnapshots\(50\)/);
+  assert.match(experienceSource, /upsertProfileConversationSnapshot/);
+  assert.match(experienceSource, /缓存命中/);
+  assert.match(experienceSource, /实时生成/);
+  assert.match(profileApiSource, /\/profile\/conversation-snapshots/);
+});
+
+test('正式首页不强制登录，进入阶段时才打开可关闭登录层', () => {
+  assert.match(appSource, /screen !== 'landing'/);
+  assert.match(appSource, /setPendingScreen\(screen\)/);
+  assert.match(appSource, /isOpen=\{isAuthOpen\}/);
+  assert.doesNotMatch(appSource, /isOpen=\{isAuthOpen \|\|/);
+  assert.match(authModalSource, /onClick=\{onClose\}/);
+  assert.match(authModalSource, /忘记密码/);
+  assert.match(authModalSource, /6 位邮箱验证码/);
 });
 
 test('03 试路地图采用 Demo 的八环节路径与三张直接启动任务卡', () => {

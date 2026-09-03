@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScreenMode, SkillCard, UserAuth } from './types';
 import { Header } from './components/Header';
 import { LandingHero } from './components/LandingHero';
@@ -20,7 +20,7 @@ import type { ApiCareerRecommendation, ApiExperienceSummary, ProfileCardPatchReq
 import { loadDemoProgress, saveDemoProgress } from './services/demoProgress';
 import { createCareerSelectionSignature } from './services/careerRecommendationState';
 import { loadAppMode, saveAppMode, type AppMode } from './services/appMode';
-import { resetDemoReplayStorage } from './services/demoReplay';
+import { clearLegacyDemoTrialSessionStorage, resetDemoReplayStorage } from './services/demoReplay';
 import { resetPendingDemoTrialLoads } from './hooks/useDynamicTrialTask';
 import {
   DEMO_CAREER_RECOMMENDATION,
@@ -48,6 +48,8 @@ export default function App() {
           draftCards: DEMO_SKILL_CARDS.slice(0, 3),
         }
       : {},
+    window.localStorage,
+    initialAppMode === 'use' ? null : undefined,
   ));
   const [appMode, setAppMode] = useState<AppMode>(initialAppMode);
   const [currentScreen, setCurrentScreen] = useState<ScreenMode>(initialProgress.currentScreen);
@@ -62,33 +64,53 @@ export default function App() {
   const [demoReplayId, setDemoReplayId] = useState(0);
   const [profileFocusRequest, setProfileFocusRequest] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [pendingScreen, setPendingScreen] = useState<ScreenMode | null>(null);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
   const [isFigmaGuideOpen, setIsFigmaGuideOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<SkillCard | null>(null);
+  const [isStageTwoFocusMode, setIsStageTwoFocusMode] = useState<boolean>(false);
   const [auth, setAuth] = useState<UserAuth>({
     isLoggedIn: false,
   });
   const [authChecking, setAuthChecking] = useState(initialAppMode === 'use');
+  const authEpochRef = useRef(0);
   const {
     cards: persistedCards,
     version: profileVersion,
     updatedAt: profileUpdatedAt,
     evidence: profileEvidence,
     status: profileStatus,
+    ownerId: profileOwnerId,
     refresh: refreshProfile,
     confirmCards,
     updateCard,
     removeCard,
-  } = useProfileCards(appMode !== 'use' || auth.isLoggedIn);
+  } = useProfileCards(appMode === 'use' && auth.isLoggedIn, auth.user?.id);
+
+  const restoreFormalProgress = (userId: string) => {
+    const progress = loadDemoProgress('use', {}, window.localStorage, userId);
+    setCurrentScreen(progress.currentScreen);
+    setSelectedTrialTaskId(progress.selectedTrialTaskId);
+    setCareerSelectedCardIds(progress.careerSelectedCardIds);
+    setCareerRecommendation(progress.careerRecommendation);
+    setCareerRecommendationCardSignature(progress.careerRecommendationCardSignature);
+    setDraftCards(progress.draftCards);
+    setDraftExperience(progress.draftExperience);
+  };
 
   useEffect(() => {
-    if (persistedCards.length > 0) {
+    clearLegacyDemoTrialSessionStorage();
+  }, []);
+
+  useEffect(() => {
+    if (appMode === 'use' && auth.isLoggedIn && persistedCards.length > 0) {
       setUnlockedCards(prev => mergeCardsById(prev, persistedCards));
     }
-  }, [persistedCards]);
+  }, [appMode, auth.isLoggedIn, persistedCards]);
 
   useEffect(() => {
+    if (appMode === 'use' && !auth.user?.id) return;
     saveDemoProgress({
       currentScreen,
       selectedTrialTaskId,
@@ -97,8 +119,8 @@ export default function App() {
       careerRecommendationCardSignature,
       draftCards,
       draftExperience,
-    }, appMode);
-  }, [appMode, careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, draftCards, draftExperience, selectedTrialTaskId]);
+    }, appMode, window.localStorage, auth.user?.id);
+  }, [appMode, auth.user?.id, careerRecommendation, careerRecommendationCardSignature, careerSelectedCardIds, currentScreen, draftCards, draftExperience, selectedTrialTaskId]);
 
   useEffect(() => {
     if (appMode !== 'use') return undefined;
@@ -142,20 +164,22 @@ export default function App() {
       return;
     }
     let active = true;
+    const authEpoch = ++authEpochRef.current;
     setAuthChecking(true);
     const token = getAccessToken();
     if (!token) {
       setAuth({ isLoggedIn: false });
       setUnlockedCards([]);
       setAuthChecking(false);
-      setIsAuthOpen(true);
+      setIsAuthOpen(false);
       return () => {
         active = false;
       };
     }
     void getCurrentUser()
       .then((user) => {
-        if (!active) return;
+        if (!active || authEpochRef.current !== authEpoch) return;
+        restoreFormalProgress(user.id);
         setAuth({
           isLoggedIn: true,
           user: {
@@ -168,14 +192,21 @@ export default function App() {
         setIsAuthOpen(false);
       })
       .catch(() => {
-        if (!active) return;
+        if (!active || authEpochRef.current !== authEpoch) return;
         clearAccessToken();
         setAuth({ isLoggedIn: false });
         setUnlockedCards([]);
-        setIsAuthOpen(true);
+        setCurrentScreen('landing');
+        setSelectedTrialTaskId('A-02');
+        setCareerSelectedCardIds([]);
+        setCareerRecommendation(null);
+        setCareerRecommendationCardSignature(null);
+        setDraftCards([]);
+        setDraftExperience(null);
+        setIsAuthOpen(false);
       })
       .finally(() => {
-        if (active) setAuthChecking(false);
+        if (active && authEpochRef.current === authEpoch) setAuthChecking(false);
       });
     return () => {
       active = false;
@@ -185,8 +216,16 @@ export default function App() {
   useEffect(() => {
     const onAuthRequired = () => {
       if (appMode !== 'use') return;
+      authEpochRef.current += 1;
       setAuth({ isLoggedIn: false });
       setUnlockedCards([]);
+      setCurrentScreen('landing');
+      setSelectedTrialTaskId('A-02');
+      setCareerSelectedCardIds([]);
+      setCareerRecommendation(null);
+      setCareerRecommendationCardSignature(null);
+      setDraftCards([]);
+      setDraftExperience(null);
       setIsAuthOpen(true);
     };
     window.addEventListener('before-choosing:auth-required', onAuthRequired);
@@ -203,12 +242,12 @@ export default function App() {
       careerRecommendationCardSignature,
       draftCards,
       draftExperience,
-    }, appMode);
+    }, appMode, window.localStorage, auth.user?.id);
     saveAppMode(nextMode);
     setAppMode(nextMode);
     if (nextMode === 'use' && !getAccessToken()) {
       setAuth({ isLoggedIn: false });
-      setIsAuthOpen(true);
+      setIsAuthOpen(false);
       setAuthChecking(false);
     }
     if (nextMode === 'demo') {
@@ -223,6 +262,8 @@ export default function App() {
             draftCards: DEMO_SKILL_CARDS.slice(0, 3),
           }
         : {},
+      window.localStorage,
+      nextMode === 'use' ? auth.user?.id || null : undefined,
     );
     setCurrentScreen(progress.currentScreen);
     setSelectedTrialTaskId(progress.selectedTrialTaskId);
@@ -268,31 +309,69 @@ export default function App() {
   };
 
   const handleLoginSuccess = (session: AuthSession) => {
+    authEpochRef.current += 1;
+    if (appMode !== 'use') {
+      saveAppMode('use');
+      setAppMode('use');
+    }
+    setUnlockedCards([]);
+    restoreFormalProgress(session.user.id);
     setAuth({
       isLoggedIn: true,
       user: {
         id: session.user.id,
         name: session.user.display_name,
         email: session.user.email,
-        unlockedCards: unlockedCards,
+        unlockedCards: [],
       },
     });
     setAuthChecking(false);
     setIsAuthOpen(false);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logoutAccount();
-    } finally {
-      setAuth({ isLoggedIn: false });
-      setUnlockedCards([]);
-      if (appMode === 'use') setIsAuthOpen(true);
+    if (pendingScreen) {
+      setCurrentScreen(pendingScreen);
+      setPendingScreen(null);
     }
   };
 
-  const [isStageTwoFocusMode, setIsStageTwoFocusMode] = useState<boolean>(false);
-  const activeCards = appMode === 'demo' ? DEMO_SKILL_CARDS : persistedCards;
+  const navigateToScreen = (screen: ScreenMode) => {
+    setIsStageTwoFocusMode(false);
+    if (appMode === 'use' && !auth.isLoggedIn && screen !== 'landing') {
+      setPendingScreen(screen);
+      setIsAuthOpen(true);
+      return;
+    }
+    setCurrentScreen(screen);
+  };
+
+  const handleLogout = async () => {
+    const logoutRequest = logoutAccount();
+    authEpochRef.current += 1;
+    setAuth({ isLoggedIn: false });
+    setUnlockedCards([]);
+    setCurrentScreen('landing');
+    setSelectedTrialTaskId('A-02');
+    setCareerSelectedCardIds([]);
+    setCareerRecommendation(null);
+    setCareerRecommendationCardSignature(null);
+    setDraftCards([]);
+    setDraftExperience(null);
+    setPendingScreen(null);
+    setSelectedCard(null);
+    setIsStageTwoFocusMode(false);
+    if (appMode === 'use') setIsAuthOpen(false);
+    try {
+      await logoutRequest;
+    } catch (cause) {
+      console.warn('账号已在本机退出，但服务端会话撤销未完成。', cause);
+    }
+  };
+
+  const activeCards = appMode === 'demo'
+    ? DEMO_SKILL_CARDS
+    : auth.isLoggedIn && profileOwnerId === auth.user?.id
+      ? persistedCards
+      : [];
+  const visibleAuth: UserAuth = appMode === 'use' ? auth : { isLoggedIn: false };
 
   // Dynamic subtle ambient glows matching Craft.do warm paper workspace
   const getScreenBackground = (screen: ScreenMode) => {
@@ -330,17 +409,16 @@ export default function App() {
         <Header
           currentScreen={currentScreen}
           onNavigate={(screen) => {
-            setIsStageTwoFocusMode(false);
             if (screen === 'auth') {
               setIsAuthOpen(true);
             } else {
-              setCurrentScreen(screen);
+              navigateToScreen(screen);
             }
           }}
           onOpenAuth={() => setIsAuthOpen(true)}
           onLogout={handleLogout}
           onOpenFigmaGuide={() => setIsFigmaGuideOpen(true)}
-          isLoggedIn={auth.isLoggedIn}
+          isLoggedIn={appMode === 'use' && auth.isLoggedIn}
           unlockedCardCount={activeCards.length}
         />
       )}
@@ -353,25 +431,29 @@ export default function App() {
           {currentScreen === 'landing' && (
             <StageTransition key="landing">
               <LandingHero
-                onStartExplore={() => setCurrentScreen('input-experience')}
+                onStartExplore={() => navigateToScreen('input-experience')}
                 onOpenWiki={() => setIsWikiOpen(true)}
-                onOpenExample={() => setCurrentScreen('stage2')}
+                onOpenExample={() => navigateToScreen('stage2')}
                 onOpenAbout={() => setIsExampleOpen(true)}
                 onSelectCard={(card) => setSelectedCard(card)}
+                onExploreDirection={() => navigateToScreen('career-explore')}
+                onOpenTrial={() => navigateToScreen('stage2')}
+                onOpenReport={() => navigateToScreen('report')}
               />
             </StageTransition>
           )}
 
           {currentScreen === 'input-experience' && (
-            <StageTransition key={`input-experience-${appMode}-${demoReplayId}`}>
+            <StageTransition key={`input-experience-${appMode}-${auth.user?.id || 'anonymous'}-${demoReplayId}`}>
               <ExperienceInputScreen
                 onGenerateCards={(cards, experience) => {
                   setDraftCards(cards);
                   setDraftExperience(experience);
-                  setCurrentScreen('verify-cards');
+                  navigateToScreen('verify-cards');
                 }}
-                onBackToLanding={() => setCurrentScreen('landing')}
+                onBackToLanding={() => navigateToScreen('landing')}
                 demoMode={appMode === 'demo'}
+                userId={appMode === 'use' ? auth.user?.id : undefined}
                 demoCards={DEMO_SKILL_CARDS.slice(0, 3)}
                 demoExperienceText={DEMO_EXPERIENCE_TEXT}
                 focusRequest={profileFocusRequest}
@@ -401,13 +483,13 @@ export default function App() {
                   await handleDeleteProfileCard(cardId);
                 }}
                 onContinueSupplement={() => {
-                  setCurrentScreen('input-experience');
+                  navigateToScreen('input-experience');
                 }}
                 onStartCareerExplore={() => {
-                  setCurrentScreen('career-explore');
+                  navigateToScreen('career-explore');
                 }}
-                onModifyExperience={() => setCurrentScreen('input-experience')}
-                onRegenerate={() => setCurrentScreen('input-experience')}
+                onModifyExperience={() => navigateToScreen('input-experience')}
+                onRegenerate={() => navigateToScreen('input-experience')}
                 storageNamespace={appMode}
               />
             </StageTransition>
@@ -424,7 +506,7 @@ export default function App() {
                 demoRecommendation={appMode === 'demo' ? DEMO_CAREER_RECOMMENDATION : null}
                 onStartStageTwo={(taskId) => {
                   setSelectedTrialTaskId(taskId);
-                  setCurrentScreen('stage2');
+                  navigateToScreen('stage2');
                 }}
                 onSelectionChange={setCareerSelectedCardIds}
                 onRecommendationChange={(nextRecommendation, cardSignature) => {
@@ -438,16 +520,17 @@ export default function App() {
           )}
 
           {currentScreen === 'stage2' && (
-            <StageTransition key={`stage2-${appMode}-${demoReplayId}`}>
+            <StageTransition key={`stage2-${appMode}-${auth.user?.id || 'anonymous'}-${demoReplayId}`}>
               <DynamicTrialTaskScreen
                 taskId={selectedTrialTaskId}
                 confirmedCards={activeCards}
                 demoMode={appMode === 'demo'}
-                onBackToExplore={() => setCurrentScreen('career-explore')}
-                onEnterProfile={() => setCurrentScreen('profile')}
+                userId={appMode === 'use' ? auth.user?.id : undefined}
+                onBackToExplore={() => navigateToScreen('career-explore')}
+                onEnterProfile={() => navigateToScreen('profile')}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onTaskChange={setSelectedTrialTaskId}
-                onTrialComplete={refreshProfile}
+                onTrialComplete={appMode === 'use' ? refreshProfile : undefined}
                 onUpdateCardsFromTrial={async (cards) => {
                   if (appMode === 'demo') {
                     setDemoUnlockedCards(prev => mergeCardsById(prev, cards));
@@ -469,8 +552,8 @@ export default function App() {
                 profileEvidence={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE : profileEvidence}
                 profileVersion={appMode === 'demo' ? 4 : profileVersion}
                 profileUpdatedAt={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE[0].created_at : profileUpdatedAt}
-                auth={auth}
-                onNavigate={(screen) => setCurrentScreen(screen)}
+                auth={visibleAuth}
+                onNavigate={navigateToScreen}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onUpdateCard={appMode === 'use' ? handleUpdateProfileCard : undefined}
                 onDeleteCard={appMode === 'use' ? handleDeleteProfileCard : undefined}
@@ -487,8 +570,8 @@ export default function App() {
                 profileEvidence={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE : profileEvidence}
                 profileVersion={appMode === 'demo' ? 4 : profileVersion}
                 profileUpdatedAt={appMode === 'demo' ? DEMO_PROFILE_EVIDENCE[0].created_at : profileUpdatedAt}
-                auth={auth}
-                onNavigate={(screen) => setCurrentScreen(screen)}
+                auth={visibleAuth}
+                onNavigate={navigateToScreen}
                 onOpenCardDetail={(card) => setSelectedCard(card)}
                 onUpdateCard={appMode === 'use' ? handleUpdateProfileCard : undefined}
                 onDeleteCard={appMode === 'use' ? handleDeleteProfileCard : undefined}
@@ -502,12 +585,13 @@ export default function App() {
 
       {!isStageTwoFocusMode && (appMode === 'demo' || auth.isLoggedIn) && (
         <GrowthCompanionWidget
-          key={`growth-companion-${appMode}-${currentScreen}`}
+          key={`growth-companion-${appMode}-${auth.user?.id || 'anonymous'}-${currentScreen}`}
           demoMode={appMode === 'demo'}
+          userId={appMode === 'use' ? auth.user?.id : undefined}
           currentScreen={currentScreen}
           existingCardTitles={activeCards.map(card => card.title)}
           onContinue={() => {
-            setCurrentScreen('input-experience');
+            navigateToScreen('input-experience');
             setProfileFocusRequest(value => value + 1);
           }}
         />
@@ -515,13 +599,10 @@ export default function App() {
 
       {/* Modals & Overlays */}
       <AuthModal
-        isOpen={isAuthOpen || (appMode === 'use' && !authChecking && !auth.isLoggedIn)}
-        onClose={() => {
-          if (appMode !== 'use' || auth.isLoggedIn) setIsAuthOpen(false);
-        }}
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
         onLoginSuccess={handleLoginSuccess}
         formalMode={appMode === 'use'}
-        required={appMode === 'use' && !auth.isLoggedIn}
       />
 
       <CareerWikiModal
@@ -529,7 +610,7 @@ export default function App() {
         onClose={() => setIsWikiOpen(false)}
         onSelectCareer={() => {
           setIsWikiOpen(false);
-          setCurrentScreen('stage2');
+          navigateToScreen('stage2');
         }}
       />
 
@@ -538,7 +619,7 @@ export default function App() {
         onClose={() => setIsExampleOpen(false)}
         onStartExample={() => {
           setIsExampleOpen(false);
-          setCurrentScreen('input-experience');
+          navigateToScreen('input-experience');
         }}
       />
 
@@ -547,11 +628,11 @@ export default function App() {
         onClose={() => setIsFigmaGuideOpen(false)}
         onSelectStep={(step) => {
           setIsFigmaGuideOpen(false);
-          if (step === 1) setCurrentScreen('input-experience');
-          else if (step === 2) setCurrentScreen('career-explore');
-          else if (step === 3) setCurrentScreen('stage2');
-          else if (step === 4) setCurrentScreen('stage2');
-          else if (step === 5 || step === 6) setCurrentScreen('profile');
+          if (step === 1) navigateToScreen('input-experience');
+          else if (step === 2) navigateToScreen('career-explore');
+          else if (step === 3) navigateToScreen('stage2');
+          else if (step === 4) navigateToScreen('stage2');
+          else if (step === 5 || step === 6) navigateToScreen('profile');
         }}
       />
 

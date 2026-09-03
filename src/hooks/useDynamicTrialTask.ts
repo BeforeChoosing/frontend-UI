@@ -15,6 +15,10 @@ import type {
   ApiTrialTaskDefinition,
   TrialTaskId,
 } from '../types/api';
+import {
+  createLocalDemoTrialSession,
+  getLocalDemoTrialTask,
+} from '../data/demoTrialCatalog';
 
 type DynamicTrialStatus = 'loading' | 'ready' | 'saving' | 'submitting' | 'error';
 
@@ -34,52 +38,63 @@ export function resetPendingDemoTrialLoads(): void {
   }
 }
 
-function storageKey(taskId: TrialTaskId, namespace: 'demo' | 'use') {
+function storageKey(taskId: TrialTaskId, namespace: 'demo' | 'use', userId?: string) {
   return namespace === 'use'
-    ? `before-choosing:dynamic-trial:${taskId}`
+    ? `before-choosing:dynamic-trial:${taskId}${userId ? `:${encodeURIComponent(userId)}` : ''}`
     : `before-choosing:dynamic-trial:demo:${taskId}`;
 }
 
-async function resolveDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use'): Promise<LoadedDynamicTrial> {
+async function resolveDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use', userId?: string): Promise<LoadedDynamicTrial> {
+  if (namespace === 'demo') {
+    const task = getLocalDemoTrialTask(taskId);
+    return { task, session: createLocalDemoTrialSession(task) };
+  }
   const task = await getDynamicTrialTask(taskId);
   let session: ApiDynamicTrialSession | null = null;
-  const storedId = window.localStorage.getItem(storageKey(taskId, namespace));
+  const storedId = window.localStorage.getItem(storageKey(taskId, namespace, userId));
 
   if (storedId) {
     try {
       session = await getDynamicTrialSession(storedId);
-      if (session.task_id !== taskId) session = null;
+      // A submitted session is historical evidence, not a reason to skip the
+      // task on the next visit. Keep the old row on the server, but start a
+      // fresh workbench session so the user can redo the task.
+      if (session.task_id !== taskId || session.status === 'submitted') {
+        session = null;
+        window.localStorage.removeItem(storageKey(taskId, namespace, userId));
+      }
     } catch (cause) {
       if (!(cause instanceof ApiClientError) || cause.status !== 404) throw cause;
-      window.localStorage.removeItem(storageKey(taskId, namespace));
+      window.localStorage.removeItem(storageKey(taskId, namespace, userId));
     }
   }
 
   if (!session) {
     session = await createDynamicTrialSession(taskId);
-    window.localStorage.setItem(storageKey(taskId, namespace), session.id);
+    window.localStorage.setItem(storageKey(taskId, namespace, userId), session.id);
   }
 
   return { task, session };
 }
 
-function loadDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use'): Promise<LoadedDynamicTrial> {
-  const pendingKey = `${namespace}:${taskId}`;
+function loadDynamicTrial(taskId: TrialTaskId, namespace: 'demo' | 'use', userId?: string): Promise<LoadedDynamicTrial> {
+  const pendingKey = `${namespace}:${userId || 'anonymous'}:${taskId}`;
   const pending = pendingTrialLoads.get(pendingKey);
   if (pending) return pending;
 
-  const request = resolveDynamicTrial(taskId, namespace).finally(() => {
+  const request = resolveDynamicTrial(taskId, namespace, userId).finally(() => {
     if (pendingTrialLoads.get(pendingKey) === request) pendingTrialLoads.delete(pendingKey);
   });
   pendingTrialLoads.set(pendingKey, request);
   return request;
 }
 
-export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'use' = 'use') {
+export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'use' = 'use', userId?: string) {
   const [task, setTask] = useState<ApiTrialTaskDefinition | null>(null);
   const [session, setSession] = useState<ApiDynamicTrialSession | null>(null);
   const [status, setStatus] = useState<DynamicTrialStatus>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const sessionActionRef = useRef<Promise<ApiDynamicTrialSession> | null>(null);
   const coachActionRef = useRef<Promise<string> | null>(null);
 
@@ -89,7 +104,7 @@ export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'us
       setStatus('loading');
       setError(null);
       try {
-        const { task: taskResponse, session: sessionResponse } = await loadDynamicTrial(taskId, namespace);
+        const { task: taskResponse, session: sessionResponse } = await loadDynamicTrial(taskId, namespace, userId);
         if (!cancelled) {
           setTask(taskResponse);
           setSession(sessionResponse);
@@ -104,7 +119,7 @@ export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'us
     };
     void load();
     return () => { cancelled = true; };
-  }, [namespace, taskId]);
+  }, [namespace, reloadNonce, taskId, userId]);
 
   const run = useCallback(async <T extends ApiDynamicTrialSession>(
     state: DynamicTrialStatus,
@@ -133,19 +148,33 @@ export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'us
 
   const save = useCallback((answer: ApiDynamicTrialAnswer) => {
     if (!session) throw new Error('试路会话尚未准备完成。');
+    if (namespace === 'demo') {
+      const next = { ...session, answer, updated_at: new Date().toISOString() };
+      setSession(next);
+      return Promise.resolve(next);
+    }
     return run('saving', () => saveDynamicTrialAnswer(session.id, answer));
-  }, [run, session]);
+  }, [namespace, run, session]);
 
   const revealEvent = useCallback(() => {
     if (!session) throw new Error('试路会话尚未准备完成。');
+    if (namespace === 'demo') {
+      const next = { ...session, event_revealed: true, updated_at: new Date().toISOString() };
+      setSession(next);
+      return Promise.resolve(next);
+    }
     return run('saving', () => revealDynamicTrialEvent(session.id));
-  }, [run, session]);
+  }, [namespace, run, session]);
 
   const requestCoach = useCallback(async (
     level: 1 | 2 | 3,
     draftAnswer: ApiDynamicTrialAnswer,
   ) => {
     if (!session) throw new Error('试路会话尚未准备完成。');
+    if (namespace === 'demo') {
+      const prompt = task?.coach_prompts[level - 1] || '请先整理当前判断、证据来源和待验证项。';
+      return prompt;
+    }
     if (coachActionRef.current) return coachActionRef.current;
     const request = (async () => {
       setStatus('saving');
@@ -168,12 +197,31 @@ export function useDynamicTrialTask(taskId: TrialTaskId, namespace: 'demo' | 'us
     })();
     coachActionRef.current = request;
     return request;
-  }, [session]);
+  }, [namespace, session, task]);
 
   const submit = useCallback(() => {
     if (!session) throw new Error('试路会话尚未准备完成。');
+    if (namespace === 'demo') {
+      const now = new Date().toISOString();
+      const next = { ...session, status: 'submitted' as const, updated_at: now, submitted_at: now };
+      setSession(next);
+      return Promise.resolve(next);
+    }
     return run('submitting', () => submitDynamicTrialSession(session.id));
-  }, [run, session]);
+  }, [namespace, run, session]);
 
-  return { task, session, status, error, save, revealEvent, requestCoach, submit };
+  const retry = useCallback(() => setReloadNonce(value => value + 1), []);
+
+  const restart = useCallback(() => {
+    if (namespace === 'use') {
+      window.localStorage.removeItem(storageKey(taskId, namespace, userId));
+    }
+    setTask(null);
+    setSession(null);
+    setError(null);
+    setStatus('loading');
+    setReloadNonce(value => value + 1);
+  }, [namespace, taskId, userId]);
+
+  return { task, session, status, error, save, revealEvent, requestCoach, submit, retry, restart };
 }

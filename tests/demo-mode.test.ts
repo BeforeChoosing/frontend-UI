@@ -116,3 +116,27 @@ test('普通模式切换分别保存并恢复演示与正式流程进度', () =>
   assert.equal(loadDemoProgress('demo', {}, storage).currentScreen, 'career-explore');
   assert.equal(loadDemoProgress('use', {}, storage).currentScreen, 'input-experience');
 });
+
+test('正式模式流程进度按账号隔离，且未登录不会恢复旧账号进度', () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem(key: string) { return values.get(key) ?? null; },
+    setItem(key: string, value: string) { values.set(key, value); },
+  };
+  const shared = {
+    selectedTrialTaskId: 'A-02' as const,
+    careerSelectedCardIds: [],
+    careerRecommendation: null,
+    careerRecommendationCardSignature: null,
+    draftCards: [],
+    draftExperience: null,
+  };
+
+  saveDemoProgress({ ...shared, currentScreen: 'profile' }, 'use', storage, 'account-a');
+
+  assert.equal(loadDemoProgress('use', {}, storage, 'account-a').currentScreen, 'profile');
+  assert.equal(loadDemoProgress('use', {}, storage, 'account-b').currentScreen, 'landing');
+  assert.equal(loadDemoProgress('use', {}, storage, null).currentScreen, 'landing');
+  assert.notEqual(progressStorageKey('use', 'account-a'), progressStorageKey('use', 'account-b'));
+  assert.notEqual(trialStepKey('A-02', 'use', 'account-a'), trialStepKey('A-02', 'use', 'account-b'));
+});

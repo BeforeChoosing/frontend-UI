@@ -370,11 +370,21 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   min-height: 0;
 }
 
+/* Keep the profile screen width identical before and after the first message. */
+.experience-screen {
+  width: 100%;
+  max-width: 896px;
+}
+
+.experience-screen .experience-layout {
+  width: 100%;
+  max-width: 896px;
+  margin-inline: auto;
+}
+
 .experience-screen[data-focused="true"] {
   flex: 1 1 0%;
   min-height: 0;
-  width: 100%;
-  max-width: 1152px;
   padding-top: 20px;
   padding-bottom: 64px;
 }
@@ -404,49 +414,36 @@ main > div:has(> .experience-screen[data-focused="true"]) {
   margin-bottom: 20px;
 }
 
-.experience-screen[data-focused="true"] .profile-composer {
-  position: relative;
-  z-index: 20;
-  flex: 0 0 auto;
-  border: 1px solid #e7e5e4;
-  border-radius: 24px;
-  padding: 12px 16px;
-  background: #fff;
-  box-shadow: 0 -4px 24px rgba(28, 26, 24, .04), 0 8px 20px rgba(28, 26, 24, .07);
-}
-
-.experience-screen[data-focused="true"] .profile-composer-card {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-  transform: none;
-}
-
 .experience-screen[data-focused="true"] .profile-intro:hover {
   transform: none;
 }
 
-.experience-screen[data-focused="true"] .profile-composer-input {
-  height: 64px;
-  min-height: 64px;
-  flex: none;
+/* Match the Demo's neutral input treatment; focus must not add a colored ring. */
+.profile-composer-input:focus-visible {
+  outline: none;
+  outline-offset: 0;
 }
 
-.profile-composer-input:focus-visible {
-  outline: 2px solid #a7d8bf;
-  outline-offset: 2px;
-  border-radius: 10px;
+.agent-stream-cursor {
+  display: inline-block;
+  width: 1px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: currentColor;
+  animation: agent-stream-cursor-blink 900ms steps(1, end) infinite;
+}
+
+@keyframes agent-stream-cursor-blink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-stream-cursor { animation: none; }
 }
 
 .experience-screen[data-focused="true"] .profile-composer-note {
   display: none;
-}
-
-.experience-screen[data-focused="true"] .profile-composer-footer {
-  margin-top: 8px;
 }
 
 @media (min-width: 1280px) {

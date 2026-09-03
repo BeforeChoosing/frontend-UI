@@ -31,8 +31,6 @@ interface TrialWorkbenchScreenProps {
   onBackToMap?: () => void;
   onStepChange: (index: number) => void;
   onStepAnswerChange: (value: string) => void;
-  onEventDecisionChange: (decision: '维持' | '调整' | '') => void;
-  onEventResponseChange: (value: string) => void;
   onOpenMaterial: (materialId: string) => void;
   onToggleEvidence: (materialId: string) => void;
   onPrevious: () => void;
@@ -62,8 +60,6 @@ export function TrialWorkbenchScreen({
   onBackToMap,
   onStepChange,
   onStepAnswerChange,
-  onEventDecisionChange,
-  onEventResponseChange,
   onOpenMaterial,
   onToggleEvidence,
   onPrevious,
@@ -247,26 +243,10 @@ export function TrialWorkbenchScreen({
               <div className="rounded-xl border border-stone-200 bg-stone-50/70 p-3"><p className="text-xs text-stone-700">{currentStep.instruction}</p><p className="mt-1 text-[10px] text-stone-400">{currentStep.input_mode} · {currentStep.constraint}</p></div>
               {stepIndex === task.steps.length - 1 && <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3"><p className="text-xs font-bold text-amber-900">{task.event.actor}</p><p className="mt-1 text-xs leading-5 text-amber-800">{task.event.message}</p><p className="mt-1 text-[11px] text-amber-900">{task.event.instruction}</p></div>}
               <div className="min-h-48 flex-1"><TaskStepInput value={answer.step_answers[currentStep.id] || ''} inputMode={currentStep.input_mode} instruction={currentStep.instruction} onChange={onStepAnswerChange} disabled={busy} /></div>
-              {stepIndex === task.steps.length - 1 && (
-                <div className="grid items-start gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
-                  <label className="flex min-w-0 flex-col text-xs font-bold text-stone-800">
-                    <span>处理决定</span>
-                    <select value={answer.event_decision || ''} onChange={event => onEventDecisionChange(event.target.value as '维持' | '调整' | '')} className="mt-2 h-14 w-full rounded-xl border border-stone-200 bg-white px-3 text-xs font-normal">
-                      <option value="">请选择</option>
-                      <option value="维持">维持原判断</option>
-                      <option value="调整">调整原判断</option>
-                    </select>
-                  </label>
-                  <label className="flex min-w-0 flex-col text-xs font-bold text-stone-800">
-                    <span>调整依据</span>
-                    <textarea value={answer.event_response} onChange={event => onEventResponseChange(event.target.value)} rows={2} className="mt-2 h-14 min-h-14 w-full resize-none overflow-y-auto rounded-xl border border-stone-200 bg-white p-2.5 text-xs font-normal leading-5" />
-                  </label>
-                </div>
-              )}
             </div>
             <div className="flex shrink-0 items-center justify-between border-t border-stone-200 px-4 py-3">
               <button onClick={onPrevious} disabled={stepIndex === 0 || busy} className="craft-btn-secondary px-4 py-2 text-xs disabled:opacity-40">上一步</button>
-              {stepIndex < task.steps.length - 1 ? <button onClick={onNext} disabled={busy || !answer.step_answers[currentStep.id]?.trim()} className="craft-btn-black flex items-center gap-1.5 px-5 py-2 text-xs disabled:opacity-40">保存并继续<ArrowRight className="h-3.5 w-3.5" /></button> : <button onClick={onSubmit} disabled={busy || !answer.step_answers[currentStep.id]?.trim() || !answer.event_decision || !answer.event_response.trim()} aria-busy={busy} className="craft-btn-black flex items-center gap-1.5 px-5 py-2 text-xs disabled:opacity-40"><Send className="h-3.5 w-3.5" />{busy ? '正在提交…' : '提交任务并评价'}</button>}
+              {stepIndex < task.steps.length - 1 ? <button onClick={onNext} disabled={busy || !answer.step_answers[currentStep.id]?.trim()} className="craft-btn-black flex items-center gap-1.5 px-5 py-2 text-xs disabled:opacity-40">保存并继续<ArrowRight className="h-3.5 w-3.5" /></button> : <button onClick={onSubmit} disabled={busy || !answer.step_answers[currentStep.id]?.trim()} aria-busy={busy} className="craft-btn-black flex items-center gap-1.5 px-5 py-2 text-xs disabled:opacity-40"><Send className="h-3.5 w-3.5" />{busy ? '正在提交…' : '提交任务并评价'}</button>}
             </div>
           </section>
         </main>
