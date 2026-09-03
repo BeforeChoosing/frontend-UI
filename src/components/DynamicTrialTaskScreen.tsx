@@ -85,16 +85,94 @@ function AutomaticTrialAbilityUpdate({
   onContinueExplore: () => void;
 }) {
   const [updatedCards] = useState(() => deriveTrialUpdateCards(task, evaluation, confirmedCards));
-  const [syncStatus, setSyncStatus] = useState<'syncing' | 'ready' | 'error'>('syncing');
+  const pendingApplications = useMemo(
+    () => (evaluation.ability_applications || []).filter(item => item.card_id.startsWith('pending:')),
+    [evaluation],
+  );
+  const [pendingDecisions, setPendingDecisions] = useState<Record<string, 'candidate' | 'new' | 'merge'>>(
+    () => Object.fromEntries(pendingApplications.map(item => [item.card_id, 'candidate'])),
+  );
+  const [mergeTargets, setMergeTargets] = useState<Record<string, string>>(
+    () => Object.fromEntries(pendingApplications.map(item => [item.card_id, confirmedCards[0]?.id || ''])),
+  );
+  const [syncStatus, setSyncStatus] = useState<'choosing' | 'syncing' | 'ready' | 'error'>(
+    pendingApplications.length > 0 ? 'choosing' : 'syncing',
+  );
   const syncStartedRef = useRef(false);
 
-  useEffect(() => {
-    if (syncStartedRef.current) return;
-    syncStartedRef.current = true;
-    void Promise.resolve(onUpdateCards?.(updatedCards))
+  const syncCards = (cards: SkillCard[]) => {
+    setSyncStatus('syncing');
+    void Promise.resolve(onUpdateCards?.(cards))
       .then(() => setSyncStatus('ready'))
       .catch(() => setSyncStatus('error'));
-  }, [onUpdateCards, updatedCards]);
+  };
+
+  useEffect(() => {
+    if (syncStartedRef.current || pendingApplications.length > 0) return;
+    syncStartedRef.current = true;
+    syncCards(updatedCards);
+  }, [pendingApplications.length, updatedCards]);
+
+  const confirmPendingDecisions = () => {
+    const pendingCards = pendingApplications.flatMap((application, index) => {
+      const decision = pendingDecisions[application.card_id] || 'candidate';
+      if (decision === 'candidate') return [];
+      const targetId = mergeTargets[application.card_id];
+      if (decision === 'merge' && !targetId) return [];
+      const card: SkillCard = {
+        id: `trial-${task.id}-${application.card_id.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
+        title: application.card_title,
+        category: '技术落地',
+        description: application.basis,
+        detail: `来自 ${task.id} 试路任务：${application.basis}`,
+        icon: 'Sparkles',
+        colorTone: 'amber',
+        matchReason: `${task.id} ${application.status}`,
+        workplaceApplication: application.next_step,
+        evidenceQuote: application.basis,
+        sourceRefs: application.evidence_refs,
+        claimLevel: 'interpretation',
+        evidenceType: 'self_report',
+        pendingVerification: application.status !== '已应用',
+        nextVerification: application.next_step,
+        experienceId: `trial:${task.id}`,
+        resolution: decision === 'merge' ? 'merge' : 'new',
+        mergeTargetCardId: decision === 'merge' ? targetId : null,
+        evidenceHistory: [{
+          experienceId: `trial:${task.id}`,
+          evidenceQuote: application.basis,
+          sourceRefs: application.evidence_refs,
+        }],
+      };
+      return [{ ...card, id: `${card.id}-${index + 1}` }];
+    });
+    syncCards([...updatedCards, ...pendingCards]);
+  };
+
+  if (syncStatus === 'choosing') {
+    return (
+      <div className="mx-auto min-h-[calc(100vh-64px)] max-w-4xl px-5 py-8">
+        <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+          <p className="font-serif text-xl text-stone-900">决定本轮待验证能力如何保存</p>
+          <p className="mt-2 text-xs leading-5 text-stone-500">任务结果已经生成。你可以把证据合并到已有能力、新增长期能力卡，或暂时只保留为候选证据。</p>
+          <div className="mt-5 space-y-3">
+            {pendingApplications.map(application => {
+              const decision = pendingDecisions[application.card_id] || 'candidate';
+              return <div key={application.card_id} className="rounded-2xl border border-stone-200 p-4">
+                <p className="text-sm font-semibold text-stone-900">{application.card_title}</p>
+                <p className="mt-1 text-xs leading-5 text-stone-600">{application.basis}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {([['candidate', '保留为待验证'], ['new', '新增长期能力'], ['merge', '合并到已有能力']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => setPendingDecisions(current => ({ ...current, [application.card_id]: value }))} className={`rounded-full border px-3 py-1.5 text-xs ${decision === value ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 bg-white text-stone-600'}`}>{label}</button>)}
+                </div>
+                {decision === 'merge' && <select value={mergeTargets[application.card_id] || ''} onChange={event => setMergeTargets(current => ({ ...current, [application.card_id]: event.target.value }))} className="mt-3 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-700"><option value="">选择要合并的能力卡</option>{confirmedCards.map(card => <option key={card.id} value={card.id}>{card.title}</option>)}</select>}
+              </div>;
+            })}
+          </div>
+          <button type="button" onClick={confirmPendingDecisions} className="mt-5 rounded-full bg-stone-900 px-5 py-2.5 text-sm text-white">确认去向并保存</button>
+        </div>
+      </div>
+    );
+  }
 
   if (syncStatus !== 'ready') {
     return (

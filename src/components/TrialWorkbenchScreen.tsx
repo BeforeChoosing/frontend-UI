@@ -262,14 +262,14 @@ export function TrialWorkbenchScreen({
             {(['解释要求', '帮助拆解', '查看示例'] as const).map((label, index) => {
               const level = (index + 1) as 1 | 2 | 3;
               const loading = coachLoadingLevel === level;
-              return <button key={label} onClick={() => onCoach(level)} disabled={busy || coachLoadingLevel !== null} aria-busy={loading} className={`flex min-h-9 items-center justify-center gap-1.5 rounded-xl border p-2 text-[10px] transition-colors duration-150 disabled:cursor-wait ${loading ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100 active:bg-stone-200'}`}>{loading && <LoaderCircle className="h-3 w-3 animate-spin" aria-hidden="true" />}{loading ? '正在分析' : label}</button>;
+              return <button key={label} onClick={() => onCoach(level)} disabled={busy || coachLoadingLevel !== null} aria-busy={loading} className={`flex min-h-9 items-center justify-center gap-1.5 rounded-xl border p-2 text-[10px] transition-colors duration-150 disabled:cursor-wait ${loading ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100 active:bg-stone-200'}`}>{loading && <LoaderCircle className={`h-3 w-3 ${reduceMotion ? '' : 'animate-spin'}`} aria-hidden="true" />}{loading ? '正在分析' : label}</button>;
             })}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <AnimatePresence initial={false} mode="wait">
               {coachLoadingLevel !== null ? (
                 <motion.div key="coach-loading" initial={{ opacity: 0, transform: reduceMotion ? 'none' : 'translateY(4px)' }} animate={{ opacity: 1, transform: 'translateY(0px)' }} exit={{ opacity: 0, transform: reduceMotion ? 'none' : 'translateY(-3px)' }} transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.23, 1, 0.32, 1] }} role="status" aria-live="polite" className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-amber-950">
-                  <div className="flex items-center gap-2 font-medium"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />正在分析当前任务</div>
+                  <div className="flex items-center gap-2 font-medium"><LoaderCircle className={`h-4 w-4 ${reduceMotion ? '' : 'animate-spin'}`} aria-hidden="true" />正在分析当前任务</div>
                   <p className="mt-2 leading-5 text-amber-800">正在结合任务要求、当前步骤和已填写内容生成提示…</p>
                 </motion.div>
               ) : (
