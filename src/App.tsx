@@ -63,6 +63,7 @@ export default function App() {
   const [draftExperience, setDraftExperience] = useState<ApiExperienceSummary | null>(initialProgress.draftExperience);
   const [demoReplayId, setDemoReplayId] = useState(0);
   const [profileFocusRequest, setProfileFocusRequest] = useState(0);
+  const [profileNewConversationRequest, setProfileNewConversationRequest] = useState(0);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [pendingScreen, setPendingScreen] = useState<ScreenMode | null>(null);
   const [isWikiOpen, setIsWikiOpen] = useState(false);
@@ -457,6 +458,8 @@ export default function App() {
                 demoCards={DEMO_SKILL_CARDS.slice(0, 3)}
                 demoExperienceText={DEMO_EXPERIENCE_TEXT}
                 focusRequest={profileFocusRequest}
+                newConversationRequest={profileNewConversationRequest}
+                onNewConversationHandled={() => setProfileNewConversationRequest(0)}
               />
             </StageTransition>
           )}
@@ -482,8 +485,9 @@ export default function App() {
                   }
                   await handleDeleteProfileCard(cardId);
                 }}
-                onContinueSupplement={() => {
+                onContinueSupplement={(mode) => {
                   navigateToScreen('input-experience');
+                  if (mode === 'new') setProfileNewConversationRequest(value => value + 1);
                 }}
                 onStartCareerExplore={() => {
                   navigateToScreen('career-explore');

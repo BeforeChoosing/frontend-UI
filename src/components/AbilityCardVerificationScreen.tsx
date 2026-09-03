@@ -32,7 +32,7 @@ interface AbilityCardVerificationScreenProps {
   allAccumulatedCards: SkillCard[];
   onConfirmAndSaveToPool: (newCards: SkillCard[]) => Promise<void> | void;
   onWithdrawConfirmedCard: (cardId: string) => Promise<void> | void;
-  onContinueSupplement: () => void;
+  onContinueSupplement: (mode: 'current' | 'new') => void;
   onStartCareerExplore: () => void;
   onModifyExperience: () => void;
   onRegenerate: () => void;
@@ -87,6 +87,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
   const [experienceStatus, setExperienceStatus] = useState<'confirmed' | 'rejected'>(initialExperience ? 'confirmed' : 'rejected');
   const [isEditingExperience, setIsEditingExperience] = useState(false);
   const [experienceSaved, setExperienceSaved] = useState(false);
+  const [showSupplementChoice, setShowSupplementChoice] = useState(false);
 
   // Status handlers
   const handleSetStatus = (cardId: string, status: VerificationStatus) => {
@@ -555,7 +556,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
             <>
               {/* Primary: 继续补充经历 */}
               <button
-                onClick={onContinueSupplement}
+                onClick={() => setShowSupplementChoice(true)}
                 className="craft-btn-black w-full py-3 px-6 text-sm text-center flex items-center justify-center gap-2"
                 id="btn-continue-supplement"
               >
@@ -586,7 +587,7 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
 
               {/* Secondary: 继续补充经历 */}
               <button
-                onClick={onContinueSupplement}
+                onClick={() => setShowSupplementChoice(true)}
                 className="craft-btn-secondary w-full py-2.5 px-6 text-xs sm:text-sm text-center"
                 id="btn-continue-supplement"
               >
@@ -597,6 +598,47 @@ export const AbilityCardVerificationScreen: React.FC<AbilityCardVerificationScre
         </div>
 
       </motion.div>
+
+      <AnimatePresence>
+        {showSupplementChoice && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-stone-950/20 px-4 backdrop-blur-sm"
+            onClick={() => setShowSupplementChoice(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 8 }}
+              className="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl"
+              onClick={event => event.stopPropagation()}
+            >
+              <h3 className="font-serif text-xl text-stone-900">接下来想怎样整理？</h3>
+              <p className="mt-2 text-sm leading-6 text-stone-500">继续补充会回到当前对话；更换经历会保留历史，并新建一个空白对话。</p>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  className="rounded-2xl border border-stone-200 bg-white px-4 py-4 text-left transition hover:bg-stone-50"
+                  onClick={() => onContinueSupplement('current')}
+                >
+                  <span className="block text-sm font-semibold text-stone-900">继续当前经历</span>
+                  <span className="mt-1 block text-xs text-stone-500">回到原对话继续补充</span>
+                </button>
+                <button
+                  type="button"
+                  className="rounded-2xl bg-stone-900 px-4 py-4 text-left text-white transition hover:bg-stone-800"
+                  onClick={() => onContinueSupplement('new')}
+                >
+                  <span className="block text-sm font-semibold">更换一段经历</span>
+                  <span className="mt-1 block text-xs text-stone-300">新建空白对话</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

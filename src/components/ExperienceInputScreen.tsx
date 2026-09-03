@@ -62,6 +62,8 @@ interface ExperienceInputScreenProps {
   demoCards?: SkillCard[];
   demoExperienceText?: string;
   focusRequest?: number;
+  newConversationRequest?: number;
+  onNewConversationHandled?: () => void;
 }
 
 export interface ChatMessage {
@@ -789,6 +791,8 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
   demoCards = [],
   demoExperienceText = '',
   focusRequest = 0,
+  newConversationRequest = 0,
+  onNewConversationHandled,
 }) => {
   const [inputText, setInputText] = useState(() => (
     demoMode || userId ? window.localStorage.getItem(explorationStorageKey(demoMode, 'evidence', userId)) || '' : ''
@@ -1088,6 +1092,14 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
     if (!demoMode) void auditEvent('profile.conversation.new', 'profile-exploration');
     textareaRef.current?.focus();
   };
+
+  useEffect(() => {
+    if (!newConversationRequest) return;
+    void handleNewBlankConversation().finally(() => onNewConversationHandled?.());
+    // The monotonically increasing request is the event boundary. The handler
+    // intentionally reads the latest conversation state when it runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newConversationRequest, onNewConversationHandled]);
 
   const handleSendCoachMessage = async (textOverride?: string) => {
     const text = (textOverride ?? coachInput).trim();
