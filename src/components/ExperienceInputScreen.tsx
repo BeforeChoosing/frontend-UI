@@ -1201,6 +1201,11 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
               : message);
           });
         },
+        () => {
+          setMessages(prev => prev.map(message => message.id === replyId
+            ? { ...message, content: '' }
+            : message));
+        },
       );
       setMessages(prev => {
         const finalMessage: ChatMessage = {

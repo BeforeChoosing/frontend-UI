@@ -170,6 +170,12 @@ export const GrowthCompanionWidget: React.FC<GrowthCompanionWidgetProps> = ({ de
               : message)
             : [...current, { id: replyId, role: 'assistant', content: delta }].slice(-60));
         },
+        undefined,
+        () => {
+          setMessages(current => current.map(message => message.id === replyId
+            ? { ...message, content: '' }
+            : message));
+        },
       );
       const finalMessage: CompanionMessage = {
         id: replyId, role: 'assistant', content: response.reply,
