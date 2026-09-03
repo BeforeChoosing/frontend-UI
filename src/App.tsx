@@ -436,6 +436,9 @@ export default function App() {
                 onOpenExample={() => navigateToScreen('stage2')}
                 onOpenAbout={() => setIsExampleOpen(true)}
                 onSelectCard={(card) => setSelectedCard(card)}
+                onExploreDirection={() => navigateToScreen('career-explore')}
+                onOpenTrial={() => navigateToScreen('stage2')}
+                onOpenReport={() => navigateToScreen('report')}
               />
             </StageTransition>
           )}

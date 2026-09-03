@@ -23,15 +23,17 @@ test('运行模式显示为演示和正式', () => {
   assert.doesNotMatch(switcherSource, /'使用'/);
 });
 
-test('首页底部保留原 Demo 人物与奖项展示', () => {
-  assert.match(landingSource, /人们如何使用「选择之前」/);
-  assert.doesNotMatch(landingSource, /不同经历，都能从这里开始/);
-  assert.match(landingSource, /能力迁移、目标清单、潜能验证/);
-  assert.match(landingSource, /App Store 体验/);
-  assert.match(landingSource, /></);
-  assert.match(landingSource, /Apple 设计美学/);
-  assert.match(landingSource, /Webby 奖项/);
-  assert.match(landingSource, /德国设计奖/);
+test('首页完整呈现产品概览源码中的七段内容', () => {
+  assert.match(landingSource, /before\.choosing 不只是为一件事/);
+  assert.match(landingSource, /把真实经历变成可确认的能力证据/);
+  assert.match(landingSource, /看见经历里/);
+  assert.match(landingSource, /基于当前画像的方向比较/);
+  assert.match(landingSource, /AI 产品经理：搜索改版方案/);
+  assert.match(landingSource, /让行动改变画像/);
+  assert.match(landingSource, /你的数字分身，会跟着经历一起变化/);
+  assert.match(landingSource, /你的职业答案/);
+  assert.match(landingSource, /职业数字分身与试路验证/);
+  assert.doesNotMatch(landingSource, /人们如何使用「选择之前」/);
 });
 
 test('演示与正式流程不显示区别性操作文案', () => {

@@ -33,9 +33,10 @@ export const Header: React.FC<HeaderProps> = ({
   unlockedCardCount,
 }) => {
   const currentPill = STAGE_HEADER_PILLS[currentScreen] || STAGE_HEADER_PILLS.landing;
+  const isLanding = currentScreen === 'landing';
 
   return (
-    <header className="sticky top-4 z-50 px-4 sm:px-6 w-full max-w-5xl mx-auto mb-3 pointer-events-auto">
+    <header className={`sticky z-50 w-full max-w-5xl mx-auto pointer-events-auto ${isLanding ? 'top-2 px-3 sm:px-6 mb-2' : 'top-4 px-4 sm:px-6 mb-3'}`}>
       <div className="craft-nav-pill rounded-full px-4 sm:px-6 py-2 flex items-center justify-between transition-all duration-300">
         
         {/* Brand / Craft Style Logo */}
@@ -48,8 +49,8 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="w-7 h-7 rounded-full bg-[#1C1A18] text-white flex items-center justify-center font-bold text-xs tracking-tighter group-hover:opacity-90 transition shadow-xs">
               b.
             </div>
-            <span className="font-bold tracking-tight text-[15px] text-[#1C1A18] font-sans lowercase">
-              before<span className="text-amber-500 font-bold">.</span>choosing
+            <span className={isLanding ? 'font-serif font-bold text-sm tracking-tight text-stone-900' : 'font-bold tracking-tight text-[15px] text-[#1C1A18] font-sans lowercase'}>
+              before<span className={!isLanding ? 'text-amber-500 font-bold' : undefined}>.</span>choosing
             </span>
           </button>
 
@@ -57,13 +58,23 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="hidden sm:flex items-center">
             <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 ${currentPill.bg} transition-colors duration-300 shadow-2xs`}>
               <span className={`w-1.5 h-1.5 rounded-full ${currentPill.dot}`} />
-              <span className="font-mono text-[10px] opacity-70">{currentPill.stageNumber}</span>
+              {!isLanding && <span className="font-mono text-[10px] opacity-70">{currentPill.stageNumber}</span>}
               <span>{currentPill.label}</span>
             </span>
           </div>
 
           {/* Craft Style Navigation Links with Soft Editorial Colors */}
-          <nav className="hidden md:flex items-center gap-1.5 lg:gap-2 text-xs font-medium">
+          <nav className={`hidden md:flex items-center text-xs font-medium ${isLanding ? 'gap-1 p-0.5 rounded-full bg-stone-100/70 border border-stone-200/50' : 'gap-1.5 lg:gap-2'}`}>
+            {isLanding && (
+              <button
+                onClick={() => onNavigate('landing')}
+                className="transition cursor-pointer px-3 py-1 rounded-full flex items-center gap-1.5 text-stone-900 font-bold bg-white border border-stone-200/90 shadow-xs"
+                id="nav-landing-tab"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-stone-800 shrink-0" />
+                <span>产品概览</span>
+              </button>
+            )}
             {/* Stage 1: Soft Green 认识自己 */}
             <button
               onClick={() => onNavigate('input-experience')}
@@ -133,7 +144,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="header-login-btn"
             >
               <User className="w-3.5 h-3.5 text-stone-600" />
-              <span>登录 / 注册</span>
+              <span>{isLanding ? '登录 / 探索' : '登录 / 注册'}</span>
             </button>
           ) : (
             <>
@@ -166,24 +177,24 @@ export const Header: React.FC<HeaderProps> = ({
             </>
           )}
 
-          {/* Craft Black Tactile Pill Button */}
-          <button
-            onClick={() => {
-              if (currentScreen === 'landing') {
-                onNavigate('input-experience');
-              } else if (currentScreen === 'input-experience') {
-                onNavigate('career-explore');
-              } else if (currentScreen === 'career-explore') {
-                onNavigate('stage2');
-              } else {
-                onNavigate('report');
-              }
-            }}
-            className="craft-btn-black px-4 py-1.5 text-xs font-medium cursor-pointer whitespace-nowrap"
-            id="craft-main-cta"
-          >
-            {currentScreen === 'landing' ? '开始探索' : '下一步'}
-          </button>
+          {/* Craft Black Tactile Pill Button (kept for workflow screens; the product overview uses its hero CTA) */}
+          {!isLanding && (
+            <button
+              onClick={() => {
+                if (currentScreen === 'input-experience') {
+                  onNavigate('career-explore');
+                } else if (currentScreen === 'career-explore') {
+                  onNavigate('stage2');
+                } else {
+                  onNavigate('report');
+                }
+              }}
+              className="craft-btn-black px-4 py-1.5 text-xs font-medium cursor-pointer whitespace-nowrap"
+              id="craft-main-cta"
+            >
+              下一步
+            </button>
+          )}
         </div>
 
       </div>
