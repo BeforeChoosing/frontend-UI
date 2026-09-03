@@ -137,6 +137,15 @@ export interface SkillCard {
   evidenceType?: 'documented_fact' | 'self_report' | 'inference';
   pendingVerification?: boolean;
   nextVerification?: string;
+  experienceId?: string | null;
+  resolution?: 'new' | 'merge';
+  mergeTargetCardId?: string | null;
+  evidenceHistory?: Array<{
+    experienceId: string;
+    evidenceQuote: string;
+    sourceRefs: string[];
+    traceId?: string | null;
+  }>;
 }
 
 export interface UserAuth {

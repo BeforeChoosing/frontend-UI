@@ -1,5 +1,6 @@
 export interface ProfileProposalRequest {
   experience_text: string;
+  experience_id?: string;
   target_role?: string;
   existing_card_titles?: string[];
 }
@@ -178,6 +179,15 @@ export interface ApiCardProposal {
   next_verification: string;
   match_reason: string;
   workplace_application: string;
+  experience_id?: string | null;
+  resolution?: 'new' | 'merge';
+  merge_target_card_id?: string | null;
+  evidence_history?: Array<{
+    experience_id: string;
+    evidence_quote: string;
+    source_refs: string[];
+    trace_id?: string | null;
+  }>;
 }
 
 export interface ProfileProposalResponse {

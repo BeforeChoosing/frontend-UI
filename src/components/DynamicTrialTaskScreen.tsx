@@ -328,6 +328,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   });
   const [answer, setAnswer] = useState<ApiDynamicTrialAnswer | null>(null);
   const [coachText, setCoachText] = useState<string | null>(null);
+  const [coachLoadingLevel, setCoachLoadingLevel] = useState<1 | 2 | 3 | null>(null);
   const [demoSubmitted, setDemoSubmitted] = useState(false);
   const [demoCompletedStepIds, setDemoCompletedStepIds] = useState<string[]>([]);
   const [workbenchActive, setWorkbenchActive] = useState(false);
@@ -570,13 +571,19 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   };
 
   const handleCoach = async (level: 1 | 2 | 3) => {
-    if (demoMode) {
-      const prompt = task.coach_prompts[level - 1] || '请先整理当前判断、证据来源和待验证项。';
-      setCoachText(prompt);
-      setAnswer(current => current ? ({ ...current, coach_usage: [...current.coach_usage, { level, prompt, used_at: new Date().toISOString() }] }) : current);
-      return;
+    if (coachLoadingLevel !== null) return;
+    setCoachLoadingLevel(level);
+    try {
+      if (demoMode) {
+        const prompt = task.coach_prompts[level - 1] || '请先整理当前判断、证据来源和待验证项。';
+        setCoachText(prompt);
+        setAnswer(current => current ? ({ ...current, coach_usage: [...current.coach_usage, { level, prompt, used_at: new Date().toISOString() }] }) : current);
+        return;
+      }
+      setCoachText(await requestCoach(level, answer));
+    } finally {
+      setCoachLoadingLevel(null);
     }
-    setCoachText(await requestCoach(level, answer));
   };
 
   const changeFocusMode = (focused: boolean) => {
@@ -645,6 +652,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
             active={workbenchActive}
             busy={isBusy}
             coachText={coachText}
+            coachLoadingLevel={coachLoadingLevel}
             onActiveChange={changeFocusMode}
             onBackToExplore={onBackToExplore}
             onBackToMap={handleBackToTaskMap}

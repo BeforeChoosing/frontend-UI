@@ -1299,14 +1299,15 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       return;
     }
     if (action.kind === 'continue') {
-      setCoachInput('');
+      setCoachInput('我想继续补充当前经历：');
       textareaRef.current?.focus();
       return;
     }
-    if (!candidate) return;
-    const selectedText = `我想详细聊聊「${candidate.title}」：${candidate.excerpt}`;
-    setCoachInput('');
-    void handleSendCoachMessage(selectedText);
+    const selectedText = candidate
+      ? `我想详细聊聊「${candidate.title}」：${candidate.excerpt}`
+      : `${action.label}：`;
+    setCoachInput(selectedText);
+    textareaRef.current?.focus();
   };
 
   // Use browser speech recognition when available; never insert fabricated speech.
@@ -1661,6 +1662,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       }
       const proposal = await analyzeExperience({
         experience_text: combinedContent,
+        experience_id: currentConversationId,
         target_role: targetCareerState === 'has_target'
           ? (targetRole.trim() || DEFAULT_TARGET_ROLE)
           : undefined,
