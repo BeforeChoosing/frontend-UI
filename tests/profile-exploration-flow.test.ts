@@ -55,9 +55,7 @@ test('01 探索目标与斜杠快捷指令接入现有分析链路', () => {
 test('演示模式固定回复后进入四轮成长陪伴追问且不调用模型', () => {
   assert.match(experienceSource, /const DEMO_PROBING_REPLY/);
   assert.match(experienceSource, /const DEMO_PROBING_ROUNDS/);
-  assert.match(experienceSource, /defaultAnswer:/);
-  assert.match(experienceSource, /setDemoProbingInput\(DEMO_PROBING_ROUNDS\[0\]\.defaultAnswer\)/);
-  assert.match(experienceSource, /setDemoProbingInput\(DEMO_PROBING_ROUNDS\[nextRoundIndex\]\.defaultAnswer\)/);
+  assert.match(experienceSource, /setDemoProbingInput\(''\)/);
   assert.match(experienceSource, /window\.setInterval/);
   assert.match(experienceSource, /prefers-reduced-motion/);
   assert.match(experienceSource, /if \(demoMode\) \{/);
@@ -65,6 +63,18 @@ test('演示模式固定回复后进入四轮成长陪伴追问且不调用模�
   assert.match(experienceSource, /成长陪伴 Agent · 经历深度挖掘/);
   assert.match(experienceSource, /第 \$\{demoProbingRoundIndex \+ 1\}\/4 轮追问/);
   assert.ok(experienceSource.indexOf('if (demoMode) {') < experienceSource.indexOf('const response = await exploreProfile'));
+});
+
+test('成长陪伴隐藏内部标签并把下一步建议只追加到输入框', () => {
+  assert.doesNotMatch(experienceSource, /message\.detectedSignals\.map/);
+  assert.doesNotMatch(experienceSource, /latestAiMessage\.detectedSignals/);
+  assert.doesNotMatch(experienceSource, /msg\.detectedSignals\.map/);
+  assert.match(experienceSource, /suggestedReplies: response\.suggested_replies/);
+  assert.match(experienceSource, /下一步回复建议 · 点击填入后可继续编辑/);
+  assert.match(experienceSource, /current\.trimEnd\(\).*\\n.*suggestion/s);
+  assert.match(experienceSource, /requestAnimationFrame\(\(\) => textareaRef\.current\?\.focus\(\)\)/);
+  assert.doesNotMatch(experienceSource, /onDoubleClick=\{\(\) => handleDemoProbingSubmit/);
+  assert.match(experienceSource, /message\.model.*缓存命中.*实时生成/);
 });
 
 test('正式对话最多四轮 STAR 追问，恢复历史后仍保留边界', () => {
@@ -147,6 +157,7 @@ test('03 能力应用支持当前任务生成的待验证能力', () => {
   assert.match(cardPlaySource, /待验证能力/);
   assert.match(cardPlaySource, /border-dashed border-amber-300/);
   assert.match(cardPlaySource, /availableCards/);
+  assert.doesNotMatch(cardPlaySource, /filter\(ability => ability\.challenge_id === challenge\.id\)/);
 });
 
 test('进入 03 时先恢复三轮挑战，再由用户进入任务简报', () => {

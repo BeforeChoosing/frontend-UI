@@ -42,6 +42,7 @@ export interface ProfileExplorationResponse {
   evidence_found: string[];
   evidence_gap: string;
   potential_hypotheses: string[];
+  suggested_replies: string[];
   ready_for_proposal: boolean;
   model?: string | null;
   model_pool?: string | null;
@@ -59,6 +60,7 @@ export interface ProfileConversationSnapshotMessage {
   content: string;
   timestamp?: string;
   detected_signals?: string[];
+  suggested_replies?: string[];
   model?: string | null;
   cache_hit?: boolean | null;
   star_dimension?: ProfileStarDimension | null;

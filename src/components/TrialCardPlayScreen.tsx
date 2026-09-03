@@ -78,7 +78,6 @@ export function TrialCardPlayScreen({
   const currentRound = answer.card_play_rounds.find(item => item.challenge_id === challenge.id)
     || emptyRound(challenge.id);
   const pendingCards: SkillCard[] = (answer.pending_abilities || [])
-    .filter(ability => ability.challenge_id === challenge.id)
     .map(ability => ({
       id: ability.id,
       title: ability.title,

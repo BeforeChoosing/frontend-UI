@@ -17,7 +17,6 @@ import {
   Link as LinkIcon,
   X,
   Bot,
-  Lightbulb,
   ExternalLink,
   ChevronDown,
   ChevronUp,
@@ -71,6 +70,7 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   detectedSignals?: string[];
+  suggestedReplies?: string[];
   model?: string;
   cacheHit?: boolean;
   starDimension?: ProfileStarDimension;
@@ -96,16 +96,6 @@ const INITIAL_CHAT_MESSAGE: ChatMessage = {
   timestamp: '刚刚',
   detectedSignals: [],
 };
-
-const EXPLORATION_FOCUS_LABELS = {
-  ownership: '本人职责',
-  decision: '判断依据',
-  constraint: '限制条件',
-  collaboration: '协作过程',
-  result: '实际结果',
-  transfer: '可迁移行为',
-  evidence: '证据完整度',
-} as const;
 
 type UploadedMaterial = {
   name: string;
@@ -150,6 +140,7 @@ function serverSnapshotToStored(snapshot: ProfileConversationSnapshot): StoredCo
       content: message.content,
       timestamp: message.timestamp || '',
       detectedSignals: message.detected_signals,
+      suggestedReplies: message.suggested_replies,
       model: message.model || undefined,
       cacheHit: message.cache_hit ?? undefined,
       starDimension: message.star_dimension || undefined,
@@ -176,6 +167,7 @@ function storedConversationToServer(snapshot: StoredConversation): ProfileConver
       content: message.content,
       timestamp: message.timestamp,
       detected_signals: message.detectedSignals || [],
+      suggested_replies: message.suggestedReplies || [],
       model: message.model,
       cache_hit: message.cacheHit,
       star_dimension: message.starDimension,
@@ -197,8 +189,6 @@ type DemoProbingRound = {
   title: string;
   question: string;
   options: string[];
-  defaultAnswer: string;
-  clues: string[];
 };
 
 const DEMO_PROBING_REPLY = '这段经历已经包含清晰的问题识别、方案取舍、协作推进和结果验证。接下来我会按情境、目标、行动、结果四个角度各聊一轮，再一起总结。';
@@ -212,8 +202,6 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '信息极度不对称，迫切需要一个统一透明的流转规则',
       '最初只是帮身边朋友解决麻烦，后来发现是普遍刚需',
     ],
-    defaultAnswer: '大家都在抱怨但没人动手，我发现核心矛盾是信任和履约成本',
-    clues: ['底层问题归因', '敏锐痛点捕捉'],
   },
   {
     title: '目标与判断标准',
@@ -223,8 +211,6 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '把首月完成稳定流转作为目标，先验证需求而不是堆更多功能',
       '优先处理用户反复反馈的环节，再决定是否扩展到更多宿舍楼',
     ],
-    defaultAnswer: '先解决交易双方不信任和碰面低效这两个最影响流转的问题',
-    clues: ['目标边界', '判断标准'],
   },
   {
     title: '关键行动与决策权衡',
@@ -234,8 +220,6 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '放弃复杂的线上支付，用最轻量的面对面转交快速验证',
       '建立履约评价机制，让表现稳定的用户获得更高优先级',
     ],
-    defaultAnswer: '主动找舍管沟通，用标准交接单化解安全顾虑',
-    clues: ['关键行动', '取舍依据'],
   },
   {
     title: '结果与反馈验证',
@@ -245,8 +229,6 @@ const DEMO_PROBING_ROUNDS: DemoProbingRound[] = [
       '模式获得辅导员和社团骨干认可，随后扩展到其他宿舍楼',
       '团队形成了可复用的交接文档与数据复盘方法',
     ],
-    defaultAnswer: '首月完成 800 余笔书籍流转，交易双方的沟通成本明显降低',
-    clues: ['结果数据', '外部反馈'],
   },
 ];
 
@@ -263,6 +245,33 @@ const STAR_DIMENSION_LABELS: Record<ProfileStarDimension, string> = {
   A: '行动与取舍',
   R: '结果',
 };
+
+function SuggestedReplyChoices({
+  replies,
+  onSelect,
+}: {
+  replies?: string[];
+  onSelect: (reply: string) => void;
+}) {
+  if (!replies?.length) return null;
+  return (
+    <div className="mt-3 border-t border-stone-100 pt-3">
+      <p className="mb-2 text-[10px] font-medium text-stone-500">下一步回复建议 · 点击填入后可继续编辑</p>
+      <div className="flex flex-wrap gap-2">
+        {replies.map(reply => (
+          <button
+            key={reply}
+            type="button"
+            onClick={() => onSelect(reply)}
+            className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-left text-[10px] leading-5 text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+          >
+            {reply}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function demoMaterialCandidates(fileName: string): AttachmentExperienceCandidate[] {
   return [
@@ -1153,7 +1162,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
         setIsDemoReplying(false);
         setDemoProbingActive(true);
         setDemoProbingRoundIndex(0);
-        setDemoProbingInput(DEMO_PROBING_ROUNDS[0].defaultAnswer);
+        setDemoProbingInput('');
         setDemoProbingHistory([]);
         setIsChatExpanded(false);
       };
@@ -1253,10 +1262,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
           role: 'ai',
           content: response.reply,
           timestamp,
-          detectedSignals: [
-            EXPLORATION_FOCUS_LABELS[response.focus_dimension],
-            ...response.evidence_found.slice(0, 2),
-          ],
+          suggestedReplies: response.suggested_replies,
           model: response.model || undefined,
           cacheHit: response.cache_hit,
           starDimension: response.star_dimension,
@@ -1308,6 +1314,18 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       : `${action.label}：`;
     setCoachInput(selectedText);
     textareaRef.current?.focus();
+  };
+
+  const handleSuggestedReply = (suggestion: string) => {
+    const append = (current: string) => current.trim()
+      ? `${current.trimEnd()}\n${suggestion}`
+      : suggestion;
+    if (demoMode && demoProbingActive) {
+      setDemoProbingInput(append);
+    } else {
+      setCoachInput(append);
+    }
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
   // Use browser speech recognition when available; never insert fabricated speech.
@@ -1787,7 +1805,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
       setInputText(prev => [prev.trim(), evidenceLine].filter(Boolean).join('\n\n').slice(0, 12000));
       const nextRoundIndex = demoProbingRoundIndex + 1;
       setDemoProbingRoundIndex(nextRoundIndex);
-      setDemoProbingInput(DEMO_PROBING_ROUNDS[nextRoundIndex].defaultAnswer);
+      setDemoProbingInput('');
       return;
     }
 
@@ -1876,13 +1894,12 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                     <h3 className="font-serif text-sm text-stone-900">第 {demoProbingRoundIndex + 1} 轮 · {currentDemoRound.title}</h3>
                     <span className="rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5 font-mono text-[9px] text-stone-600">进度 {demoProbingRoundIndex + 1}/4</span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-stone-500"><span>线索捕获：</span>{currentDemoRound.clues.map(clue => <span key={clue} className="rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5">◆ {clue}</span>)}</div>
                 </div>
                 <p className="py-4 text-sm leading-7 text-stone-800">{currentDemoRound.question}</p>
                 <div className="space-y-2 border-t border-stone-100 pt-3">
-                  <p className="flex items-center gap-1.5 text-[10px] text-stone-500"><MessageSquare className="h-3 w-3" />点击参考思路填入，双击直接提交</p>
+                  <p className="flex items-center gap-1.5 text-[10px] text-stone-500"><MessageSquare className="h-3 w-3" />下一步回复建议 · 点击填入后可继续编辑</p>
                   {currentDemoRound.options.map(option => (
-                    <button key={option} type="button" onClick={() => setDemoProbingInput(option)} onDoubleClick={() => handleDemoProbingSubmit(option)} className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs transition ${demoProbingInput === option ? 'border-emerald-300 bg-emerald-50 text-emerald-950' : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300 hover:bg-stone-50'}`}>
+                    <button key={option} type="button" onClick={() => handleSuggestedReply(option)} className="flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-left text-xs text-stone-700 transition hover:border-stone-300 hover:bg-stone-50">
                       <span>{option}</span><ArrowRight className="h-3.5 w-3.5 shrink-0 text-stone-400" />
                     </button>
                   ))}
@@ -1903,7 +1920,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-xs leading-6 shadow-sm sm:text-sm ${message.role === 'user' ? 'rounded-tr-md bg-stone-900 text-stone-100' : 'rounded-tl-md border border-stone-200 bg-white text-stone-700'}`}>
                     {message.attachedFile && <p className="mb-2 border-b border-current/10 pb-2 text-[10px] opacity-70">附件 · {message.attachedFile.name}</p>}
                     <p>{message.content}{streamingMessageId === message.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
-                    {message.detectedSignals && message.detectedSignals.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{message.detectedSignals.map(signal => <span key={signal} className="rounded-md bg-stone-100 px-2 py-0.5 text-[9px] text-stone-600">{signal}</span>)}</div>}
+                    {message.role === 'ai' && <SuggestedReplyChoices replies={message.suggestedReplies} onSelect={handleSuggestedReply} />}
                     {message.actions && message.actions.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3">
                         {message.actions.map(action => (
@@ -2038,23 +2055,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                   <p className="max-w-3xl text-xs font-normal leading-6 text-stone-700 sm:text-sm">
                     {latestAiMessage.content}
                   </p>
-
-                  {latestAiMessage.detectedSignals && latestAiMessage.detectedSignals.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[10px] text-stone-500 flex items-center gap-1">
-                        <Lightbulb className="w-3 h-3 text-emerald-600" />
-                        <span>捕捉到的线索：</span>
-                      </span>
-                      {latestAiMessage.detectedSignals.map((signal, idx) => (
-                        <span 
-                          key={idx} 
-                          className="text-[10px] font-medium py-0.5 px-2 rounded-full bg-emerald-50/80 border border-emerald-200/60 text-emerald-800"
-                        >
-                          {signal}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <SuggestedReplyChoices replies={latestAiMessage.suggestedReplies} onSelect={handleSuggestedReply} />
                   {latestAiMessage.model && <p className="mt-2 text-[9px] text-stone-400">{latestAiMessage.model} · {latestAiMessage.cacheHit ? '缓存命中' : '实时生成'}</p>}
                 </div>
               ) : (
@@ -2078,15 +2079,7 @@ export const ExperienceInputScreen: React.FC<ExperienceInputScreenProps> = ({
                           </div>
                         )}
                         <p>{msg.content}{streamingMessageId === msg.id && <span aria-hidden="true" className="agent-stream-cursor" />}</p>
-                        {msg.detectedSignals && msg.detectedSignals.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {msg.detectedSignals.map((s, idx) => (
-                              <span key={idx} className="rounded-md bg-stone-100 px-2 py-0.5 text-[9px] text-stone-600">
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        {msg.role === 'ai' && <SuggestedReplyChoices replies={msg.suggestedReplies} onSelect={handleSuggestedReply} />}
                         {msg.role === 'ai' && msg.model && <p className="mt-2 text-[9px] text-stone-400">{msg.model} · {msg.cacheHit ? '缓存命中' : '实时生成'}</p>}
                       </div>
                     </div>

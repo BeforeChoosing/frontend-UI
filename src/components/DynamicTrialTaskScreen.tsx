@@ -569,9 +569,19 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
     const round = answer.card_play_rounds.find(item => item.challenge_id === challenge?.id);
     if (!challenge || !round?.selected_card_ids.length) return;
     if (demoMode) {
-      const cardsById = new Map(confirmedCards.map(card => [card.id, card]));
+      const pendingCards: SkillCard[] = answer.pending_abilities.map(ability => ({
+        id: ability.id,
+        title: ability.title,
+        category: '产品策略',
+        description: ability.description,
+        detail: ability.description,
+        icon: 'Sparkles',
+        colorTone: 'amber',
+        pendingVerification: true,
+      }));
+      const cardsById = new Map([...confirmedCards, ...pendingCards].map(card => [card.id, card]));
       const selectedCards = round.selected_card_ids.map(cardId => cardsById.get(cardId)).filter((card): card is SkillCard => Boolean(card));
-      const evaluatedRound = evaluateDemoCardPlayRound(challenge, selectedCards);
+      const evaluatedRound = evaluateDemoCardPlayRound(challenge, selectedCards, answer.pending_abilities);
       const nextRounds = answer.card_play_rounds.map(item => item.challenge_id === challenge.id ? evaluatedRound : item);
       setAnswer({ ...answer, selected_card_ids: Array.from(new Set(nextRounds.flatMap(item => item.selected_card_ids))), card_play_rounds: nextRounds, card_play_completed: task.ability_challenges.every(item => nextRounds.some(roundItem => roundItem.challenge_id === item.id && roundItem.match_level)) });
       return;
