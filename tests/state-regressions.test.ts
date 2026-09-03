@@ -96,13 +96,13 @@ test('演示探索方向初始为空，由一键装配填充能力卡', () => {
   assert.match(exploreSource, /const handleFastEquip = \(\) => \{/);
 });
 
-test('03 末步字段对齐，提交评价使用同步弹簧过渡', () => {
+test('03 末步使用单一作答框，提交评价使用同步弹簧过渡', () => {
   const workbenchSource = readFileSync(new URL('../src/components/TrialWorkbenchScreen.tsx', import.meta.url), 'utf8');
   const trialSource = readFileSync(new URL('../src/components/DynamicTrialTaskScreen.tsx', import.meta.url), 'utf8');
 
-  assert.match(workbenchSource, /grid items-start gap-3 sm:grid-cols-\[180px_minmax\(0,1fr\)\]/);
-  assert.match(workbenchSource, /select[\s\S]*?className="mt-2 h-14 w-full/);
-  assert.match(workbenchSource, /textarea[\s\S]*?rows=\{2\}[\s\S]*?h-14 min-h-14/);
+  assert.doesNotMatch(workbenchSource, /处理决定|调整依据|onEventDecisionChange|onEventResponseChange/);
+  assert.doesNotMatch(trialSource, /onEventDecisionChange|onEventResponseChange/);
+  assert.match(workbenchSource, /提交任务并评价/);
   assert.match(trialSource, /<AnimatePresence initial=\{false\} mode="sync">/);
   assert.match(trialSource, /key="evaluation"[\s\S]*?type: 'spring'/);
 });

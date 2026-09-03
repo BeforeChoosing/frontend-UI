@@ -554,7 +554,7 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!answer.step_answers[currentStep.id]?.trim() || !answer.event_decision || !answer.event_response.trim()) return;
+    if (!answer.step_answers[currentStep.id]?.trim()) return;
     if (demoMode) {
       setDemoCompletedStepIds(current => current.includes(currentStep.id) ? current : [...current, currentStep.id]);
       setWorkbenchActive(false);
@@ -650,8 +650,6 @@ export const DynamicTrialTaskScreen: React.FC<DynamicTrialTaskScreenProps> = ({
             onBackToMap={handleBackToTaskMap}
             onStepChange={setStepIndex}
             onStepAnswerChange={updateStepAnswer}
-            onEventDecisionChange={decision => setAnswer(current => current ? ({ ...current, event_decision: decision || null }) : current)}
-            onEventResponseChange={value => setAnswer(current => current ? ({ ...current, event_response: value }) : current)}
             onOpenMaterial={openMaterial}
             onToggleEvidence={toggleEvidence}
             onPrevious={() => setStepIndex(index => Math.max(0, index - 1))}
